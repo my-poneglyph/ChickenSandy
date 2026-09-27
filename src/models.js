@@ -22,7 +22,8 @@ window.CS = window.CS || {};
 
   CS.mat = function (o) {
     o = o || {};
-    var key = [o.color || 0xffffff, o.tex || '-', o.emissive || 0,
+    var rep = o.rep ? (o.rep[0] + 'x' + o.rep[1]) : '-';
+    var key = [o.color || 0xffffff, o.tex || '-', rep, o.emissive || 0,
       o.opacity == null ? 1 : o.opacity, o.basic ? 1 : 0, o.vc ? 1 : 0].join('|');
     if (matCache[key]) return matCache[key];
     var params = {
@@ -30,7 +31,9 @@ window.CS = window.CS || {};
       transparent: o.opacity != null && o.opacity < 1,
       opacity: o.opacity == null ? 1 : o.opacity
     };
-    if (o.tex) params.map = CS.tex(o.tex);
+    // `rep` keeps a pattern at a fixed scale on faces of different sizes --
+    // without it a short panel stretches one tile of the checker into stripes
+    if (o.tex) params.map = o.rep ? CS.texRepeat(o.tex, o.rep[0], o.rep[1]) : CS.tex(o.tex);
     if (o.emissive) params.emissive = o.emissive;
     if (o.vc) params.vertexColors = true;
     var m = o.basic ? new THREE.MeshBasicMaterial(params) : new THREE.MeshLambertMaterial(params);
@@ -47,7 +50,8 @@ window.CS = window.CS || {};
       mat = m;
     } else {
       var o = (typeof m === 'number') ? { color: m } : (m || {});
-      mat = CS.mat({ color: o.color, tex: o.tex, emissive: o.emissive, opacity: o.opacity, basic: o.basic, vc: true });
+      mat = CS.mat({ color: o.color, tex: o.tex, rep: o.rep, emissive: o.emissive,
+                     opacity: o.opacity, basic: o.basic, vc: true });
     }
     var mesh = new THREE.Mesh(BOX, mat);
     mesh.scale.set(w, h, d);
@@ -65,6 +69,16 @@ window.CS = window.CS || {};
      Built from a lot of small blocks rather than a few big ones, so the face
      shading has edges to work with and the silhouette reads at a distance.
      Every animated piece gets its own pivot group. */
+  /* A rounded slab: two crossed boxes whose union is an octagon rather than a
+     rectangle, so the corners read as curved instead of square. Stacking these
+     with a taper is how the bird gets an egg-shaped silhouette while every
+     piece stays an axis-aligned voxel and keeps the baked face shading. */
+  function slab(parent, w, h, d, mat, y, z, corner) {
+    var k = corner == null ? 0.76 : corner;
+    add(parent, CS.box(w, h, d * k, mat, 0, y, z || 0));
+    add(parent, CS.box(w * k, h, d, mat, 0, y, z || 0));
+  }
+
   CS.models.chef = function () {
     var g = new THREE.Group();
     var parts = {};
@@ -80,9 +94,10 @@ window.CS = window.CS || {};
     ['legL', 'legR'].forEach(function (id, i) {
       var s = i ? 1 : -1;
       var leg = new THREE.Group();
-      leg.position.set(s * 0.13, 0, 0);
+      leg.position.set(s * 0.15, 0, 0);
       hips.add(leg);
-      add(leg, CS.box(0.15, 0.13, 0.15, PLUME_D, 0, -0.05, 0));      // feathered thigh
+      add(leg, CS.box(0.20, 0.15, 0.20, PLUME_D, 0, -0.04, 0));      // feathered thigh
+      add(leg, CS.box(0.15, 0.07, 0.15, PLUME_D, 0, -0.13, 0));      // fluff over the shin
       add(leg, CS.box(0.10, 0.20, 0.10, SHIN, 0, -0.21, 0));          // scaly shin
       add(leg, CS.box(0.12, 0.06, 0.12, FOOT, 0, -0.33, 0));          // ankle
       add(leg, CS.box(0.07, 0.05, 0.20, FOOT, 0, -0.35, 0.09));       // middle toe
@@ -93,73 +108,98 @@ window.CS = window.CS || {};
       parts[id] = leg;
     });
 
-    /* ---- body ---- */
+    /* ---- body ----
+       Six tapered slabs instead of one torso box: narrow and tucked under the
+       tail, bulging through the middle, drawing back in at the shoulders. The
+       breast layers are pushed slightly forward as well as out, so she is
+       round from the side as well as from the front. */
     var body = new THREE.Group(); body.position.y = 0.28; g.add(body);
     parts.body = body;
-    add(body, CS.box(0.58, 0.52, 0.42, PLUME, 0, 0.28, 0));           // torso
-    add(body, CS.box(0.52, 0.17, 0.38, PLUME_D, 0, 0.04, 0));         // belly
-    add(body, CS.box(0.46, 0.13, 0.10, PLUME, 0, 0.45, 0.19));        // collar ruff
-    add(body, CS.box(0.30, 0.22, 0.08, PLUME_D, 0, 0.44, -0.20));     // shoulder hump
+    slab(body, 0.42, 0.10, 0.34, PLUME_D, 0.03, -0.01);   // tucked underside
+    slab(body, 0.58, 0.10, 0.46, PLUME_D, 0.12, 0.015);   // lower belly
+    slab(body, 0.68, 0.12, 0.55, PLUME, 0.22, 0.025);     // widest point
+    slab(body, 0.69, 0.11, 0.56, PLUME, 0.33, 0.02);      // breast
+    slab(body, 0.61, 0.10, 0.48, PLUME, 0.43, 0.005);     // upper chest
+    slab(body, 0.48, 0.09, 0.37, PLUME, 0.52, -0.01);     // shoulders
+    add(body, CS.box(0.44, 0.12, 0.10, PLUME, 0, 0.50, 0.20));        // collar ruff
+    add(body, CS.box(0.32, 0.24, 0.09, PLUME_D, 0, 0.46, -0.22));     // shoulder hump
 
-    // tail: three fanned quills on their own pivot so they can sway
+    // tail: a perky fan off the rump, not the middle of the back. A block of
+    // rump fluff first, so the quills grow out of the bird instead of hanging
+    // behind it.
+    add(body, CS.box(0.34, 0.20, 0.14, PLUME_D, 0, 0.19, -0.25));
     parts.tail = new THREE.Group();
-    parts.tail.position.set(0, 0.32, -0.19);
+    parts.tail.position.set(0, 0.22, -0.28);
     body.add(parts.tail);
-    [[-0.11, 0.05, -0.30], [0, 0.11, 0], [0.11, 0.05, 0.30]].forEach(function (q, i) {
-      var f = add(parts.tail, CS.box(0.13, 0.26, 0.10, i === 1 ? PLUME : QUILL, q[0], q[1], -0.06));
-      f.rotation.x = -0.55;
+    [[-0.125, 0.00, -0.34], [-0.043, 0.05, -0.11],
+     [0.043, 0.05, 0.11], [0.125, 0.00, 0.34]].forEach(function (q, i) {
+      var mid = (i === 1 || i === 2);
+      var f = add(parts.tail, CS.box(mid ? 0.12 : 0.10, mid ? 0.23 : 0.19, 0.09,
+        mid ? PLUME : QUILL, q[0], q[1], -0.03));
+      f.rotation.x = -0.42;
       f.rotation.z = q[2];
     });
 
-    // apron: bib, waist band and two ties
-    add(body, CS.box(0.46, 0.36, 0.03, { color: 0xffffff, tex: 'checker' }, 0, 0.24, 0.252));
-    add(body, CS.box(0.54, 0.10, 0.05, { color: 0xc23a2c }, 0, 0.06, 0.245));
-    add(body, CS.box(0.06, 0.22, 0.03, { color: 0xc23a2c }, -0.17, 0.49, 0.235));
-    add(body, CS.box(0.06, 0.22, 0.03, { color: 0xc23a2c }, 0.17, 0.49, 0.235));
-    add(body, CS.box(0.07, 0.12, 0.03, { color: 0xa82e22 }, -0.25, 0.04, 0.10));
-    add(body, CS.box(0.07, 0.12, 0.03, { color: 0xa82e22 }, 0.25, 0.04, 0.10));
+    // apron: the bib is now three stepped panels so it lies on the curve of
+    // the breast instead of floating off it as one flat sheet would
+    // rep keeps the squares square across both panels instead of letting each
+    // one stretch a single tile of the checker into a band
+    var CHECK = { color: 0xffffff, tex: 'checker', rep: [2, 1] };
+    add(body, CS.box(0.42, 0.15, 0.03, CHECK, 0, 0.385, 0.262));
+    add(body, CS.box(0.46, 0.34, 0.03, CHECK, 0, 0.215, 0.298));
+    add(body, CS.box(0.50, 0.09, 0.05, { color: 0xc23a2c }, 0, 0.045, 0.215));
+    add(body, CS.box(0.06, 0.22, 0.03, { color: 0xc23a2c }, -0.16, 0.52, 0.215));
+    add(body, CS.box(0.06, 0.22, 0.03, { color: 0xc23a2c }, 0.16, 0.52, 0.215));
+    add(body, CS.box(0.07, 0.12, 0.03, { color: 0xa82e22 }, -0.27, 0.05, 0.10));
+    add(body, CS.box(0.07, 0.12, 0.03, { color: 0xa82e22 }, 0.27, 0.05, 0.10));
 
     /* ---- wings: upper arm + primary feathers, pivot at the shoulder ---- */
     ['wingL', 'wingR'].forEach(function (id, i) {
       var s = i ? 1 : -1;
       var w = new THREE.Group();
-      w.position.set(s * 0.31, 0.46, 0);
+      w.position.set(s * 0.33, 0.45, 0.01);
       body.add(w);
-      add(w, CS.box(0.11, 0.28, 0.26, PLUME, s * 0.04, -0.13, 0.01));
-      add(w, CS.box(0.09, 0.16, 0.30, QUILL, s * 0.06, -0.31, -0.02));   // primaries
-      add(w, CS.box(0.08, 0.07, 0.12, QUILL, s * 0.07, -0.40, -0.10));   // tip
+      // a fuller wing that tapers down and back, so from the side it folds
+      // against the body instead of standing off it like a paddle
+      add(w, CS.box(0.10, 0.16, 0.26, PLUME, s * 0.015, -0.06, 0.03));
+      add(w, CS.box(0.10, 0.15, 0.29, PLUME, s * 0.035, -0.19, 0.00));
+      add(w, CS.box(0.08, 0.15, 0.28, QUILL, s * 0.05, -0.32, -0.03));   // primaries
+      add(w, CS.box(0.07, 0.07, 0.14, QUILL, s * 0.055, -0.41, -0.11));  // tip
       parts[id] = w;
     });
 
     /* ---- head ---- */
-    var head = new THREE.Group(); head.position.set(0, 0.60, 0.02); body.add(head);
+    var head = new THREE.Group(); head.position.set(0, 0.61, 0.02); body.add(head);
     parts.head = head;
     add(head, CS.box(0.30, 0.16, 0.28, PLUME_D, 0, 0.02, 0));         // neck
-    add(head, CS.box(0.44, 0.38, 0.40, PLUME, 0, 0.22, 0));           // skull
-    add(head, CS.box(0.34, 0.10, 0.32, PLUME_D, 0, 0.06, 0.01));      // jaw shadow
-    add(head, CS.box(0.14, 0.12, 0.14, PLUME, -0.14, 0.24, -0.10));   // cheek tufts
-    add(head, CS.box(0.14, 0.12, 0.14, PLUME, 0.14, 0.24, -0.10));
+    // the skull gets the same slab treatment as the body: a round little head
+    slab(head, 0.38, 0.09, 0.34, PLUME_D, 0.09, 0.005);               // jowl
+    slab(head, 0.46, 0.15, 0.42, PLUME, 0.20, 0.01);                  // widest
+    slab(head, 0.44, 0.11, 0.40, PLUME, 0.31, 0.005);
+    slab(head, 0.34, 0.07, 0.31, PLUME, 0.39, 0);                     // crown
+    add(head, CS.box(0.15, 0.13, 0.15, PLUME, -0.15, 0.22, -0.11));   // cheek tufts
+    add(head, CS.box(0.15, 0.13, 0.15, PLUME, 0.15, 0.22, -0.11));
 
     // eyes on their own group so they can blink
     parts.eyes = new THREE.Group();
     head.add(parts.eyes);
     [-1, 1].forEach(function (s) {
-      add(parts.eyes, CS.box(0.11, 0.12, 0.02, { color: 0xf6f3ea }, s * 0.11, 0.25, 0.181));
-      add(parts.eyes, CS.box(0.07, 0.09, 0.02, { color: 0x161210 }, s * 0.115, 0.25, 0.191));
-      add(parts.eyes, CS.box(0.03, 0.03, 0.02, { color: 0xffffff }, s * 0.09, 0.28, 0.20));
+      add(parts.eyes, CS.box(0.11, 0.12, 0.02, { color: 0xf6f3ea }, s * 0.11, 0.23, 0.201));
+      add(parts.eyes, CS.box(0.07, 0.09, 0.02, { color: 0x161210 }, s * 0.115, 0.23, 0.211));
+      add(parts.eyes, CS.box(0.03, 0.03, 0.02, { color: 0xffffff }, s * 0.09, 0.26, 0.22));
     });
 
     // beak in two halves, with the lower one able to open
-    add(head, CS.box(0.19, 0.09, 0.16, BEAK, 0, 0.165, 0.235));
-    add(head, CS.box(0.13, 0.04, 0.12, BEAK_D, 0, 0.215, 0.27));      // ridge
-    parts.jaw = new THREE.Group(); parts.jaw.position.set(0, 0.12, 0.17); head.add(parts.jaw);
+    add(head, CS.box(0.19, 0.09, 0.16, BEAK, 0, 0.155, 0.255));
+    add(head, CS.box(0.13, 0.04, 0.12, BEAK_D, 0, 0.205, 0.285));     // ridge
+    parts.jaw = new THREE.Group(); parts.jaw.position.set(0, 0.11, 0.19); head.add(parts.jaw);
     add(parts.jaw, CS.box(0.16, 0.05, 0.13, BEAK_D, 0, 0, 0.07));
     // wattle under the beak
-    add(head, CS.box(0.09, 0.14, 0.07, COMB, -0.04, 0.02, 0.20));
-    add(head, CS.box(0.07, 0.10, 0.06, 0xb02a24, 0.05, 0.04, 0.20));
+    add(head, CS.box(0.09, 0.14, 0.07, COMB, -0.04, 0.01, 0.22));
+    add(head, CS.box(0.07, 0.10, 0.06, 0xb02a24, 0.05, 0.03, 0.22));
 
     // the toque: band, stalk, puff, crown, plus a couple of fold ridges
-    var hat = new THREE.Group(); hat.position.set(0, 0.40, 0); head.add(hat);
+    var hat = new THREE.Group(); hat.position.set(0, 0.42, 0); head.add(hat);
     parts.hat = hat;
     add(hat, CS.box(0.50, 0.11, 0.46, { color: 0xeae7dc }, 0, 0.03, 0));   // brim band
     add(hat, CS.box(0.44, 0.15, 0.41, { color: 0xf7f5ee }, 0, 0.15, 0));   // stalk
@@ -171,7 +211,7 @@ window.CS = window.CS || {};
 
     // where a carried item sits
     parts.hands = new THREE.Object3D();
-    parts.hands.position.set(0, 0.42, 0.40);
+    parts.hands.position.set(0, 0.42, 0.44);
     body.add(parts.hands);
 
     g.traverse(function (o) { if (o.isMesh) { o.castShadow = true; o.receiveShadow = false; } });
