@@ -101,6 +101,10 @@ network requests at all.
 | `M` | Mute |
 | `P` | Cycle pixel size — 1× crisp, 2× / 3× chunky retro downscale |
 
+On a phone the same settings live in the pause menu (the `❚❚` button, top-left).
+Phones render at 1× like the desktop; `PIXEL` there drops to 2×/3× if a slower
+handset needs the frame rate back.
+
 ### Getting around
 
 The chef is a chicken, so she moves like one. **Dash** (`Shift`) is a short burst
@@ -129,6 +133,14 @@ The dash cooldown and your remaining flaps are shown in the bottom-left panel.
 All three auto-fit to your window's aspect ratio and are clamped to the shop, so the
 camera never drifts off into empty space when you're working a wall. Whatever the
 view, the fryer gauges on the right always tell you what is in the oil.
+
+**Phones get a fourth view — Kitchen — and only that one.** The three above all fit
+the room by its *width*, and a portrait screen has so little horizontal field of view
+that holding that width means backing off to around 53 units, which shrank every
+station plaque to an unreadable smudge and left half the screen empty. Kitchen frames
+the chef and the tiles around her instead, sits a little higher (pitch 1.14 rather
+than 0.88), and lets the shop scroll past underneath. There is nothing to switch, so
+the VIEW button is hidden on a phone.
 
 The yellow outline shows which station `E` will act on, and the bar at the bottom of
 the screen always spells out exactly what will happen — including *why* an action is

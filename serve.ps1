@@ -13,6 +13,7 @@ $types = @{
   '.png'  = 'image/png'
   '.webp' = 'image/webp'
   '.jpg'  = 'image/jpeg'
+  '.mp4'  = 'video/mp4'
   '.ico'  = 'image/x-icon'
 }
 
@@ -23,20 +24,30 @@ Write-Host "Chicken Sandy on http://localhost:$Port/  (Ctrl+C to stop)"
 
 while ($listener.IsListening) {
   $ctx = $listener.GetContext()
-  $rel = [System.Uri]::UnescapeDataString($ctx.Request.Url.AbsolutePath).TrimStart('/')
-  if ([string]::IsNullOrWhiteSpace($rel)) { $rel = 'index.html' }
-  $path = Join-Path $root ($rel -replace '/', '\')
+  try {
+    $rel = [System.Uri]::UnescapeDataString($ctx.Request.Url.AbsolutePath).TrimStart('/')
+    if ([string]::IsNullOrWhiteSpace($rel)) { $rel = 'index.html' }
+    $path = Join-Path $root ($rel -replace '/', '\')
+    # HEAD carries headers only: writing a body is a protocol violation and
+    # used to take the whole server down on a browser's port probe.
+    $head = ($ctx.Request.HttpMethod -eq 'HEAD')
 
-  if (Test-Path $path -PathType Leaf) {
-    $ext = [System.IO.Path]::GetExtension($path).ToLower()
-    $ctx.Response.ContentType = $(if ($types.ContainsKey($ext)) { $types[$ext] } else { 'application/octet-stream' })
-    $bytes = [System.IO.File]::ReadAllBytes($path)
-    $ctx.Response.ContentLength64 = $bytes.Length
-    $ctx.Response.OutputStream.Write($bytes, 0, $bytes.Length)
-  } else {
-    $ctx.Response.StatusCode = 404
-    $msg = [System.Text.Encoding]::UTF8.GetBytes('404 not found: ' + $rel)
-    $ctx.Response.OutputStream.Write($msg, 0, $msg.Length)
+    if (Test-Path $path -PathType Leaf) {
+      $ext = [System.IO.Path]::GetExtension($path).ToLower()
+      $ctx.Response.ContentType = $(if ($types.ContainsKey($ext)) { $types[$ext] } else { 'application/octet-stream' })
+      $bytes = [System.IO.File]::ReadAllBytes($path)
+      $ctx.Response.ContentLength64 = $bytes.Length
+      if (-not $head) { $ctx.Response.OutputStream.Write($bytes, 0, $bytes.Length) }
+    } else {
+      $ctx.Response.StatusCode = 404
+      $msg = [System.Text.Encoding]::UTF8.GetBytes('404 not found: ' + $rel)
+      $ctx.Response.ContentLength64 = $msg.Length
+      if (-not $head) { $ctx.Response.OutputStream.Write($msg, 0, $msg.Length) }
+    }
+  } catch {
+    # one bad request must never end the shift
+    Write-Host ("request failed: " + $_.Exception.Message)
+  } finally {
+    try { $ctx.Response.OutputStream.Close() } catch {}
   }
-  $ctx.Response.OutputStream.Close()
 }
