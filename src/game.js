@@ -77,6 +77,7 @@ window.CS = window.CS || {};
     time: 120,
     score: 0, combo: 1, bestCombo: 1,
     served: 0, missed: 0, burnt: 0,
+    tips: 0, tipCount: 0,
     held: null, target: null
   };
 
@@ -325,7 +326,8 @@ window.CS = window.CS || {};
       CS.ui.toast('That is not on any ticket!', 'bad');
       return;
     }
-    var speed = 1 + CS.SCORE.speedBonus * (o.left / o.limit);
+    var left = o.left / o.limit;
+    var speed = 1 + CS.SCORE.speedBonus * left;
     var gain = Math.round(o.reward * speed * S.combo);
     S.score += gain;
     S.served++;
@@ -333,11 +335,29 @@ window.CS = window.CS || {};
     S.bestCombo = Math.max(S.bestCombo, S.combo);
     setHeld(null);
     CS.orders.complete(o, true);
-    CS.audio.serve();
+    CS.audio.cash();
     CS.ui.toast('+' + gain + '   ORDER #' + String(o.id).padStart(2, '0') + ' UP!', 'good');
 
     var sv = stations.filter(function (s) { return s.type === 'serve'; })[0];
     if (sv) CS.fx.burst(sv.x, sv.topY + 0.5, sv.z, 16, { color: 0xffd464, life: 0.8, vy: 2.2 });
+
+    /* ---- the tip ----
+       A customer served with time to spare leaves something on the counter.
+       Below TIP.minLeft nobody tips, and the chance and the size both climb
+       with how much of their patience was still on the clock -- so tipping is
+       the reward for a shop that keeps ahead of its queue, not a lottery. */
+    var T = CS.SCORE.tip;
+    if (left > T.minLeft && Math.random() < (left - T.minLeft) / (1 - T.minLeft) * T.chance) {
+      var tip = Math.max(1, Math.round(o.reward * T.share * left * S.combo));
+      var nCoins = tip >= T.bigTip ? 3 : (tip >= T.bigTip / 2 ? 2 : 1);
+      S.score += tip;
+      S.tips += tip;
+      S.tipCount++;
+      if (sv) CS.orders.tipBurst(sv.x, sv.topY, sv.z, nCoins);
+      setTimeout(function () {
+        CS.ui.toast('+' + tip + '   ' + o.critter.name.toUpperCase() + ' LEFT A TIP', 'tip');
+      }, 260);
+    }
   }
 
   function onExpire(o) {
@@ -651,6 +671,7 @@ window.CS = window.CS || {};
     S.time = S.level.seconds;
     S.score = 0; S.combo = 1; S.bestCombo = 1;
     S.served = 0; S.missed = 0; S.burnt = 0;
+    S.tips = 0; S.tipCount = 0;
     S.target = null;
     setHeld(null);
     stations.forEach(function (st) {

@@ -172,7 +172,18 @@ window.CS = window.CS || {};
     sandwich: 60, extra: 12, fries: 30, cup: 16,
     speedBonus: 0.6,     // up to +60% of base for a fast serve
     comboStep: 0.25, comboMax: 4,
-    missPenalty: 40
+    missPenalty: 40,
+
+    /* Tips. A customer served with `minLeft` or less of their patience
+       remaining never tips; above that both the chance and the size scale
+       with how early you were, so the payoff is for staying ahead of the
+       queue rather than for luck. */
+    tip: {
+      minLeft: 0.45,     // fraction of patience that must still be on the clock
+      chance: 0.85,      // odds at a perfect serve, tapering to 0 at minLeft
+      share: 0.30,       // tip as a fraction of the order's base reward
+      bigTip: 30         // at or above this, they drop three coins, not one
+    }
   };
 
   /* ---------------------------------------------------------------- utils */
@@ -199,6 +210,34 @@ window.CS = window.CS || {};
     return arr;
   };
 
-  /* Customer shirt colours — one per villager in the queue. */
-  CS.CUSTOMER_COLORS = [0x4f7fc4, 0xb5543f, 0x6a4f9c, 0x3f8a6b, 0xc08a30, 0x9c4f7a, 0x4f8ea0];
+  /* ----------------------------------------------------------- customers
+     One entry per species. `fur`/`belly`/`snout` colour the shared chunky
+     body; the rest are the features CS.models.customer() bolts on. Ears are
+     'point' | 'droop' | 'tall' | 'round' | 'flop' | 'none', tails are
+     'up' | 'wag' | 'puff' | 'curl' | 'bush' | 'none'. `tint` is what shows on
+     the ticket, so keep the seven readably different from each other. */
+  CS.CRITTERS = [
+    { name: 'Cat',    fur: 0xf0a24a, belly: 0xfbe6c8, snout: 0xfbe6c8, nose: 0xe0736b,
+      ears: 'point', tail: 'up',   stripes: true,  tint: 0xf0a24a },
+    { name: 'Pup',    fur: 0xb9834e, belly: 0xf1ddbf, snout: 0xf1ddbf, nose: 0x2a201a,
+      ears: 'droop', tail: 'wag',  patch: true,   tint: 0xb9834e },
+    { name: 'Bunny',  fur: 0xf2eee6, belly: 0xffffff, snout: 0xffffff, nose: 0xe89aa8,
+      ears: 'tall',  tail: 'puff', tint: 0xe6dfd2 },
+    { name: 'Bear',   fur: 0x8d6240, belly: 0xc9a179, snout: 0xc9a179, nose: 0x2a201a,
+      ears: 'round', tail: 'none', tint: 0x8d6240 },
+    { name: 'Piglet', fur: 0xf0a3ae, belly: 0xffd0d6, snout: 0xffb6c1, nose: 0xd4737f,
+      ears: 'flop',  tail: 'curl', tint: 0xf0a3ae },
+    { name: 'Fox',    fur: 0xd9622c, belly: 0xf6eadd, snout: 0xf6eadd, nose: 0x2a201a,
+      ears: 'point', tail: 'bush', tipped: true,  tint: 0xd9622c },
+    { name: 'Frog',   fur: 0x74b84a, belly: 0xd3e8a8, snout: 0xd3e8a8, nose: 0x3e6b25,
+      ears: 'none',  tail: 'none', bigEyes: true, tint: 0x74b84a },
+    { name: 'Mouse',  fur: 0x9aa3ad, belly: 0xdfe4e9, snout: 0xdfe4e9, nose: 0xe08fa0,
+      ears: 'round', tail: 'none', bigEars: true, tint: 0x9aa3ad }
+  ];
+
+  /* Where the dining room's front door is. world.js cuts the hole here and
+     orders.js walks customers through it, so the two must agree. */
+  CS.DOOR_X = CS.OX + (CS.SERVE_COL + 0.5) * CS.TILE;   // straight behind the queue
+  CS.DOOR_W = 2.8;
+  CS.MAX_ORDERS_CAP = 4;       // widest the queue ever gets, across all days
 })(window.CS);

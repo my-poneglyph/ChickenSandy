@@ -176,6 +176,72 @@ middle of the kitchen are where you park a plate while your wings are busy.
 The 3D inset in the bottom-left corner shows the plate you're carrying, rotating, so
 you can see the stack you've actually built.
 
+### The customers
+
+The people you are cooking for are an assortment of small animals — a cat, a pup, a
+bunny, a bear, a piglet, a fox, a frog and a mouse — and they run the whole loop in
+the dining room, in view through the serving window:
+
+1. **They arrive.** A customer appears on the porch outside, the shop bell rings, and
+   they walk in through the front door in the back wall. The door sits directly
+   behind the queue, so they come in and join the end of the line without a detour.
+2. **They queue.** The line runs from the serving window back towards the door, and
+   everyone shuffles up a place whenever the front of it clears.
+3. **They order and wait.** At their spot they turn to face the window and idle.
+   Under 30% patience a red `!` floats over them and they start fidgeting.
+4. **They pay and leave.** A served customer does a happy hop, steps out of the line
+   into its own exit lane — so they are not walking back through the queue — and
+   goes out the same door. One who ran out of patience skips the hop and stomps out
+   faster, shaking their head.
+
+Species are dealt so that no two customers in the queue at once are the same animal
+(until the queue is longer than the roster), and the coloured square on each ticket
+is that animal's fur colour, so you can tell at a glance whose order is whose. Some
+of them wear a cap, picked off their seed, so two bunnies still read as two
+customers.
+
+The whole roster lives in `CS.CRITTERS` in `src/config.js`: fur, belly and nose
+colours plus an ear shape (`point` / `droop` / `tall` / `round` / `flop` / `none`)
+and a tail (`up` / `wag` / `puff` / `curl` / `bush` / `none`). Body, arms and legs
+are the same rig for every species, which is what lets one walk cycle drive all of
+them — so adding a ninth animal is one entry in that array, as long as it keeps the
+`parts` names `orders.js` expects.
+
+### Tips
+
+A customer served with time to spare leaves coins on the counter: the till rings, a
+couple of gold coins arc onto the serving window and settle, and a gold toast names
+who tipped. It is worth a bonus on top of the order, and the day-end card totals it
+up on its own line.
+
+Tipping is deliberately **not** a lottery. Below `tip.minLeft` of their patience
+remaining nobody tips at all, and above it both the chance and the size scale with
+how early you were — so it pays for a shop that stays ahead of its queue rather than
+for luck. All four numbers are in `CS.SCORE.tip` in `src/config.js`.
+
+#### Ideas for the happiness system
+
+Tips are the first half of a happiness mechanic; the boosts they pay for are not
+built yet. The hooks that exist today are `S.tips` and `S.tipCount` on the run state
+and the per-serve `left` fraction that decides the tip. Things worth trying when it
+gets picked up:
+
+* **A happiness meter for the shop**, filled by fast serves and tips and drained by
+  walkouts and burnt food. Feed it back into patience: a happy shop is a patient
+  queue, which makes a good run compound and a bad one bite.
+* **Spend tips between days** on things that make the next shift easier — a fourth
+  fryer, a faster oil, a second plate stack, a bell that shows the next ticket early.
+  That gives the tip jar somewhere to go besides the score.
+* **Regulars.** A customer who was served well comes back tomorrow with a marker over
+  them, tips more, and waits longer. One who walked out comes back impatient.
+* **Per-species quirks** — the frog always orders sauce cups, the bear always wants
+  fries, the mouse is quick to anger but tips double. The species table already has
+  somewhere to hang this.
+* **Decor as a multiplier.** The dining room is already dressed; let lanterns, signs
+  and a swept floor raise a baseline happiness that lifts every tip a little.
+* **Streak feedback in the room itself** — animals at the tables clapping, the door
+  chiming more often as word gets round, a fuller queue when happiness is high.
+
 ### The days
 
 Each day has a length, a points target and a queue size. Hit the target and you move
@@ -222,7 +288,7 @@ src/
   models.js                   voxel builders: chef, customers, food, signs, labels
   world.js                    kitchen construction, stations, lighting, particles
   interact.js                 item data + resolve(): the single "what does E do" rule
-  orders.js                   customer queue, ticket generation, order matching
+  orders.js                   customer lifecycle, tickets, order matching, tips
   ui.js                       ticket rail, held-item card, hint line, screens
   audio.js                    WebAudio SFX plus the four-voice music engine
   game.js                     renderer, camera, player, main loop, scoring
@@ -266,8 +332,13 @@ fired one at a time from `setInterval`, which is what keeps the timing steady �
 the queue is 1.4s deep so a backgrounded tab, where timers are throttled to roughly
 one tick a second, does not punch holes in the loop.
 
-To retune it, `PROG` is the chord progression, `PENT` the melody's note pool, and
-`BPM` the tempo; each voice (`pad`, `bass`, `keys`, `melody`, `brush`) is a short
+The one-shots are synthesised the same way. `doorbell()` is the brass bell over the
+shop door, rung by each arrival; `cash()` is the till — a key press, the bell inside
+the drawer, the drawer hitting its stop and change rattling in — played when a
+customer pays; `coins()` is the loose change of a tip landing on the counter.
+
+To retune the music, `PROG` is the chord progression, `PENT` the melody's note pool
+and `BPM` the tempo; each voice (`pad`, `bass`, `keys`, `melody`, `brush`) is a short
 function of its own, and `scheduleStep` decides what plays on which sixteenth.
 `CS.audio.debug()` returns the live `AudioContext` and gain nodes so the mix can be
 metered with an `AnalyserNode` instead of judged by ear.
