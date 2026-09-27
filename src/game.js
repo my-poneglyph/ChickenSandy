@@ -39,7 +39,14 @@ window.CS = window.CS || {};
   /* ------------------------------------------------------------- cameras
      overview : whole kitchen, fixed. Best for reading the room.
      close    : third-person follow at the same angle — the chef is the star.
-     behind   : true over-the-shoulder; movement becomes camera-relative.     */
+     behind   : true over-the-shoulder; movement becomes camera-relative.
+     mobile   : the only view on a phone, and the only one framed for a tall
+                screen. The desktop three all fit the room by its WIDTH, and a
+                portrait viewport has so little horizontal field of view that
+                holding that width means retreating to ~53 units — which is
+                what shrank every station plaque to an unreadable smudge. This
+                one frames the chef and the tiles around her instead and lets
+                the kitchen scroll past.                                      */
   var CAMS = {
     // `dist` is recomputed per aspect ratio in onResize; these are safe
     // starting values so nothing is ever undefined before the first fit.
@@ -48,7 +55,17 @@ window.CS = window.CS || {};
     close:    { pitch: 0.84, follow: 1.0, lift: 1.15, name: 'Close',
                 needW: 21, needD: 17, pad: 3.0, k: 0.97, dist: 19 },
     behind:   { pitch: 0.58, follow: 1.0, lift: 1.35, name: 'Behind', spin: true,
-                needW: 15, needD: 12, pad: 2.5, k: 0.97, dist: 11 }
+                needW: 15, needD: 12, pad: 2.5, k: 0.97, dist: 11 },
+    mobile:   { pitch: CS.CAM_PITCH_MOBILE, follow: 1.0, lift: 0.9, name: 'Kitchen',
+                exact: true, needW: 11, needD: 11, pad: 1.6, k: 1.0, dist: 28,
+                // how far past the room edge the view may stray, as a fraction
+                // of what it can see: a sliver of dark at the very bottom sits
+                // behind the thumb buttons, and buying that slack is what lets
+                // the camera actually follow the chef up and down the kitchen
+                edgeW: 0.78, edgeD: 0.80,
+                // nudge the framing forward so the chef rides above the
+                // JUMP/DASH/USE cluster instead of behind it
+                bias: 1.4 }
   };
   var CAM_ORDER = ['close', 'overview', 'behind'];
   var camMode = 'close';
@@ -81,7 +98,15 @@ window.CS = window.CS || {};
     var distV = (vExtent / 2) / Math.tan(vf / 2);
     var hf = 2 * Math.atan(Math.tan(vf / 2) * camera.aspect);
     var distH = (cm.needW / 2) / Math.tan(hf / 2);
-    return Math.max(distV, distH) * cm.k;
+    var d = Math.max(distV, distH) * cm.k;
+    // An `exact` camera never retreats so far that it sees past the back of
+    // the shop -- on a tall screen that void is most of the picture, and it is
+    // what made the phone build look like a letterboxed postage stamp.
+    if (cm.exact) {
+      var halfDepth = (CS.MAP_H * T + 7.5) / 2;
+      d = Math.min(d, halfDepth * Math.sin(cm.pitch) / Math.tan(vf / 2));
+    }
+    return d;
   }
 
   var lastW = 0, lastH = 0;
@@ -102,7 +127,19 @@ window.CS = window.CS || {};
     camMode = m;
     CS.ui.setCamLabel(CAMS[m].name);
   }
+
+  /* Phones get the single fixed view; anything wider gets the three desktop
+     angles back. CS.platform.mobile can flip mid-session on a tablet that is
+     rotated or a window that is dragged, so keep the two in step. */
+  function syncCamModes() {
+    var phone = CS.platform.mobile;
+    var want = phone ? ['mobile'] : ['close', 'overview', 'behind'];
+    if (want.length === CAM_ORDER.length) return;
+    CAM_ORDER = want;
+    if (CAM_ORDER.indexOf(camMode) < 0) setCamMode(CAM_ORDER[0]);
+  }
   function cycleCam() {
+    if (CAM_ORDER.length < 2) return;      // phones have one view and keep it
     setCamMode(CAM_ORDER[(CAM_ORDER.indexOf(camMode) + 1) % CAM_ORDER.length]);
   }
 
@@ -842,11 +879,18 @@ window.CS = window.CS || {};
     var marg = cm.fit ? 1 : 0.5;
     var hw = camDist * Math.tan(hfv / 2) * 0.80 * marg;
     var hd = camDist * Math.tan(vfv / 2) / Math.max(0.35, Math.sin(cm.pitch)) * 0.62 * marg;
+    // The phone camera uses the real visible rectangle rather than the tuned
+    // fractions above, so the kitchen always fills the screen edge to edge.
+    if (cm.exact) {
+      hw = camDist * Math.tan(hfv / 2) * cm.edgeW;
+      hd = camDist * Math.tan(vfv / 2) / Math.sin(cm.pitch) * cm.edgeD;
+    }
     if (cm.spin) { hw = hd = Math.max(hw, hd); }
     var x0 = CS.OX, x1 = CS.OX + CS.MAP_W * T;
     var z0 = CS.OZ - 7.5, z1 = CS.OZ + CS.MAP_H * T;
     tx = (x1 - x0 > hw * 2) ? CS.clamp(tx, x0 + hw, x1 - hw) : (x0 + x1) / 2;
     tz = (z1 - z0 > hd * 2) ? CS.clamp(tz, z0 + hd, z1 - hd) : (z0 + z1) / 2;
+    if (cm.bias) tz += cm.bias;
 
     var lerpK = Math.min(1, dt * (cm.fit ? 2.2 : 6.5));
     camTarget.x += (tx - camTarget.x) * lerpK;
@@ -916,14 +960,22 @@ window.CS = window.CS || {};
     initInspect();
     CS.ui.setMuteLabel(false);
     bindInput();
-    setPixelStep(lowSpec ? 2 : 1);   // half-res on phones: cheap, and still pixel art
+    // Phones used to render at half resolution, which on a 3x screen meant a
+    // 6x upscale and station plaques you could not read. Render at CSS
+    // resolution like the desktop; PIXEL in the pause menu still backs it off
+    // for a phone that cannot keep up.
+    setPixelStep(1);
     onResize();
     placePlayer(CS.SPAWN.col, CS.SPAWN.row);
     refreshHeld();
 
+    // One fixed perspective on a phone: the desktop angles are framed for a
+    // wide screen, and cycling them on a portrait viewport only ever made the
+    // kitchen smaller.
+    if (CS.platform.mobile) { CAM_ORDER = ['mobile']; camMode = 'mobile'; }
     setCamMode(camMode);
     CS.touch.init();
-    CS.platform.onResize(onResize);
+    CS.platform.onResize(function () { syncCamModes(); onResize(); });
     S.level = CS.levelFor(1);
     CS.ui.setLevel(S.level);
 

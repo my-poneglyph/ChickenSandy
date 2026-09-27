@@ -247,11 +247,14 @@
     font:inherit;font-size:11px;letter-spacing:1px;color:#fff3e0;
     border:4px solid var(--wood-dk);border-radius:50%;
     background:var(--wood-md);box-shadow:inset 0 3px 0 #a06a35,0 4px 0 rgba(0,0,0,.45);
-    width:70px;height:70px;cursor:pointer;
+    width:64px;height:64px;cursor:pointer;
+    /* slightly see-through: the buttons sit over the front counters, and the
+       player needs to read what is underneath them */
+    opacity:.88;
   }
   .tbtn.down{transform:translateY(3px);box-shadow:inset 0 3px 0 #a06a35;filter:brightness(1.25);}
   .tbtn.cool{filter:grayscale(.6) brightness(.6);}
-  .tbtn.use{width:96px;height:96px;font-size:14px;background:var(--red);
+  .tbtn.use{width:88px;height:88px;font-size:14px;background:var(--red);
     border-color:var(--red-dk);box-shadow:inset 0 3px 0 #e05a45,0 5px 0 #5c1a12;
     grid-column:2;grid-row:1 / span 2;align-self:center;}
   .tbtn.jump{grid-column:1;grid-row:1;}
@@ -582,6 +585,8 @@ window.CS = window.CS || {};
   CS.SPAWN = { col: 7, row: 7 };          // where the chef starts
   CS.SERVE_COL = 4;                       // queue lines up north of this column
   CS.CAM_PITCH = 0.88;                    // camera angle above the horizon (rad)
+  CS.CAM_PITCH_MOBILE = 1.14;             // phones sit higher: a tall screen sees
+                                          // far too much floor depth at 0.88
 
   /* ---------------------------------------------------------------- items */
   CS.ITEMS = {
@@ -1527,19 +1532,22 @@ window.CS = window.CS || {};
     return m;
   }
 
-  CS.models.label = function (text, accent) {
-    var W = 256, H = 64;
+  /* The plaque canvas is drawn at 2x the old size so it stays crisp however
+     large the caller hangs it -- a phone wants a noticeably bigger board than
+     a desktop, and the old 256x64 sheet went soft when stretched. */
+  CS.models.label = function (text, accent, worldW) {
+    var W = 512, H = 128;
     return textPlane(function (x) {
       x.fillStyle = '#f4e4c1'; x.fillRect(0, 0, W, H);
       x.fillStyle = accent || '#8a5a2b';
-      x.fillRect(0, 0, W, 7); x.fillRect(0, H - 7, W, 7);
-      x.fillRect(0, 0, 7, H); x.fillRect(W - 7, 0, 7, H);
+      x.fillRect(0, 0, W, 14); x.fillRect(0, H - 14, W, 14);
+      x.fillRect(0, 0, 14, H); x.fillRect(W - 14, 0, 14, H);
       x.fillStyle = '#2c1c10';
-      var size = text.length > 8 ? 30 : 38;
+      var size = text.length > 8 ? 60 : 76;
       x.font = 'bold ' + size + 'px "Courier New", monospace';
       x.textAlign = 'center'; x.textBaseline = 'middle';
-      x.fillText(text.toUpperCase(), W / 2, H / 2 + 2);
-    }, W, H, 2.08);
+      x.fillText(text.toUpperCase(), W / 2, H / 2 + 4);
+    }, W, H, worldW || 2.08);
   };
 
   CS.models.signBoard = function (lines, worldW) {
@@ -1861,15 +1869,17 @@ window.CS = window.CS || {};
     while (CS.charAt(st.col + runW, st.row) === ch) runW++;
     while (CS.charAt(st.col, st.row + runH) === ch) runH++;
 
-    var m = CS.models.label(LABELS[ch], LABEL_ACCENT[ch]);
+    // Phones get a larger board, tilted to the phone camera's steeper pitch.
+    var phone = CS.platform.mobile;
+    var m = CS.models.label(LABELS[ch], LABEL_ACCENT[ch], phone ? 2.85 : 2.08);
     var ox = (runW - 1) * T / 2, oz = (runH - 1) * T / 2;
     if (st.row === 0) oz += T * 0.42;
     else if (st.row === CS.MAP_H - 1) oz -= T * 0.42;
     if (st.col === 0) ox += T * 0.42;
     else if (st.col === CS.MAP_W - 1) ox -= T * 0.42;
 
-    m.position.set(st.x + ox, st.topY + 0.8, st.z + oz);
-    m.rotation.x = -(Math.PI / 2 - CS.CAM_PITCH);
+    m.position.set(st.x + ox, st.topY + (phone ? 0.98 : 0.8), st.z + oz);
+    m.rotation.x = -(Math.PI / 2 - (phone ? CS.CAM_PITCH_MOBILE : CS.CAM_PITCH));
     scene.add(m);
   }
 
@@ -2957,8 +2967,11 @@ window.CS = window.CS || {};
         '<li>Tickets at once: <b>' + lv.maxOrders + '</b></li>' +
         '</ul></div>' +
         '<div class="col"><h3>REMINDERS</h3><ul>' +
-        '<li><b>E</b> uses the highlighted station</li>' +
-        '<li><b>C</b> switches camera</li>' +
+        (CS.platform && CS.platform.coarse
+          ? '<li><b>USE</b> works the highlighted station</li>' +
+            '<li>Drag the <b>left half</b> to waddle</li>'
+          : '<li><b>E</b> uses the highlighted station</li>' +
+            '<li><b>C</b> switches camera</li>') +
         '<li>Fast serves build the <b>combo</b></li>' +
         '</ul></div>' +
         '</div>' +
@@ -3002,7 +3015,8 @@ window.CS = window.CS || {};
       var c = this.showScreen(
         '<h1>PAUSED</h1>' + this.howToHTML() +
         '<div style="display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin-top:12px">' +
-        '<button class="btn" id="pCam">VIEW</button>' +
+        // phones run one fixed camera, so VIEW would be a button that does nothing
+        (CS.platform.mobile ? '' : '<button class="btn" id="pCam">VIEW</button>') +
         '<button class="btn" id="pMute">SOUND</button>' +
         '<button class="btn" id="pPix">PIXEL</button>' +
         '</div>' +
@@ -3011,12 +3025,13 @@ window.CS = window.CS || {};
       c.querySelector('#resumeBtn').onclick = onResume;
       c.querySelector('#quitBtn').onclick = onQuit;
       // settings live here on phones, where the corner buttons are hidden
+      var cam = c.querySelector('#pCam');
       var sync = function () {
-        c.querySelector('#pCam').textContent = document.getElementById('btnCam').textContent;
+        if (cam) cam.textContent = document.getElementById('btnCam').textContent;
         c.querySelector('#pMute').textContent = document.getElementById('btnMute').textContent;
         c.querySelector('#pPix').textContent = document.getElementById('btnPix').textContent;
       };
-      c.querySelector('#pCam').onclick = function () { CS.game.press('cam'); sync(); };
+      if (cam) cam.onclick = function () { CS.game.press('cam'); sync(); };
       c.querySelector('#pMute').onclick = function () { CS.game.press('mute'); sync(); };
       c.querySelector('#pPix').onclick = function () { CS.game.press('pixel'); sync(); };
       sync();
@@ -3199,7 +3214,14 @@ window.CS = window.CS || {};
   /* ------------------------------------------------------------- cameras
      overview : whole kitchen, fixed. Best for reading the room.
      close    : third-person follow at the same angle — the chef is the star.
-     behind   : true over-the-shoulder; movement becomes camera-relative.     */
+     behind   : true over-the-shoulder; movement becomes camera-relative.
+     mobile   : the only view on a phone, and the only one framed for a tall
+                screen. The desktop three all fit the room by its WIDTH, and a
+                portrait viewport has so little horizontal field of view that
+                holding that width means retreating to ~53 units — which is
+                what shrank every station plaque to an unreadable smudge. This
+                one frames the chef and the tiles around her instead and lets
+                the kitchen scroll past.                                      */
   var CAMS = {
     // `dist` is recomputed per aspect ratio in onResize; these are safe
     // starting values so nothing is ever undefined before the first fit.
@@ -3208,7 +3230,17 @@ window.CS = window.CS || {};
     close:    { pitch: 0.84, follow: 1.0, lift: 1.15, name: 'Close',
                 needW: 21, needD: 17, pad: 3.0, k: 0.97, dist: 19 },
     behind:   { pitch: 0.58, follow: 1.0, lift: 1.35, name: 'Behind', spin: true,
-                needW: 15, needD: 12, pad: 2.5, k: 0.97, dist: 11 }
+                needW: 15, needD: 12, pad: 2.5, k: 0.97, dist: 11 },
+    mobile:   { pitch: CS.CAM_PITCH_MOBILE, follow: 1.0, lift: 0.9, name: 'Kitchen',
+                exact: true, needW: 11, needD: 11, pad: 1.6, k: 1.0, dist: 28,
+                // how far past the room edge the view may stray, as a fraction
+                // of what it can see: a sliver of dark at the very bottom sits
+                // behind the thumb buttons, and buying that slack is what lets
+                // the camera actually follow the chef up and down the kitchen
+                edgeW: 0.78, edgeD: 0.80,
+                // nudge the framing forward so the chef rides above the
+                // JUMP/DASH/USE cluster instead of behind it
+                bias: 1.4 }
   };
   var CAM_ORDER = ['close', 'overview', 'behind'];
   var camMode = 'close';
@@ -3241,7 +3273,15 @@ window.CS = window.CS || {};
     var distV = (vExtent / 2) / Math.tan(vf / 2);
     var hf = 2 * Math.atan(Math.tan(vf / 2) * camera.aspect);
     var distH = (cm.needW / 2) / Math.tan(hf / 2);
-    return Math.max(distV, distH) * cm.k;
+    var d = Math.max(distV, distH) * cm.k;
+    // An `exact` camera never retreats so far that it sees past the back of
+    // the shop -- on a tall screen that void is most of the picture, and it is
+    // what made the phone build look like a letterboxed postage stamp.
+    if (cm.exact) {
+      var halfDepth = (CS.MAP_H * T + 7.5) / 2;
+      d = Math.min(d, halfDepth * Math.sin(cm.pitch) / Math.tan(vf / 2));
+    }
+    return d;
   }
 
   var lastW = 0, lastH = 0;
@@ -3262,7 +3302,19 @@ window.CS = window.CS || {};
     camMode = m;
     CS.ui.setCamLabel(CAMS[m].name);
   }
+
+  /* Phones get the single fixed view; anything wider gets the three desktop
+     angles back. CS.platform.mobile can flip mid-session on a tablet that is
+     rotated or a window that is dragged, so keep the two in step. */
+  function syncCamModes() {
+    var phone = CS.platform.mobile;
+    var want = phone ? ['mobile'] : ['close', 'overview', 'behind'];
+    if (want.length === CAM_ORDER.length) return;
+    CAM_ORDER = want;
+    if (CAM_ORDER.indexOf(camMode) < 0) setCamMode(CAM_ORDER[0]);
+  }
   function cycleCam() {
+    if (CAM_ORDER.length < 2) return;      // phones have one view and keep it
     setCamMode(CAM_ORDER[(CAM_ORDER.indexOf(camMode) + 1) % CAM_ORDER.length]);
   }
 
@@ -4002,11 +4054,18 @@ window.CS = window.CS || {};
     var marg = cm.fit ? 1 : 0.5;
     var hw = camDist * Math.tan(hfv / 2) * 0.80 * marg;
     var hd = camDist * Math.tan(vfv / 2) / Math.max(0.35, Math.sin(cm.pitch)) * 0.62 * marg;
+    // The phone camera uses the real visible rectangle rather than the tuned
+    // fractions above, so the kitchen always fills the screen edge to edge.
+    if (cm.exact) {
+      hw = camDist * Math.tan(hfv / 2) * cm.edgeW;
+      hd = camDist * Math.tan(vfv / 2) / Math.sin(cm.pitch) * cm.edgeD;
+    }
     if (cm.spin) { hw = hd = Math.max(hw, hd); }
     var x0 = CS.OX, x1 = CS.OX + CS.MAP_W * T;
     var z0 = CS.OZ - 7.5, z1 = CS.OZ + CS.MAP_H * T;
     tx = (x1 - x0 > hw * 2) ? CS.clamp(tx, x0 + hw, x1 - hw) : (x0 + x1) / 2;
     tz = (z1 - z0 > hd * 2) ? CS.clamp(tz, z0 + hd, z1 - hd) : (z0 + z1) / 2;
+    if (cm.bias) tz += cm.bias;
 
     var lerpK = Math.min(1, dt * (cm.fit ? 2.2 : 6.5));
     camTarget.x += (tx - camTarget.x) * lerpK;
@@ -4076,14 +4135,22 @@ window.CS = window.CS || {};
     initInspect();
     CS.ui.setMuteLabel(false);
     bindInput();
-    setPixelStep(lowSpec ? 2 : 1);   // half-res on phones: cheap, and still pixel art
+    // Phones used to render at half resolution, which on a 3x screen meant a
+    // 6x upscale and station plaques you could not read. Render at CSS
+    // resolution like the desktop; PIXEL in the pause menu still backs it off
+    // for a phone that cannot keep up.
+    setPixelStep(1);
     onResize();
     placePlayer(CS.SPAWN.col, CS.SPAWN.row);
     refreshHeld();
 
+    // One fixed perspective on a phone: the desktop angles are framed for a
+    // wide screen, and cycling them on a portrait viewport only ever made the
+    // kitchen smaller.
+    if (CS.platform.mobile) { CAM_ORDER = ['mobile']; camMode = 'mobile'; }
     setCamMode(camMode);
     CS.touch.init();
-    CS.platform.onResize(onResize);
+    CS.platform.onResize(function () { syncCamModes(); onResize(); });
     S.level = CS.levelFor(1);
     CS.ui.setLevel(S.level);
 

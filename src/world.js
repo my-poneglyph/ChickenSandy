@@ -200,15 +200,17 @@ window.CS = window.CS || {};
     while (CS.charAt(st.col + runW, st.row) === ch) runW++;
     while (CS.charAt(st.col, st.row + runH) === ch) runH++;
 
-    var m = CS.models.label(LABELS[ch], LABEL_ACCENT[ch]);
+    // Phones get a larger board, tilted to the phone camera's steeper pitch.
+    var phone = CS.platform.mobile;
+    var m = CS.models.label(LABELS[ch], LABEL_ACCENT[ch], phone ? 2.85 : 2.08);
     var ox = (runW - 1) * T / 2, oz = (runH - 1) * T / 2;
     if (st.row === 0) oz += T * 0.42;
     else if (st.row === CS.MAP_H - 1) oz -= T * 0.42;
     if (st.col === 0) ox += T * 0.42;
     else if (st.col === CS.MAP_W - 1) ox -= T * 0.42;
 
-    m.position.set(st.x + ox, st.topY + 0.8, st.z + oz);
-    m.rotation.x = -(Math.PI / 2 - CS.CAM_PITCH);
+    m.position.set(st.x + ox, st.topY + (phone ? 0.98 : 0.8), st.z + oz);
+    m.rotation.x = -(Math.PI / 2 - (phone ? CS.CAM_PITCH_MOBILE : CS.CAM_PITCH));
     scene.add(m);
   }
 

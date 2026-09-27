@@ -260,8 +260,11 @@ window.CS = window.CS || {};
         '<li>Tickets at once: <b>' + lv.maxOrders + '</b></li>' +
         '</ul></div>' +
         '<div class="col"><h3>REMINDERS</h3><ul>' +
-        '<li><b>E</b> uses the highlighted station</li>' +
-        '<li><b>C</b> switches camera</li>' +
+        (CS.platform && CS.platform.coarse
+          ? '<li><b>USE</b> works the highlighted station</li>' +
+            '<li>Drag the <b>left half</b> to waddle</li>'
+          : '<li><b>E</b> uses the highlighted station</li>' +
+            '<li><b>C</b> switches camera</li>') +
         '<li>Fast serves build the <b>combo</b></li>' +
         '</ul></div>' +
         '</div>' +
@@ -305,7 +308,8 @@ window.CS = window.CS || {};
       var c = this.showScreen(
         '<h1>PAUSED</h1>' + this.howToHTML() +
         '<div style="display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin-top:12px">' +
-        '<button class="btn" id="pCam">VIEW</button>' +
+        // phones run one fixed camera, so VIEW would be a button that does nothing
+        (CS.platform.mobile ? '' : '<button class="btn" id="pCam">VIEW</button>') +
         '<button class="btn" id="pMute">SOUND</button>' +
         '<button class="btn" id="pPix">PIXEL</button>' +
         '</div>' +
@@ -314,12 +318,13 @@ window.CS = window.CS || {};
       c.querySelector('#resumeBtn').onclick = onResume;
       c.querySelector('#quitBtn').onclick = onQuit;
       // settings live here on phones, where the corner buttons are hidden
+      var cam = c.querySelector('#pCam');
       var sync = function () {
-        c.querySelector('#pCam').textContent = document.getElementById('btnCam').textContent;
+        if (cam) cam.textContent = document.getElementById('btnCam').textContent;
         c.querySelector('#pMute').textContent = document.getElementById('btnMute').textContent;
         c.querySelector('#pPix').textContent = document.getElementById('btnPix').textContent;
       };
-      c.querySelector('#pCam').onclick = function () { CS.game.press('cam'); sync(); };
+      if (cam) cam.onclick = function () { CS.game.press('cam'); sync(); };
       c.querySelector('#pMute').onclick = function () { CS.game.press('mute'); sync(); };
       c.querySelector('#pPix').onclick = function () { CS.game.press('pixel'); sync(); };
       sync();

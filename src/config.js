@@ -31,6 +31,8 @@ window.CS = window.CS || {};
   CS.SPAWN = { col: 7, row: 7 };          // where the chef starts
   CS.SERVE_COL = 4;                       // queue lines up north of this column
   CS.CAM_PITCH = 0.88;                    // camera angle above the horizon (rad)
+  CS.CAM_PITCH_MOBILE = 1.14;             // phones sit higher: a tall screen sees
+                                          // far too much floor depth at 0.88
 
   /* ---------------------------------------------------------------- items */
   CS.ITEMS = {

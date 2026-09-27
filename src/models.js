@@ -400,19 +400,22 @@ window.CS = window.CS || {};
     return m;
   }
 
-  CS.models.label = function (text, accent) {
-    var W = 256, H = 64;
+  /* The plaque canvas is drawn at 2x the old size so it stays crisp however
+     large the caller hangs it -- a phone wants a noticeably bigger board than
+     a desktop, and the old 256x64 sheet went soft when stretched. */
+  CS.models.label = function (text, accent, worldW) {
+    var W = 512, H = 128;
     return textPlane(function (x) {
       x.fillStyle = '#f4e4c1'; x.fillRect(0, 0, W, H);
       x.fillStyle = accent || '#8a5a2b';
-      x.fillRect(0, 0, W, 7); x.fillRect(0, H - 7, W, 7);
-      x.fillRect(0, 0, 7, H); x.fillRect(W - 7, 0, 7, H);
+      x.fillRect(0, 0, W, 14); x.fillRect(0, H - 14, W, 14);
+      x.fillRect(0, 0, 14, H); x.fillRect(W - 14, 0, 14, H);
       x.fillStyle = '#2c1c10';
-      var size = text.length > 8 ? 30 : 38;
+      var size = text.length > 8 ? 60 : 76;
       x.font = 'bold ' + size + 'px "Courier New", monospace';
       x.textAlign = 'center'; x.textBaseline = 'middle';
-      x.fillText(text.toUpperCase(), W / 2, H / 2 + 2);
-    }, W, H, 2.08);
+      x.fillText(text.toUpperCase(), W / 2, H / 2 + 4);
+    }, W, H, worldW || 2.08);
   };
 
   CS.models.signBoard = function (lines, worldW) {
