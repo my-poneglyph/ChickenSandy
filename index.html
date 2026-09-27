@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#1a1009">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Chicken Sandy — Sandwich Shift</title>
+<style>
+  :root{
+    --wood:#8a5a2b; --wood-dk:#2e1c0f; --wood-md:#5a381c; --cream:#f7e9cd;
+    --gold:#f0a63c; --red:#c0392b; --red-dk:#7e2419; --green:#6fbf3a;
+    --ink:#2c1c10; --paper:#f4e4c1; --paper-dk:#d9c298;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;}
+  html,body{height:100%;overflow:hidden;background:#1a1009;}
+  body{
+    font-family:'Courier New',ui-monospace,monospace;
+    font-weight:700;letter-spacing:.5px;color:var(--cream);
+    -webkit-font-smoothing:none;
+    /* phone/Telegram hygiene: no rubber-banding, pinch-zoom or text selection */
+    position:fixed;inset:0;
+    touch-action:none;overscroll-behavior:none;
+    -webkit-user-select:none;user-select:none;
+    -webkit-tap-highlight-color:transparent;
+  }
+  canvas{display:block;width:100%;height:100%;image-rendering:pixelated;image-rendering:crisp-edges;}
+  #app{position:fixed;inset:0;}
+
+  /* ---------- generic pixel panel ---------- */
+  .panel{
+    background:var(--wood-md);
+    border:3px solid var(--wood-dk);
+    box-shadow:inset 0 3px 0 #a06a35, inset 0 -3px 0 #3d2412, 0 4px 0 rgba(0,0,0,.45);
+    padding:8px 12px;
+  }
+
+  /* Absolutely-positioned HUD children resolve against the padding box, so
+     padding here keeps everything clear of notches and the Telegram header. */
+  #hud{
+    position:fixed;inset:0;pointer-events:none;z-index:10;
+    padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  }
+
+  /* ---------- top bar ---------- */
+  #topbar{
+    position:absolute;top:10px;right:12px;
+    display:flex;gap:8px;align-items:stretch;
+  }
+  .stat{min-width:104px;text-align:center;}
+  .stat .k{font-size:9px;color:#e7c79a;text-transform:uppercase;}
+  .stat .v{font-size:20px;color:var(--cream);text-shadow:2px 2px 0 #000;line-height:1.25;}
+  .stat .v.gold{color:var(--gold);}
+  .stat .v.hot{color:#ff6b4a;}
+  #clockwrap .v{letter-spacing:2px;}
+  #daywrap .v{font-size:16px;}
+  #daywrap .sub{font-size:8px;color:#d8bd94;margin-top:2px;white-space:nowrap;}
+  /* target-for-the-day meter under the score */
+  .tgt{height:6px;background:#2e1c0f;border:2px solid #241608;margin-top:4px;}
+  .tgt i{display:block;height:100%;background:var(--gold);width:0%;transition:width .3s ease-out;}
+  .tgt.done i{background:var(--green);}
+  #tgtLabel{font-size:8px;color:#d8bd94;margin-top:3px;}
+
+  /* fryer gauges — so you always know what is in the oil, in any camera mode */
+  #fryers{
+    position:absolute;right:12px;top:152px;
+    display:flex;flex-direction:column;gap:5px;align-items:flex-end;
+  }
+  #fryers.hidden{display:none;}
+  .fry{
+    background:var(--wood-md);border:3px solid var(--wood-dk);padding:4px 8px;
+    box-shadow:inset 0 2px 0 #a06a35;min-width:96px;text-align:center;
+  }
+  .fry .n{font-size:8px;color:#e7c79a;text-transform:uppercase;}
+  .fry .m{height:6px;background:#2e1c0f;margin-top:3px;}
+  .fry .m i{display:block;height:100%;width:100%;}
+  .fry.idle{opacity:.45;}
+  .fry.idle .n{color:#c0ab8e;}
+
+  /* ---------- tickets ---------- */
+  #tickets{
+    position:absolute;top:10px;left:12px;right:250px;
+    display:flex;flex-direction:row;flex-wrap:wrap;gap:8px;align-items:flex-start;
+  }
+  .ticket{
+    width:196px;background:var(--paper);color:var(--ink);
+    border:3px solid #8a6b3c;border-radius:2px;
+    box-shadow:0 4px 0 rgba(0,0,0,.4);
+    padding:0 0 6px 0;position:relative;overflow:hidden;
+    animation:slidein .25s ease-out;
+  }
+  @keyframes slidein{from{transform:translateY(-130%);opacity:0}to{transform:none;opacity:1}}
+  .ticket.dying{animation:pop .3s ease-in forwards;}
+  @keyframes pop{to{transform:scale(1.12) translateY(-40%);opacity:0}}
+  .ticket .thead{
+    display:flex;align-items:center;gap:6px;
+    background:var(--red);color:#ffeccd;padding:4px 6px;font-size:10px;
+    border-bottom:2px solid #8a6b3c;
+  }
+  .ticket .face{width:16px;height:16px;border:2px solid #00000055;image-rendering:pixelated;}
+  .ticket .tbody{padding:6px 8px 2px 8px;font-size:11px;line-height:1.5;}
+  .line{display:flex;align-items:flex-start;gap:5px;}
+  .line .bullet{color:#8a6b3c;}
+  .sub{padding-left:12px;font-size:10px;color:#5b4326;display:flex;flex-wrap:wrap;gap:4px 6px;}
+  .chip{display:inline-flex;align-items:center;gap:3px;}
+  .sw{width:8px;height:8px;border:1px solid #00000066;display:inline-block;}
+  .bar{height:7px;background:#c9b189;border-top:2px solid #8a6b3c;margin-top:5px;}
+  .bar i{display:block;height:100%;background:var(--green);transition:width .2s linear;}
+  .bar.warn i{background:var(--gold);}
+  .bar.bad i{background:var(--red);}
+  .ticket.urgent{animation:shake .4s infinite;}
+  @keyframes shake{0%,100%{transform:translateX(0)}25%{transform:translateX(-3px)}75%{transform:translateX(3px)}}
+
+  /* ---------- held item ---------- */
+  /* bottom-left stack: 3D plate inspector sitting on top of the text summary */
+  #leftstack{
+    position:absolute;left:12px;bottom:12px;
+    display:flex;flex-direction:column;gap:8px;align-items:flex-start;
+  }
+  #plateview{width:148px;height:148px;padding:0;background:transparent;}
+  #plateview.hidden{display:none;}
+  #held{min-width:190px;max-width:236px;}
+
+  /* dash cooldown + remaining wing flaps */
+  #moves{min-width:190px;padding:6px 10px;display:flex;gap:12px;align-items:center;}
+  #moves .mv{flex:1;}
+  #moves .k{font-size:8px;color:#e7c79a;text-transform:uppercase;letter-spacing:1px;}
+  #moves .m{height:6px;background:#2e1c0f;border:2px solid #241608;margin-top:3px;}
+  #moves .m i{display:block;height:100%;background:var(--gold);width:100%;}
+  #moves .m.ready i{background:#6fd8ff;}
+  #moves .pips{display:flex;gap:3px;margin-top:4px;}
+  #moves .pip{width:12px;height:8px;background:#2e1c0f;border:2px solid #241608;}
+  #moves .pip.on{background:#f3e6d0;}
+  #held .k{font-size:9px;color:#e7c79a;text-transform:uppercase;}
+  #held .v{font-size:13px;color:var(--cream);text-shadow:2px 2px 0 #000;margin-top:3px;line-height:1.4;}
+  #held .detail{font-size:10px;color:#f0d8ab;margin-top:5px;line-height:1.7;}
+  #held .detail .chip{margin-right:6px;white-space:nowrap;}
+
+  /* ---------- hint ---------- */
+  #hint{
+    position:absolute;bottom:12px;left:50%;transform:translateX(-50%);
+    font-size:12px;padding:7px 14px;text-align:center;white-space:nowrap;
+  }
+  #hint .key{
+    display:inline-block;background:var(--gold);color:#3a2412;border:2px solid #8a5a1e;
+    padding:1px 7px;margin-right:7px;box-shadow:0 2px 0 #8a5a1e;
+  }
+  #hint.blocked{color:#d9b48c;}
+  #hint.blocked .key{background:#6b5638;border-color:#4a3a24;box-shadow:0 2px 0 #4a3a24;color:#cbb694;}
+  #hint.hidden{display:none;}
+
+  /* ---------- controls / buttons ---------- */
+  #btns{position:absolute;right:12px;top:98px;display:flex;gap:6px;pointer-events:auto;}
+  .btn{
+    background:var(--wood-md);border:3px solid var(--wood-dk);color:var(--cream);
+    font:inherit;font-size:10px;padding:6px 9px;cursor:pointer;
+    box-shadow:inset 0 2px 0 #a06a35, 0 3px 0 rgba(0,0,0,.4);
+  }
+  .btn:hover{background:#6d4522;}
+  .btn:active{transform:translateY(2px);box-shadow:inset 0 2px 0 #a06a35;}
+
+  /* ---------- toasts ---------- */
+  #toasts{
+    position:absolute;top:190px;left:50%;transform:translateX(-50%);
+    display:flex;flex-direction:column;align-items:center;gap:6px;
+  }
+  .toast{
+    font-size:13px;padding:6px 14px;background:#1d1108ee;border:3px solid var(--wood-dk);
+    color:var(--cream);text-shadow:2px 2px 0 #000;animation:toastin .3s ease-out, toastout .4s ease-in forwards;
+    animation-delay:0s,1.3s;
+  }
+  .toast.good{border-color:#3f7a22;color:#c8f2a2;}
+  .toast.bad{border-color:var(--red-dk);color:#ffb3a0;}
+  .toast.info{border-color:#8a6b3c;}
+  @keyframes toastin{from{transform:translateY(-14px) scale(.9);opacity:0}}
+  @keyframes toastout{to{transform:translateY(-22px);opacity:0}}
+
+  /* ---------- screens ---------- */
+  #screen{
+    position:fixed;inset:0;z-index:30;display:flex;align-items:center;justify-content:center;
+    background:radial-gradient(ellipse at center,#3a2413ee 0%,#150c06f7 75%);
+    padding:20px;overflow:auto;
+  }
+  #screen.hidden{display:none;}
+  .card{
+    width:min(720px,94vw);background:var(--wood-md);border:4px solid var(--wood-dk);
+    box-shadow:inset 0 4px 0 #a06a35, inset 0 -4px 0 #3d2412, 0 8px 0 rgba(0,0,0,.5);
+    padding:22px 26px 24px;text-align:center;
+  }
+  .card h1{
+    font-size:30px;color:var(--gold);text-shadow:3px 3px 0 #2e1c0f,6px 6px 0 #00000055;
+    letter-spacing:2px;margin-bottom:4px;
+  }
+  .card h2{font-size:15px;color:#ffd9a3;margin-bottom:14px;letter-spacing:1px;}
+  .card p{font-size:12px;color:#f0dcb8;line-height:1.8;}
+  .cols{display:flex;gap:16px;flex-wrap:wrap;justify-content:center;margin:16px 0 6px;text-align:left;}
+  .col{flex:1 1 200px;background:#3f2715;border:3px solid #241608;padding:10px 12px;}
+  .col h3{font-size:11px;color:var(--gold);margin-bottom:7px;letter-spacing:1px;}
+  .col ul{list-style:none;font-size:11px;line-height:1.85;color:#f0dcb8;}
+  .col li b{color:#ffd9a3;}
+  kbd{
+    background:var(--gold);color:#3a2412;border:2px solid #8a5a1e;padding:0 6px;
+    box-shadow:0 2px 0 #8a5a1e;font:inherit;font-size:10px;
+  }
+  .big{
+    margin-top:18px;background:var(--red);border:4px solid var(--red-dk);color:#fff3e0;
+    font:inherit;font-size:17px;letter-spacing:2px;padding:12px 34px;cursor:pointer;
+    box-shadow:inset 0 3px 0 #e05a45, 0 5px 0 #5c1a12;
+  }
+  .big:hover{background:#d4483a;}
+  .big:active{transform:translateY(3px);box-shadow:inset 0 3px 0 #e05a45;}
+  .scoreline{display:flex;justify-content:space-between;font-size:13px;padding:5px 2px;border-bottom:2px dashed #8a6b3c66;}
+  .scoreline span:last-child{color:var(--gold);}
+  .rank{font-size:40px;color:var(--gold);text-shadow:3px 3px 0 #2e1c0f;margin:10px 0 2px;}
+  #loading{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:#1a1009;z-index:40;font-size:13px;color:var(--gold);}
+  #loading.hidden{display:none;}
+
+  /* ---------------------------------------------------- touch controls ---- */
+  #touch{display:none;}
+  body.coarse #touch{display:block;}
+  #stickZone{
+    position:absolute;left:0;bottom:0;width:52%;height:58%;
+    pointer-events:auto;touch-action:none;z-index:12;
+  }
+  #stick{
+    position:fixed;width:124px;height:124px;margin:-62px 0 0 -62px;
+    border:4px solid #241608;border-radius:50%;
+    background:rgba(46,28,15,.42);
+    opacity:0;transition:opacity .12s;pointer-events:none;z-index:13;
+  }
+  #nub{
+    position:absolute;left:50%;top:50%;width:52px;height:52px;
+    margin:0;border:4px solid #241608;border-radius:50%;
+    background:var(--gold);box-shadow:0 3px 0 rgba(0,0,0,.4);
+    transform:translate(-50%,-50%);
+  }
+  #pad{
+    position:absolute;right:calc(12px + env(safe-area-inset-right));
+    bottom:calc(14px + env(safe-area-inset-bottom));
+    display:grid;grid-template-columns:auto auto;gap:10px;align-items:end;
+    pointer-events:none;z-index:13;
+  }
+  .tbtn{
+    pointer-events:auto;touch-action:none;
+    font:inherit;font-size:11px;letter-spacing:1px;color:#fff3e0;
+    border:4px solid var(--wood-dk);border-radius:50%;
+    background:var(--wood-md);box-shadow:inset 0 3px 0 #a06a35,0 4px 0 rgba(0,0,0,.45);
+    width:70px;height:70px;cursor:pointer;
+  }
+  .tbtn.down{transform:translateY(3px);box-shadow:inset 0 3px 0 #a06a35;filter:brightness(1.25);}
+  .tbtn.cool{filter:grayscale(.6) brightness(.6);}
+  .tbtn.use{width:96px;height:96px;font-size:14px;background:var(--red);
+    border-color:var(--red-dk);box-shadow:inset 0 3px 0 #e05a45,0 5px 0 #5c1a12;
+    grid-column:2;grid-row:1 / span 2;align-self:center;}
+  .tbtn.jump{grid-column:1;grid-row:1;}
+  .tbtn.dash{grid-column:1;grid-row:2;background:#3f5a7a;border-color:#22344a;
+    box-shadow:inset 0 3px 0 #5f83aa,0 4px 0 rgba(0,0,0,.45);}
+
+  /* ------------------------------------------------- compact phone HUD ----
+     Three thin rows at the top (stats, tickets, then held + fryers), and the
+     whole bottom third left clear for thumbs. */
+  body.mobile #plateview{display:none;}      /* skip the extra render pass */
+  body.mobile #moves{display:none;}          /* the buttons show this instead */
+  body.mobile #topbar{top:4px;right:4px;gap:3px;}
+  body.mobile .stat{min-width:52px;padding:2px 4px;}
+  body.mobile .stat .k{font-size:7px;}
+  body.mobile .stat .v{font-size:13px;}
+  body.mobile #daywrap .v{font-size:11px;}
+  body.mobile #daywrap .sub{display:none;}
+  body.mobile #tgtLabel{font-size:7px;}
+
+  /* only the pause button stays on screen; the rest move into the pause card */
+  body.mobile #btns{top:4px;left:4px;right:auto;bottom:auto;}
+  body.mobile #btnCam, body.mobile #btnMute, body.mobile #btnPix{display:none;}
+  body.mobile #btnHelp{font-size:0;padding:7px 12px;border-width:3px;}
+  body.mobile #btnHelp::after{content:'\275A\275A';font-size:13px;letter-spacing:1px;}
+
+  body.mobile #hint{
+    top:116px;bottom:auto;font-size:9px;padding:4px 9px;
+    max-width:92vw;white-space:normal;text-align:center;
+  }
+  body.mobile #hint .key{display:none;}
+
+  body.mobile #leftstack{top:146px;left:4px;bottom:auto;gap:4px;}
+  body.mobile #fryers{top:146px;right:4px;bottom:auto;
+    flex-direction:column;align-items:flex-end;gap:3px;}
+
+  body.mobile #tickets{left:4px;right:4px;top:52px;gap:4px;flex-wrap:nowrap;}
+  body.mobile .ticket{flex:1 1 0;min-width:0;width:auto;border-width:2px;}
+  body.mobile .ticket .thead{font-size:8px;padding:2px 3px;gap:3px;}
+  body.mobile .ticket .face{width:9px;height:9px;border-width:1px;}
+  body.mobile .ticket .tbody{font-size:8px;padding:3px 4px 1px;line-height:1.35;}
+  body.mobile .line .bullet{display:none;}
+  body.mobile .sub{padding-left:0;font-size:7px;gap:2px 3px;}
+  body.mobile .chip span:not(.sw){display:none;}   /* colour swatches only */
+  body.mobile .chip{gap:0;}
+  body.mobile .bar{height:5px;}
+
+  body.mobile .fry{min-width:58px;padding:2px 5px;border-width:2px;}
+  body.mobile .fry .n{font-size:6px;}
+  body.mobile #held{min-width:0;max-width:42vw;padding:4px 7px;border-width:2px;}
+  body.mobile #held .k{font-size:6px;}
+  body.mobile #held .v{font-size:10px;}
+  body.mobile #held .detail{font-size:8px;line-height:1.5;}
+  body.mobile #toasts{top:auto;bottom:calc(178px + env(safe-area-inset-bottom));}
+  body.mobile .toast{font-size:10px;padding:4px 9px;border-width:2px;}
+
+  /* Short landscape phones: drop the hint row and tighten everything up. */
+  @media (max-height:470px){
+    body.mobile #hint{display:none;}
+    body.mobile .ticket .tbody{font-size:7px;}
+    body.mobile #tickets{top:44px;}
+    body.mobile #leftstack{top:104px;}
+    body.mobile #fryers{top:104px;}
+    body.mobile #toasts{bottom:calc(120px + env(safe-area-inset-bottom));}
+    .tbtn{width:56px;height:56px;font-size:9px;}
+    .tbtn.use{width:76px;height:76px;font-size:12px;}
+    #stick{width:98px;height:98px;margin:-49px 0 0 -49px;}
+    #nub{width:42px;height:42px;}
+  }
+
+  /* Cards must scroll on a phone rather than overflow off-screen. */
+  body.mobile .card{padding:14px 14px 16px;}
+  body.mobile .card h1{font-size:20px;}
+  body.mobile .card h2{font-size:11px;}
+  body.mobile .card p{font-size:10px;line-height:1.6;}
+  body.mobile .col{padding:7px 9px;flex:1 1 100%;}
+  body.mobile .col h3{font-size:9px;}
+  body.mobile .col ul{font-size:9px;line-height:1.6;}
+  body.mobile .big{font-size:14px;padding:10px 22px;margin-top:12px;}
+  body.mobile .scoreline{font-size:11px;}
+  body.mobile .rank{font-size:28px;}
+
+  /* Narrow windows: shrink the rail rather than letting it eat the kitchen. */
+  @media (max-width:1180px){
+    .ticket{width:158px;}
+    .ticket .tbody{font-size:10px;padding:5px 6px 2px 6px;}
+    .ticket .thead{font-size:9px;}
+    .sub{font-size:9px;}
+    #tickets{right:212px;gap:6px;}
+    .stat{min-width:78px;}
+    .stat .v{font-size:16px;}
+  }
+</style>
+</head>
+<body>
+<div id="app"></div>
+
+<div id="hud">
+  <div id="topbar">
+    <div class="panel stat" id="daywrap">
+      <div class="k">Day</div><div class="v" id="day">1</div>
+      <div class="sub" id="dayName">Opening Day</div>
+    </div>
+    <div class="panel stat" id="clockwrap"><div class="k">Shift</div><div class="v" id="clock">2:00</div></div>
+    <div class="panel stat" id="scorewrap">
+      <div class="k">Score</div><div class="v gold" id="score">0</div>
+      <div class="tgt" id="tgtBar"><i></i></div>
+      <div id="tgtLabel">target 400</div>
+    </div>
+    <div class="panel stat"><div class="k">Combo</div><div class="v" id="combo">x1</div></div>
+  </div>
+
+  <div id="tickets"></div>
+
+  <div id="leftstack">
+    <div class="panel hidden" id="plateview"></div>
+    <div class="panel" id="held">
+      <div class="k">In Wings</div>
+      <div class="v" id="heldName">Nothing</div>
+      <div class="detail" id="heldDetail"></div>
+    </div>
+    <div class="panel" id="moves">
+      <div class="mv"><div class="k">Dash &#183; Shift</div><div class="m ready" id="dashBar"><i></i></div></div>
+      <div class="mv"><div class="k">Flap &#183; Space</div><div class="pips" id="flapPips"></div></div>
+    </div>
+  </div>
+
+  <div id="fryers" class="hidden"></div>
+
+  <div class="panel" id="hint"><span class="key">E</span><span id="hintText">&#8212;</span></div>
+
+  <div id="btns">
+    <button class="btn" id="btnCam">VIEW: CLOSE</button>
+    <button class="btn" id="btnMute">SOUND: ON</button>
+    <button class="btn" id="btnPix">PIXEL: 1X</button>
+    <button class="btn" id="btnHelp">?</button>
+  </div>
+
+  <div id="toasts"></div>
+
+  <div id="touch">
+    <div id="stickZone"><div id="stick"><div id="nub"></div></div></div>
+    <div id="pad">
+      <button class="tbtn jump" id="tJump">JUMP</button>
+      <button class="tbtn dash" id="tDash">DASH</button>
+      <button class="tbtn use" id="tUse">USE</button>
+    </div>
+  </div>
+</div>
+
+<div id="screen"></div>
+<div id="loading">HEATING THE FRYERS…</div>
+
+<script src="./vendor/three.min.js"></script>
+<script src="./src/platform.js"></script>
+<script src="./src/config.js"></script>
+<script src="./src/audio.js"></script>
+<script src="./src/textures.js"></script>
+<script src="./src/models.js"></script>
+<script src="./src/world.js"></script>
+<script src="./src/interact.js"></script>
+<script src="./src/orders.js"></script>
+<script src="./src/ui.js"></script>
+<script src="./src/touch.js"></script>
+<script src="./src/game.js"></script>
+<script>
+// Safety net: if a hardened browser refuses to load the local script files,
+// say so plainly instead of sitting on the loading screen forever.
+window.addEventListener('load', function () {
+  if (typeof THREE === 'undefined' || !window.CS || !window.CS.game) {
+    var l = document.getElementById('loading');
+    l.classList.remove('hidden');
+    l.innerHTML = '<div style="max-width:560px;text-align:center;line-height:2.1">' +
+      'YOUR BROWSER BLOCKED THE LOCAL SCRIPT FILES.<br><br>' +
+      'Open <b>ChickenSandy-standalone.html</b> instead &#8212;<br>' +
+      'the same game in one self-contained file.</div>';
+  }
+});
+</script>
+</body>
+</html>

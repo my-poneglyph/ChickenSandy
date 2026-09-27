@@ -1,0 +1,331 @@
+/* All DOM work: ticket rail, held-item card, hint line, toasts and screens. */
+window.CS = window.CS || {};
+(function (CS) {
+  'use strict';
+
+  var el = {}, ticketEls = {};
+
+  function $(id) { return document.getElementById(id); }
+  function chip(id) {
+    var i = CS.ING[id];
+    return '<span class="chip"><span class="sw" style="background:' + i.css + '"></span>' + i.label + '</span>';
+  }
+
+  function ticketHTML(o) {
+    var h = '<div class="thead"><span class="face" style="background:' + o.css + '"></span>ORDER #' +
+      String(o.id).padStart(2, '0') + '</div><div class="tbody">';
+
+    if (o.sandwich) {
+      h += '<div class="line"><span class="bullet">&#9656;</span><span>Chicken Sandwich</span></div>';
+      var extras = o.sandwich.toppings.concat(o.sandwich.sauces);
+      h += '<div class="sub">' + (extras.length ? extras.map(chip).join('') : '<i>plain</i>') + '</div>';
+    }
+    if (o.fries) h += '<div class="line"><span class="bullet">&#9656;</span><span>French Fries</span></div>';
+    if (o.cups.length) {
+      h += '<div class="line"><span class="bullet">&#9656;</span><span>' + o.cups.length +
+        ' Sauce Cup' + (o.cups.length > 1 ? 's' : '') + '</span></div>';
+      h += '<div class="sub">' + o.cups.map(chip).join('') + '</div>';
+    }
+    h += '</div><div class="bar"><i style="width:100%"></i></div>';
+    return h;
+  }
+
+  CS.ui = {
+    init: function () {
+      ['clock', 'score', 'combo', 'day', 'dayName', 'tgtBar', 'tgtLabel', 'fryers',
+        'dashBar', 'flapPips', 'tDash', 'tJump',
+        'tickets', 'heldName', 'heldDetail', 'hint', 'hintText',
+        'toasts', 'screen', 'btnMute', 'btnPix', 'btnHelp', 'btnCam',
+        'loading', 'hud'].forEach(function (id) { el[id] = $(id); });
+    },
+
+    setLevel: function (lv) {
+      el.day.textContent = lv.day;
+      el.dayName.textContent = lv.name;
+      el.tgtLabel.textContent = 'target ' + lv.target;
+    },
+
+    setTarget: function (score, target) {
+      var f = CS.clamp(score / target, 0, 1);
+      el.tgtBar.firstElementChild.style.width = (f * 100).toFixed(1) + '%';
+      el.tgtBar.className = 'tgt' + (score >= target ? ' done' : '');
+      el.tgtLabel.textContent = score >= target
+        ? 'target met!'
+        : 'target ' + target;
+    },
+
+    setMoves: function (dashReady, flaps, maxFlaps, airborne) {
+      // on-screen buttons double as the readout on phones
+      if (el.tDash) el.tDash.classList.toggle('cool', dashReady < 1);
+      if (el.tJump) {
+        var label = !airborne ? 'JUMP'
+          : (flaps > 0 ? 'FLAP ' + new Array(flaps + 1).join('•') : 'GLIDE');
+        if (el.tJump.textContent !== label) el.tJump.textContent = label;
+      }
+      el.dashBar.className = 'm' + (dashReady >= 1 ? ' ready' : '');
+      el.dashBar.firstElementChild.style.width = (dashReady * 100).toFixed(0) + '%';
+      if (el.flapPips.children.length !== maxFlaps) {
+        var h = '';
+        for (var i = 0; i < maxFlaps; i++) h += '<div class="pip"></div>';
+        el.flapPips.innerHTML = h;
+      }
+      for (var j = 0; j < maxFlaps; j++) {
+        el.flapPips.children[j].className = 'pip' + (j < flaps ? ' on' : '');
+      }
+    },
+
+    /* Live read-out of each fryer, so the oil is never a surprise. */
+    setFryers: function (rows) {
+      if (!rows.length) { el.fryers.classList.add('hidden'); return; }
+      el.fryers.classList.remove('hidden');
+      var html = '';
+      for (var i = 0; i < rows.length; i++) {
+        var r = rows[i];
+        html += '<div class="fry' + (r.empty ? ' idle' : '') + '">' +
+          '<div class="n">' + r.label + '</div>' +
+          '<div class="m"><i style="width:' + (r.t * 100).toFixed(0) + '%;background:' + r.color + '"></i></div>' +
+          '</div>';
+      }
+      el.fryers.innerHTML = html;
+    },
+
+    setClock: function (sec) {
+      sec = Math.max(0, Math.ceil(sec));
+      var m = Math.floor(sec / 60), s = sec % 60;
+      el.clock.textContent = m + ':' + (s < 10 ? '0' : '') + s;
+      el.clock.className = 'v' + (sec <= 30 ? ' hot' : '');
+    },
+    setScore: function (n) { el.score.textContent = Math.round(n); },
+    setCombo: function (c) {
+      el.combo.textContent = 'x' + (Math.round(c * 100) / 100);
+      el.combo.className = 'v' + (c > 1.01 ? ' gold' : '');
+    },
+
+    setHeld: function (item) {
+      el.heldName.textContent = CS.itemLabel(item);
+      var d = '';
+      if (item && item.k === 'plate') {
+        if (item.sandwich) {
+          d += item.sandwich.chicken ? 'Sandwich: chicken' : 'Bun only — needs chicken';
+          var ex = item.sandwich.toppings.concat(item.sandwich.sauces);
+          if (ex.length) d += '<br>' + ex.map(chip).join('');
+        }
+        if (item.fries) d += (d ? '<br>' : '') + 'Fries on the side';
+        if (item.cups.length) d += (d ? '<br>' : '') + item.cups.map(chip).join('');
+      } else if (item && item.k === 'cup' && item.sauce) {
+        d = chip(item.sauce);
+      }
+      el.heldDetail.innerHTML = d;
+    },
+
+    setHint: function (res) {
+      if (!res) { el.hint.classList.add('hidden'); return; }
+      el.hint.classList.remove('hidden');
+      el.hint.className = 'panel' + (res.ok ? '' : ' blocked');
+      el.hintText.textContent = res.text;
+    },
+
+    renderTickets: function (list) {
+      var seen = {};
+      list.forEach(function (o, i) {
+        seen[o.id] = true;
+        var t = ticketEls[o.id];
+        if (!t) {
+          var d = document.createElement('div');
+          d.className = 'ticket';
+          d.innerHTML = ticketHTML(o);
+          el.tickets.appendChild(d);
+          t = ticketEls[o.id] = { root: d, fill: d.querySelector('.bar i'), bar: d.querySelector('.bar') };
+        }
+        if (t.root.parentNode !== el.tickets) el.tickets.appendChild(t.root);
+        // keep DOM order matching queue order
+        var want = el.tickets.children[i];
+        if (want !== t.root) el.tickets.insertBefore(t.root, want || null);
+
+        var f = CS.clamp(o.left / o.limit, 0, 1);
+        t.fill.style.width = (f * 100).toFixed(1) + '%';
+        t.bar.className = 'bar' + (f < 0.3 ? ' bad' : (f < 0.6 ? ' warn' : ''));
+        t.root.classList.toggle('urgent', f < 0.16);
+      });
+
+      Object.keys(ticketEls).forEach(function (id) {
+        if (!seen[id]) {
+          var t = ticketEls[id];
+          t.root.classList.add('dying');
+          setTimeout(function () { if (t.root.parentNode) t.root.parentNode.removeChild(t.root); }, 300);
+          delete ticketEls[id];
+        }
+      });
+    },
+
+    clearTickets: function () {
+      el.tickets.innerHTML = '';
+      ticketEls = {};
+    },
+
+    toast: function (msg, type) {
+      var d = document.createElement('div');
+      d.className = 'toast ' + (type || 'info');
+      d.textContent = msg;
+      el.toasts.appendChild(d);
+      setTimeout(function () { if (d.parentNode) d.parentNode.removeChild(d); }, 1750);
+    },
+
+    setHudVisible: function (v) { el.hud.style.display = v ? '' : 'none'; },
+    hideLoading: function () { el.loading.classList.add('hidden'); },
+    setMuteLabel: function (m) { el.btnMute.textContent = 'SOUND: ' + (m ? 'OFF' : 'ON'); },
+    setPixLabel: function (n) { el.btnPix.textContent = 'PIXEL: ' + n + 'X'; },
+    setCamLabel: function (n) { el.btnCam.textContent = 'VIEW: ' + n.toUpperCase(); },
+
+    /* ------------------------------------------------------------ screens */
+    showScreen: function (html) {
+      el.screen.innerHTML = '<div class="card">' + html + '</div>';
+      el.screen.classList.remove('hidden');
+      return el.screen.querySelector('.card');
+    },
+    hideScreen: function () { el.screen.classList.add('hidden'); el.screen.innerHTML = ''; },
+
+    howToHTML: function () {
+      var touch = CS.platform && CS.platform.coarse;
+      var controls = touch
+        ? '<li>Drag the <b>left half</b> — waddle</li>' +
+          '<li><b>USE</b> — work the station you are next to</li>' +
+          '<li><b>JUMP</b> — hop; tap again to <b>flap</b></li>' +
+          '<li>Hold <b>JUMP</b> falling — glide</li>' +
+          '<li><b>DASH</b> — burst forward</li>'
+        : '<li><b>WASD</b> / arrows — waddle</li>' +
+          '<li><b>E</b> — use station</li>' +
+          '<li><b>Space</b> — jump, then again to <b>flap</b></li>' +
+          '<li><b>Hold Space</b> falling — glide</li>' +
+          '<li><b>Shift</b> — dash</li>' +
+          '<li><b>C</b> — switch camera view</li>' +
+          '<li><b>ESC</b> — pause</li>' +
+          '<li><b>M</b> mute &nbsp; <b>P</b> pixel size</li>';
+      return '' +
+        '<div class="cols">' +
+        '<div class="col"><h3>CONTROLS</h3><ul>' + controls + '</ul></div>' +
+        '<div class="col"><h3>THE LINE</h3><ul>' +
+        '<li>Grab a <b>plate</b>, add a <b>bun</b></li>' +
+        '<li>Fry <b>chicken</b> &amp; <b>potatoes</b></li>' +
+        '<li>Stack <b>toppings</b> &amp; <b>sauces</b></li>' +
+        '<li>Fill <b>cups</b> at the sauce bottles</li>' +
+        '<li>Hand it through the <b>window</b></li>' +
+        '</ul></div>' +
+        '<div class="col"><h3>WATCH OUT</h3><ul>' +
+        '<li>Leave food frying and it <b>burns</b></li>' +
+        '<li>Bin mistakes in the <b>trash</b></li>' +
+        '<li>Ticket must match <b>exactly</b></li>' +
+        '<li>Fast serves build a <b>combo</b></li>' +
+        '</ul></div>' +
+        '</div>';
+    },
+
+    showStart: function (onStart, bestDay) {
+      var c = this.showScreen(
+        '<h1>CHICKEN SANDY</h1>' +
+        '<h2>&#9829; GOOD FOOD &#183; HAPPY CHICKEN &#9829;</h2>' +
+        '<p>You are the chef. You are also a chicken. Try not to think about the menu.</p>' +
+        (bestDay > 1 ? '<p style="color:var(--gold)">Best run so far: Day ' + bestDay + '</p>' : '') +
+        this.howToHTML() +
+        '<button class="big" id="startBtn">START DAY 1</button>');
+      c.querySelector('#startBtn').onclick = onStart;
+      this.setHudVisible(false);
+    },
+
+    /* Shown before every day: what is new, how long, and what it takes to pass. */
+    showLevelIntro: function (lv, onStart) {
+      var unlocks = (lv.unlocks && lv.unlocks.length)
+        ? '<div class="col" style="flex:1 1 100%"><h3>NEW TODAY</h3><ul>' +
+          lv.unlocks.map(function (u) { return '<li>&#9656; <b>' + u + '</b></li>'; }).join('') +
+          '</ul></div>'
+        : '';
+      var mins = Math.floor(lv.seconds / 60), secs = lv.seconds % 60;
+      var c = this.showScreen(
+        '<h1>DAY ' + lv.day + '</h1>' +
+        '<h2>' + lv.name.toUpperCase() + '</h2>' +
+        '<p>' + lv.tag + '</p>' +
+        '<div class="cols">' + unlocks +
+        '<div class="col"><h3>THE SHIFT</h3><ul>' +
+        '<li>Length: <b>' + mins + ':' + (secs < 10 ? '0' : '') + secs + '</b></li>' +
+        '<li>Target: <b>' + lv.target + '</b> points</li>' +
+        '<li>Tickets at once: <b>' + lv.maxOrders + '</b></li>' +
+        '</ul></div>' +
+        '<div class="col"><h3>REMINDERS</h3><ul>' +
+        '<li><b>E</b> uses the highlighted station</li>' +
+        '<li><b>C</b> switches camera</li>' +
+        '<li>Fast serves build the <b>combo</b></li>' +
+        '</ul></div>' +
+        '</div>' +
+        '<button class="big" id="goBtn">OPEN UP</button>');
+      c.querySelector('#goBtn').onclick = onStart;
+      this.setHudVisible(false);
+    },
+
+    showLevelResult: function (lv, s, passed, total, onNext, onRetry) {
+      var stars = 0;
+      for (var i = 0; i < CS.STARS.length; i++) {
+        if (s.score >= lv.target * CS.STARS[i]) stars = i + 1;
+      }
+      var starRow = '';
+      for (var j = 0; j < 3; j++) {
+        starRow += '<span style="color:' + (j < stars ? 'var(--gold)' : '#5a4630') + '">&#9733;</span>';
+      }
+      var c = this.showScreen(
+        '<h1>' + (passed ? 'DAY ' + lv.day + ' DONE' : 'CLOSING TIME') + '</h1>' +
+        '<div class="rank" style="letter-spacing:8px">' + starRow + '</div>' +
+        '<h2>' + (passed
+          ? (stars === 3 ? 'The queue is singing your name.'
+            : stars === 2 ? 'Solid shift. Barely a burnt nugget.'
+              : 'Scraped through. The bar is rising.')
+          : 'You needed ' + lv.target + ' to keep the lights on.') + '</h2>' +
+        '<div style="max-width:420px;margin:14px auto 0">' +
+        '<div class="scoreline"><span>Orders served</span><span>' + s.served + '</span></div>' +
+        '<div class="scoreline"><span>Walked out</span><span>' + s.missed + '</span></div>' +
+        '<div class="scoreline"><span>Best combo</span><span>x' + (Math.round(s.bestCombo * 100) / 100) + '</span></div>' +
+        '<div class="scoreline"><span>Things burnt</span><span>' + s.burnt + '</span></div>' +
+        '<div class="scoreline"><span>Target</span><span>' + lv.target + '</span></div>' +
+        '<div class="scoreline" style="border:none;font-size:17px;padding-top:10px"><span>TODAY</span><span>' + Math.round(s.score) + '</span></div>' +
+        (passed ? '<div class="scoreline" style="border:none;font-size:12px;padding-top:0"><span>Career total</span><span>' + Math.round(total) + '</span></div>' : '') +
+        '</div>' +
+        '<button class="big" id="nextBtn">' + (passed ? 'DAY ' + (lv.day + 1) + ' &#9656;' : 'TRY DAY ' + lv.day + ' AGAIN') + '</button>');
+      c.querySelector('#nextBtn').onclick = passed ? onNext : onRetry;
+      this.setHudVisible(false);
+    },
+
+    showPause: function (onResume, onQuit) {
+      var c = this.showScreen(
+        '<h1>PAUSED</h1>' + this.howToHTML() +
+        '<div style="display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin-top:12px">' +
+        '<button class="btn" id="pCam">VIEW</button>' +
+        '<button class="btn" id="pMute">SOUND</button>' +
+        '<button class="btn" id="pPix">PIXEL</button>' +
+        '</div>' +
+        '<button class="big" id="resumeBtn">RESUME</button>' +
+        '<button class="big" id="quitBtn" style="margin-left:10px;background:#5a381c;border-color:#2e1c0f;box-shadow:inset 0 3px 0 #8a5a2b,0 5px 0 #2e1c0f">END RUN</button>');
+      c.querySelector('#resumeBtn').onclick = onResume;
+      c.querySelector('#quitBtn').onclick = onQuit;
+      // settings live here on phones, where the corner buttons are hidden
+      var sync = function () {
+        c.querySelector('#pCam').textContent = document.getElementById('btnCam').textContent;
+        c.querySelector('#pMute').textContent = document.getElementById('btnMute').textContent;
+        c.querySelector('#pPix').textContent = document.getElementById('btnPix').textContent;
+      };
+      c.querySelector('#pCam').onclick = function () { CS.game.press('cam'); sync(); };
+      c.querySelector('#pMute').onclick = function () { CS.game.press('mute'); sync(); };
+      c.querySelector('#pPix').onclick = function () { CS.game.press('pixel'); sync(); };
+      sync();
+    },
+
+    showQuit: function (day, total, onAgain) {
+      var c = this.showScreen(
+        '<h1>SHOP CLOSED</h1>' +
+        '<h2>You made it to Day ' + day + '</h2>' +
+        '<div style="max-width:420px;margin:14px auto 0">' +
+        '<div class="scoreline" style="border:none;font-size:17px"><span>CAREER TOTAL</span><span>' + Math.round(total) + '</span></div>' +
+        '</div>' +
+        '<button class="big" id="againBtn">BACK TO DAY 1</button>');
+      c.querySelector('#againBtn').onclick = onAgain;
+      this.setHudVisible(false);
+    }
+  };
+})(window.CS);

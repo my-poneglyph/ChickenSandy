@@ -1,0 +1,507 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chicken Sandy</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Sen:wght@400;700;800&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --wood:#7a4a26; --wood-dk:#4e2f18; --cream:#f6ecd8; --red:#c0392b; --red-dk:#8f291e;
+    --ok:#5fae4a; --warn:#e0a13a; --bad:#c0392b; --ink:#2c1c10;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;height:100%;background:var(--wood-dk);font-family:'Sen',sans-serif;color:var(--cream);overflow:hidden;}
+  #wrap{position:relative;width:100vw;height:100vh;display:flex;flex-direction:column;background:linear-gradient(#3a2412,#2a1a0c);}
+  #canvasHolder{flex:1;position:relative;min-height:0;}
+  canvas#gl{width:100%;height:100%;display:block;image-rendering:pixelated;image-rendering:crisp-edges;}
+  .pixel{font-family:'Press Start 2P',monospace;}
+
+  /* top bar */
+  #topbar{display:flex;align-items:center;justify-content:space-between;padding:10px 16px;background:var(--wood-dk);border-bottom:4px solid var(--ink);}
+  #logo{font-size:14px;color:var(--cream);text-shadow:2px 2px 0 var(--red-dk);}
+  #stats{display:flex;gap:18px;align-items:center;font-size:12px;}
+  #lives span{color:var(--red);}
+  #score{color:#ffd166;}
+
+  /* HUD overlay on canvas */
+  #hud{position:absolute;inset:0;pointer-events:none;display:flex;flex-direction:column;justify-content:space-between;}
+  #ticketArea{display:flex;justify-content:center;padding-top:10px;}
+  #ticket{pointer-events:auto;background:var(--cream);color:var(--ink);border:4px solid var(--ink);border-radius:4px;
+    padding:10px 16px;min-width:230px;max-width:280px;box-shadow:6px 6px 0 rgba(0,0,0,.35);position:relative;}
+  #ticket:before{content:"";position:absolute;top:-10px;left:20px;right:20px;height:10px;
+    background:repeating-linear-gradient(90deg,var(--cream) 0 8px, transparent 8px 14px);}
+  #ticketTitle{font-size:11px;text-align:center;margin-bottom:6px;letter-spacing:1px;}
+  #ticketList{font-size:13px;line-height:1.55;}
+  #ticketList div.no{opacity:.35;text-decoration:line-through;}
+  #timerWrap{margin-top:8px;height:12px;background:#d8cba6;border:2px solid var(--ink);border-radius:3px;overflow:hidden;}
+  #timerBar{height:100%;background:var(--ok);width:100%;transition:width .2s linear, background .3s;}
+  #queueRow{display:flex;gap:6px;padding-left:16px;font-size:10px;color:#f0e2c0;}
+  .qchip{background:rgba(0,0,0,.35);border:2px solid var(--ink);border-radius:3px;padding:3px 6px;}
+
+  #tray{pointer-events:auto;align-self:center;margin-bottom:10px;background:rgba(20,12,6,.85);border:3px solid var(--ink);
+    border-radius:6px;padding:8px 12px;display:flex;gap:10px;align-items:center;font-size:11px;flex-wrap:wrap;max-width:92%;justify-content:center;}
+  .trayItem{background:var(--wood);border:2px solid var(--ink);border-radius:4px;padding:4px 7px;}
+  .trayItem.off{opacity:.3;}
+  #serveBtn{pointer-events:auto;background:var(--ok);border:3px solid var(--ink);color:#0c2a06;font-weight:800;
+    padding:8px 14px;border-radius:5px;cursor:pointer;font-size:12px;}
+  #serveBtn:active{transform:translateY(2px);}
+
+  #toast{position:absolute;top:40%;left:50%;transform:translate(-50%,-50%);pointer-events:none;
+    font-size:20px;color:#fff;text-shadow:3px 3px 0 #000;opacity:0;transition:opacity .2s, transform .2s;text-align:center;}
+  #toast.show{opacity:1;transform:translate(-50%,-60%);}
+
+  #hint{position:absolute;left:10px;bottom:10px;font-size:9px;background:rgba(0,0,0,.5);padding:6px 8px;border-radius:4px;max-width:230px;line-height:1.6;pointer-events:none;}
+
+  #overlay{position:absolute;inset:0;background:rgba(10,6,3,.88);display:flex;align-items:center;justify-content:center;flex-direction:column;gap:14px;text-align:center;padding:20px;}
+  #overlay h1{font-size:20px;color:#ffd166;text-shadow:3px 3px 0 var(--red-dk);}
+  #overlay p{max-width:420px;font-size:13px;line-height:1.7;}
+  #overlay button{font-family:'Press Start 2P',monospace;background:var(--red);color:#fff;border:3px solid var(--ink);
+    padding:12px 20px;border-radius:5px;cursor:pointer;font-size:11px;box-shadow:4px 4px 0 var(--ink);}
+  #overlay button:active{transform:translate(2px,2px);box-shadow:2px 2px 0 var(--ink);}
+  .hide{display:none !important;}
+</style>
+</head>
+<body>
+<div id="wrap">
+  <div id="topbar">
+    <div id="logo" class="pixel">🐔 CHICKEN SANDY</div>
+    <div id="stats" class="pixel">
+      <div id="lives">LIVES: <span id="livesVal">♥♥♥</span></div>
+      <div id="score">SCORE: <span id="scoreVal">0</span></div>
+    </div>
+  </div>
+  <div id="canvasHolder">
+    <canvas id="gl"></canvas>
+    <div id="hud">
+      <div>
+        <div id="ticketArea">
+          <div id="ticket" class="hide">
+            <div id="ticketTitle" class="pixel">ORDER #<span id="orderNum">1</span></div>
+            <div id="ticketList"></div>
+            <div id="timerWrap"><div id="timerBar"></div></div>
+          </div>
+        </div>
+        <div id="queueRow"></div>
+      </div>
+      <div id="toast" class="pixel"></div>
+      <div style="display:flex;flex-direction:column;align-items:center;gap:8px;">
+        <div id="tray"></div>
+        <button id="serveBtn" class="pixel">🍽 SERVE ORDER</button>
+      </div>
+    </div>
+    <div id="hint">CLICK the fryers to drop food in &amp; pull it out at the right time. Click toppings &amp; sauces to build the sandwich. Click a side-sauce cup for extras. Then hit SERVE.</div>
+    <div id="overlay">
+      <h1 class="pixel">CHICKEN SANDY</h1>
+      <p>Run the fryer, build the sandwich to order, grab a side sauce, and serve it before the timer runs out. Miss too many orders and it's game over!</p>
+      <button id="startBtn">START SHIFT</button>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+/* ---------- THREE.JS SCENE ---------- */
+const canvas = document.getElementById('gl');
+const renderer = new THREE.WebGLRenderer({canvas, antialias:false});
+renderer.setPixelRatio(1);
+const RENDER_W = 480, RENDER_H = 300;
+renderer.setSize(RENDER_W, RENDER_H, false);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x2a1a0c);
+scene.fog = new THREE.Fog(0x2a1a0c, 18, 34);
+
+const camera = new THREE.PerspectiveCamera(38, RENDER_W/RENDER_H, 0.1, 100);
+camera.position.set(0, 7.5, 13);
+camera.lookAt(0, 1.2, 0);
+
+scene.add(new THREE.AmbientLight(0xfff2d8, 0.65));
+const dirL = new THREE.DirectionalLight(0xffe3b0, 0.7);
+dirL.position.set(4, 10, 6);
+scene.add(dirL);
+function warmLight(x,y,z,intensity=1,dist=8){
+  const l = new THREE.PointLight(0xffa63d, intensity, dist);
+  l.position.set(x,y,z); scene.add(l);
+}
+warmLight(-6,4,1,1.2); warmLight(6,4,1,1.2); warmLight(0,3,-4,0.8);
+
+function box(w,h,d,color,x,y,z,opts={}){
+  const geo = new THREE.BoxGeometry(w,h,d);
+  const mat = new THREE.MeshLambertMaterial({color, emissive: opts.emissive||0x000000, emissiveIntensity: opts.emissiveIntensity||0});
+  const m = new THREE.Mesh(geo, mat);
+  m.position.set(x,y,z);
+  scene.add(m);
+  return m;
+}
+function group(x,y,z){ const g = new THREE.Group(); g.position.set(x,y,z); scene.add(g); return g; }
+
+/* Room */
+box(40,0.4,20,0x5b3a1e,0,-0.2,-2);          // floor
+box(40,10,0.5,0x3a230f,0,5,-9.7);           // back wall
+box(0.6,3.2,1.6,0xcfa04b,-14,1.6,0);        // side accent
+box(30,2.4,0.4,0x8a5a2a,0,3.4,-9.4,{});     // wall trim
+for(let i=-14;i<=14;i+=4){ box(0.5,2.4,0.5,0x2f1c0d,i,3.4,-9.3); } // wall posts
+
+/* hanging lanterns */
+function lantern(x,z){
+  const g = group(x,6.6,z);
+  g.add(new THREE.Mesh(new THREE.CylinderGeometry(0.02,0.02,1.4,4), new THREE.MeshBasicMaterial({color:0x1a1108})));
+  const body = new THREE.Mesh(new THREE.BoxGeometry(0.5,0.6,0.5), new THREE.MeshBasicMaterial({color:0xffb454}));
+  body.position.y=-1.1; g.add(body);
+  warmLight(x,5.3,z,0.9,6);
+}
+lantern(-8,-3); lantern(8,-3);
+
+/* sign */
+box(2.6,1.6,0.15,0xc79a55,-10,4.2,-9.2);
+box(2.6,1.6,0.15,0xc79a55,10,4.2,-9.2);
+
+/* Counter */
+const counterY = 1.5;
+box(24,0.5,3,0x8a5a2a, 0, counterY, -3);
+box(24,1.2,3,0x5c3a1c, 0, counterY-0.85, -3);
+box(24,0.15,0.3,0xc0392b,0,counterY+0.28,-1.55); // red trim strip
+
+/* --- Interactive stations (userData.type used for raycast id) --- */
+const clickable = [];
+function makeStation(x,z,w,h,d,color,type,label){
+  const g = group(x, counterY+0.25+h/2, z);
+  const m = box(w,h,d,color,0,0,0); g.remove(m); g.add(m);
+  g.userData.type = type;
+  g.userData.label = label;
+  g.traverse(o=>{ if(o.isMesh) o.userData.type = type; });
+  clickable.push(g);
+  return g;
+}
+
+// Fryer chicken basket
+const fryerChicken = makeStation(-9, -1.5, 1.6,0.5,1.6, 0x1c1c1c, 'fry_chicken', 'Chicken Fryer');
+box(1.8,0.3,1.8,0x000000,-9,counterY+0.05,-1.5,{emissive:0xff5500,emissiveIntensity:0.6});
+warmLight(-9,1.9,-1.5,1.1,4);
+// Fryer fries basket
+const fryerFries = makeStation(-6.4, -1.5, 1.6,0.5,1.6, 0x1c1c1c, 'fry_fries', 'Fries Fryer');
+box(1.8,0.3,1.8,0x000000,-6.4,counterY+0.05,-1.5,{emissive:0xff5500,emissiveIntensity:0.6});
+warmLight(-6.4,1.9,-1.5,1.1,4);
+
+// Bun station
+const bunStation = makeStation(-2.6,-1.2,1.2,0.5,1.2,0xe8b866,'bun','Bun');
+
+// Topping cubes
+const toppingDefs = [
+  {type:'lettuce', color:0x6fbf3a, x:0.2},
+  {type:'tomato',  color:0xd8412c, x:1.6},
+  {type:'pickles', color:0x9dbf3a, x:3.0},
+];
+const toppingMeshes = {};
+toppingDefs.forEach(t=>{
+  toppingMeshes[t.type] = makeStation(t.x, -1.2, 0.9,0.5,0.9, t.color, 'topping_'+t.type, t.type);
+});
+
+// Sauce bottles (on-sandwich)
+const sauceDefs = [
+  {type:'mayo', color:0xf3ecd0, x:5.0},
+  {type:'bbq',  color:0x6b3a1a, x:6.2},
+  {type:'hot',  color:0xd8241c, x:7.4},
+];
+const sauceMeshes = {};
+sauceDefs.forEach(s=>{
+  const g = group(s.x, counterY+0.6, -1.6);
+  const m = box(0.5,1.0,0.5,s.color,0,0,0);
+  g.add(m); g.userData.type='sauce_'+s.type; m.userData.type='sauce_'+s.type;
+  clickable.push(g);
+  sauceMeshes[s.type]=g;
+});
+
+// Side sauce cups
+const sideDefs = [
+  {type:'bbq', color:0x6b3a1a, x:9.2},
+  {type:'hot', color:0xd8241c, x:10.1},
+  {type:'ketchup', color:0xc0392b, x:11.0},
+];
+const sideMeshes = {};
+sideDefs.forEach(s=>{
+  const g = makeStation(s.x, -0.6, 0.55,0.35,0.55, s.color, 'side_'+s.type, s.type+' cup');
+  sideMeshes[s.type]=g;
+});
+
+// Serve plate
+const servePlate = makeStation(-2.6, 0.6, 1.4,0.15,1.4, 0xf3ecd0, 'serve', 'Serve');
+
+/* Decorative chef chicken (static) */
+(function chef(){
+  const g = group(0, counterY+1.4, -6.2);
+  box(1.6,1.8,1.2,0xf5f2ea,0,0,0); // body
+  box(0.5,0.5,0.5,0xf5f2ea,0.9,0.3,0);  // wing
+  box(1.4,1.0,1.3,0xf5f2ea,0,1.35,0); // head
+  box(0.9,0.5,0.2,0xf39c12,0,1.0,0.7); // beak area base
+  box(0.5,0.25,0.5,0xf39c12,0,0.95,0.9); // beak
+  box(1.7,1.1,1.5,0xffffff,0,2.15,0); // hat base
+  box(1.3,0.9,1.1,0xffffff,0,2.85,0); // hat top
+  box(0.35,0.35,0.1,0x111111,-0.35,1.4,0.66); box(0.35,0.35,0.1,0x111111,0.35,1.4,0.66); // eyes
+  box(1.6,1.0,0.15,0xc0392b,0,-0.5,0.65); // apron
+  for(let i=-0.6;i<=0.6;i+=0.4) for(let j=-0.3;j<=0.3;j+=0.3) box(0.18,0.18,0.06,0xffffff,i,-0.5+j,0.72);
+})();
+box(3,0.06,1.8,0xffe9c2,0,3.3,-9.3); // sign backing behind chef unused
+
+/* Customer standees */
+const custColors = [0xf1c27d,0xe0ac69,0xffdbac,0xc68642,0x8d5524];
+function makeCustomerMesh(idx,color){
+  const g = group(-3 + idx*2.2, counterY+1.0, 3 + idx*1.4);
+  box(0.9,1.2,0.5,color,0,0,0);
+  box(0.7,0.7,0.5,0xffe0bd,0,0.95,0);
+  return g;
+}
+
+/* Raycaster */
+const raycaster = new THREE.Raycaster();
+const mouse = new THREE.Vector2();
+canvas.addEventListener('click', (e)=>{
+  const rect = canvas.getBoundingClientRect();
+  mouse.x = ((e.clientX-rect.left)/rect.width)*2-1;
+  mouse.y = -((e.clientY-rect.top)/rect.height)*2+1;
+  raycaster.setFromCamera(mouse, camera);
+  const hits = raycaster.intersectObjects(scene.children, true);
+  for(const h of hits){
+    let o = h.object;
+    while(o && !o.userData.type) o = o.parent;
+    if(o && o.userData.type){ handleStationClick(o.userData.type); break; }
+  }
+});
+
+function animate(){
+  requestAnimationFrame(animate);
+  const t = performance.now()*0.001;
+  fryerChicken.position.y = counterY+0.25+0.25 + (fry.chicken.state==='cooking'? Math.sin(t*10)*0.03:0);
+  renderer.render(scene, camera);
+}
+function resize(){
+  const holder = document.getElementById('canvasHolder');
+  const w = holder.clientWidth, h = holder.clientHeight;
+  camera.aspect = w/h; camera.updateProjectionMatrix();
+}
+window.addEventListener('resize', resize);
+resize();
+
+/* ---------- GAME LOGIC ---------- */
+const TICKET = document.getElementById('ticket');
+const ticketList = document.getElementById('ticketList');
+const timerBar = document.getElementById('timerBar');
+const trayEl = document.getElementById('tray');
+const queueRowEl = document.getElementById('queueRow');
+const toastEl = document.getElementById('toast');
+const livesVal = document.getElementById('livesVal');
+const scoreVal = document.getElementById('scoreVal');
+const overlay = document.getElementById('overlay');
+const orderNumEl = document.getElementById('orderNum');
+
+let lives=3, score=0, orderCount=0, running=false;
+let queue=[]; // {order, mesh}
+let build = blankBuild();
+let fry = {
+  chicken:{state:'empty', t:0, dur:5.2, burn:8.2},
+  fries:{state:'empty', t:0, dur:4.2, burn:6.6}
+};
+
+function blankBuild(){ return {bun:false, chicken:'none', lettuce:false, tomato:false, pickles:false, mayo:false, bbq:false, hot:false, fries:false, side:null}; }
+
+function rand(p){ return Math.random()<p; }
+function makeOrder(){
+  orderCount++;
+  return {
+    id: orderCount,
+    lettuce: rand(0.55), tomato: rand(0.5), pickles: rand(0.4),
+    mayo: rand(0.45), bbq: rand(0.35), hot: rand(0.3),
+    fries: rand(0.75),
+    side: rand(0.4) ? ['bbq','hot','ketchup'][Math.floor(Math.random()*3)] : null,
+    timeLimit: 42,
+    timeLeft: 42
+  };
+}
+
+function spawnCustomer(){
+  if(queue.length>=4) return;
+  const order = makeOrder();
+  const mesh = makeCustomerMesh(queue.length, custColors[Math.floor(Math.random()*custColors.length)]);
+  queue.push({order, mesh});
+  renderQueue();
+}
+setInterval(()=>{ if(running) spawnCustomer(); }, 5200);
+
+function renderQueue(){
+  queueRowEl.innerHTML='';
+  queue.slice(1).forEach((c,i)=>{
+    const d=document.createElement('div'); d.className='qchip'; d.textContent='customer '+(i+2);
+    queueRowEl.appendChild(d);
+  });
+  // reposition standee meshes
+  queue.forEach((c,i)=>{ c.mesh.position.x = -3 + i*2.2; c.mesh.position.z = 3 + i*1.4; });
+}
+
+function renderTicket(){
+  if(queue.length===0){ TICKET.classList.add('hide'); return; }
+  TICKET.classList.remove('hide');
+  const o = queue[0].order;
+  orderNumEl.textContent = o.id;
+  const rows = [
+    ['Chicken sandwich', true],
+    ['+ Lettuce', o.lettuce], ['+ Tomato', o.tomato], ['+ Pickles', o.pickles],
+    ['+ Mayo', o.mayo], ['+ BBQ sauce', o.bbq], ['+ Hot sauce', o.hot],
+    ['Fries', o.fries],
+    ['Side: '+(o.side?o.side:'none'), true]
+  ];
+  ticketList.innerHTML = rows.map(([label,on])=>`<div class="${on?'':'no'}">${on?'✓':'✗'} ${label}</div>`).join('');
+  const pct = Math.max(0, o.timeLeft/o.timeLimit*100);
+  timerBar.style.width = pct+'%';
+  timerBar.style.background = pct>50?'var(--ok)':pct>22?'var(--warn)':'var(--bad)';
+}
+
+function renderTray(){
+  const items = [
+    ['Bun', build.bun],
+    ['Chicken: '+build.chicken, build.chicken==='ready'],
+    ['Lettuce', build.lettuce], ['Tomato', build.tomato], ['Pickles', build.pickles],
+    ['Mayo', build.mayo], ['BBQ', build.bbq], ['Hot', build.hot],
+    ['Fries', build.fries],
+    ['Side: '+(build.side||'none'), true]
+  ];
+  trayEl.innerHTML = items.map(([label,on])=>`<div class="trayItem ${on?'':'off'}">${label}</div>`).join('');
+}
+
+function toast(msg, color){
+  toastEl.textContent = msg;
+  toastEl.style.color = color||'#fff';
+  toastEl.classList.add('show');
+  clearTimeout(toast._t);
+  toast._t = setTimeout(()=>toastEl.classList.remove('show'), 900);
+}
+
+function handleStationClick(type){
+  if(!running) return;
+  if(type==='fry_chicken') return toggleFry('chicken');
+  if(type==='fry_fries') return toggleFry('fries');
+  if(type==='bun'){ build.bun = !build.bun; renderTray(); return; }
+  if(type.startsWith('topping_')){ const k=type.split('_')[1]; build[k]=!build[k]; renderTray(); return; }
+  if(type.startsWith('sauce_')){ const k=type.split('_')[1]; build[k]=!build[k]; renderTray(); return; }
+  if(type.startsWith('side_')){ const k=type.split('_')[1]; build.side = build.side===k? null : k; renderTray(); return; }
+  if(type==='serve'){ return serveOrder(); }
+}
+
+function toggleFry(which){
+  const f = fry[which];
+  if(f.state==='empty'){
+    f.state='cooking'; f.t=0;
+    toast((which==='chicken'?'Chicken':'Fries')+' dropped in!','#ffd166');
+  } else if(f.state==='cooking'){
+    toast('Not ready yet — keep frying!','var(--warn)');
+  } else if(f.state==='ready'){
+    f.state='empty'; f.t=0;
+    build[which==='chicken'?'chicken':'fries'] = which==='chicken' ? 'ready' : true;
+    toast((which==='chicken'?'Chicken':'Fries')+' pulled — perfect!','var(--ok)');
+    renderTray();
+  } else if(f.state==='burnt'){
+    f.state='empty'; f.t=0;
+    toast('Burnt! Threw it out.','var(--bad)');
+  }
+}
+
+function stepFry(dt){
+  ['chicken','fries'].forEach(k=>{
+    const f = fry[k];
+    if(f.state==='cooking' || f.state==='ready'){
+      f.t += dt;
+      if(f.state==='cooking' && f.t>=f.dur) f.state='ready';
+      if(f.t>=f.burn) f.state='burnt';
+    }
+  });
+}
+
+function matchScore(order, b){
+  const pairs = [
+    [true, b.chicken==='ready'],
+    [order.lettuce, b.lettuce], [order.tomato, b.tomato], [order.pickles, b.pickles],
+    [order.mayo, b.mayo], [order.bbq, b.bbq], [order.hot, b.hot],
+    [order.fries, b.fries],
+    [order.side, b.side, true]
+  ];
+  let hits=0;
+  pairs.forEach(p=>{
+    if(p[2]) { if(p[0]===p[1]) hits++; }
+    else if(p[0]===p[1]) hits++;
+  });
+  const bunOk = b.bun;
+  const pct = (hits/pairs.length)*100 * (bunOk?1:0.4);
+  return Math.round(pct);
+}
+
+function serveOrder(){
+  if(queue.length===0){ toast('No customers waiting!', 'var(--warn)'); return; }
+  const cust = queue[0];
+  const acc = matchScore(cust.order, build);
+  const speedBonus = Math.round((cust.order.timeLeft/cust.order.timeLimit)*20);
+  let gained = Math.round(acc*1.6) + speedBonus;
+  if(acc>=95){ gained += 40; toast('PERFECT ORDER! +'+gained, 'var(--ok)'); }
+  else if(acc>=70){ toast('Nice! +'+gained, 'var(--ok)'); }
+  else if(acc>=45){ toast('Order was off... +'+gained, 'var(--warn)'); }
+  else { toast('Wrong order! Customer upset.', 'var(--bad)'); loseLife(); }
+  score += Math.max(0,gained);
+  scoreVal.textContent = score;
+  scene.remove(cust.mesh);
+  queue.shift();
+  build = blankBuild();
+  renderTray(); renderQueue(); renderTicket();
+}
+
+function loseLife(){
+  lives = Math.max(0, lives-1);
+  livesVal.textContent = '♥'.repeat(lives);
+  if(lives<=0) gameOver();
+}
+
+function gameOver(){
+  running=false;
+  overlay.classList.remove('hide');
+  overlay.innerHTML = `<h1 class="pixel">SHIFT OVER!</h1>
+    <p>Final score: <b>${score}</b></p>
+    <button id="restartBtn">RUN IT BACK</button>`;
+  document.getElementById('restartBtn').addEventListener('click', startGame);
+}
+
+function startGame(){
+  lives=3; score=0; orderCount=0; queue.forEach(c=>scene.remove(c.mesh)); queue=[];
+  build = blankBuild(); fry.chicken.state='empty'; fry.fries.state='empty';
+  livesVal.textContent='♥♥♥'; scoreVal.textContent='0';
+  overlay.classList.add('hide');
+  running=true;
+  spawnCustomer();
+  renderTray(); renderQueue(); renderTicket();
+}
+document.getElementById('startBtn').addEventListener('click', startGame);
+
+let last = performance.now();
+function loop(){
+  const now = performance.now();
+  const dt = (now-last)/1000; last=now;
+  if(running){
+    stepFry(dt);
+    if(queue.length){
+      queue[0].order.timeLeft -= dt;
+      if(queue[0].order.timeLeft<=0){
+        toast('Order timed out!', 'var(--bad)');
+        loseLife();
+        scene.remove(queue[0].mesh);
+        queue.shift();
+        build = blankBuild();
+        renderTray(); renderQueue();
+      }
+    }
+    renderTicket();
+  }
+  requestAnimationFrame(loop);
+}
+loop();
+animate();
+</script>
+</body>
+</html>
