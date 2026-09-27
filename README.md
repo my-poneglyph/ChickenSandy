@@ -352,3 +352,47 @@ on, expect to re-tune every colour and light in the project.
 
 `CS.game.teleport(col, row)` is available from the browser console as a debug helper
 for jumping straight to a station while testing.
+
+## Versioning and releases
+
+The game's version lives in exactly one place: `CS.VERSION` at the top of
+`src/config.js`. It is shown quietly on the start card and the pause card, so a bug
+report can say which build it came from — worth having, because `main` deploys
+itself and the live site moves on.
+
+`main` is the deploy branch, so **every merge into it is a release**, and
+`.github/workflows/release.yml` tags it:
+
+1. Read `CS.VERSION`.
+2. If `vX.Y.Z` is not tagged yet, release that — you bumped it in the pull request.
+   If it is, nobody bumped, so increment the patch and write it back to
+   `src/config.js`. Either way this merge gets a tag of its own.
+3. Rebuild `ChickenSandy-standalone.html`.
+4. Commit anything that changed back to `main` with `[skip ci]` in the message,
+   which is what stops the workflow retriggering itself.
+5. Push an annotated tag `vX.Y.Z` and publish a GitHub Release.
+
+So: **bump the minor by hand in a pull request that adds a feature**, and leave the
+version alone for fixes and chores. The bundler is the same `build-standalone.ps1`
+used locally — the workflow runs it with `shell: pwsh`, which ships on the GitHub
+ubuntu runners, so there is only ever one implementation of the bundling.
+
+Two consequences worth knowing:
+
+* **Do not hand-commit `ChickenSandy-standalone.html`.** CI regenerates it on `main`,
+  which means it can never fall behind `src/`, and keeps a 790KB generated file out
+  of pull request diffs where it would conflict with every parallel branch. It is
+  marked `linguist-generated` so GitHub collapses it. `build-standalone.ps1` is still
+  there for building a copy locally to test.
+* **A merge deploys twice** — once for the merge, once for CI's release commit. Both
+  are real content changes (the version on the cards moves), and an App Platform
+  static build is quick, so this is left alone rather than worked around.
+* If you ever put branch protection on `main`, give the workflow a path through it
+  or step 4 will fail.
+
+### Branching
+
+Work happens on a branch and lands through a pull request; nothing is committed
+straight to `main`, because `main` ships. At the start of a session: back to `main`,
+pull, then branch. Branches are named for what they do — `feature/…` for game
+changes, `chore/…` for tooling and repo work.

@@ -1,0 +1,116 @@
+# Tag every merge into main.
+#
+# main is the deploy branch -- DigitalOcean App Platform ships it automatically --
+# so every merge is a release and deserves a tag you can roll back to.
+#
+# The version lives in one place, CS.VERSION in src/config.js. This job reads it,
+# and:
+#   * if that tag does not exist yet, it uses it as-is (you bumped it in the PR);
+#   * if it does, nobody bumped, so the patch is incremented here.
+# Either way the merge ends up with a tag of its own.
+#
+# It also regenerates ChickenSandy-standalone.html, which is a build artifact that
+# is committed to the repo. Letting CI own it means it can never go stale behind
+# src/, and keeps a 790KB generated file out of pull request diffs where it
+# conflicts with every parallel branch.
+#
+# Any change made here is pushed back to main with [skip ci] in the message, which
+# GitHub honours by not starting another run -- that is what stops this looping.
+
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+# Never let two merges race each other to the same tag.
+concurrency:
+  group: release-main
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  tag:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0        # need the full tag list to know what is taken
+
+      - name: Read CS.VERSION and decide the release version
+        id: ver
+        run: |
+          set -euo pipefail
+          # `|| true` so a closed pipe under `set -o pipefail` cannot fail the
+          # step; the empty check below is what actually reports a bad parse.
+          current=$(sed -n "s/^[[:space:]]*CS\.VERSION[[:space:]]*=[[:space:]]*'\([0-9]\+\.[0-9]\+\.[0-9]\+\)'.*/\1/p" src/config.js | head -1 || true)
+          if [ -z "$current" ]; then
+            echo "::error file=src/config.js::Could not find CS.VERSION = 'X.Y.Z' in src/config.js"
+            exit 1
+          fi
+          echo "src/config.js says $current"
+
+          if git rev-parse -q --verify "refs/tags/v$current" >/dev/null; then
+            IFS=. read -r major minor patch <<< "$current"
+            version="$major.$minor.$((patch + 1))"
+            echo "v$current is already tagged, so this release is v$version"
+            echo "bumped=true" >> "$GITHUB_OUTPUT"
+          else
+            version="$current"
+            echo "v$version is free, releasing that"
+            echo "bumped=false" >> "$GITHUB_OUTPUT"
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      # The version goes through the environment rather than being interpolated
+      # straight into the script, which keeps perl's $1 and Actions' ${{ }} from
+      # fighting over the same syntax.
+      - name: Write the version back into src/config.js
+        if: steps.ver.outputs.bumped == 'true'
+        env:
+          VERSION: ${{ steps.ver.outputs.version }}
+        run: |
+          set -euo pipefail
+          perl -i -pe 's/^(\s*CS\.VERSION\s*=\s*.)[0-9]+\.[0-9]+\.[0-9]+(.)/$1$ENV{VERSION}$2/' src/config.js
+          grep -n "CS.VERSION" src/config.js
+
+      # Runs the same PowerShell script used locally, so there is only ever one
+      # bundler. pwsh ships on the GitHub ubuntu runners.
+      - name: Rebuild the standalone bundle
+        shell: pwsh
+        run: ./build-standalone.ps1
+
+      - name: Commit the version bump and the rebuilt bundle
+        env:
+          VERSION: ${{ steps.ver.outputs.version }}
+        run: |
+          set -euo pipefail
+          git config user.name  "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/config.js ChickenSandy-standalone.html
+          if git diff --cached --quiet; then
+            echo "Nothing to commit: the version was bumped in the PR and the bundle was current."
+          else
+            git commit -m "chore: release v$VERSION [skip ci]"
+            git push origin HEAD:main
+          fi
+
+      - name: Tag it
+        env:
+          VERSION: ${{ steps.ver.outputs.version }}
+        run: |
+          set -euo pipefail
+          git tag -a "v$VERSION" -m "Chicken Sandy v$VERSION"
+          git push origin "v$VERSION"
+
+      - name: Publish a GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.ver.outputs.version }}
+          SUBJECT: ${{ github.event.head_commit.message }}
+        run: |
+          set -euo pipefail
+          printf '%s\n\n%s\n' 'Merged into main and deployed.' "$SUBJECT" > /tmp/notes.md
+          gh release create "v$VERSION" --title "v$VERSION" --verify-tag --notes-file /tmp/notes.md

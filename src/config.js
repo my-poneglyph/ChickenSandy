@@ -4,6 +4,15 @@ window.CS = window.CS || {};
 (function (CS) {
   'use strict';
 
+  /* The one place the game's version is written down. Shown on the start and
+     pause cards, and read by .github/workflows/release.yml, which tags every
+     merge to main as vX.Y.Z.
+
+     Bump the MINOR by hand in a pull request that adds a feature; leave it
+     alone for fixes and chores and CI will bump the PATCH itself, so every
+     merge ends up with a tag of its own either way. */
+  CS.VERSION = '0.1.0';
+
   CS.TILE = 2.2;          // world units per map tile
   CS.WALL_H = 2.9;        // height of a plain wall block
   CS.LOW_WALL_H = 1.05;   // south wall is short so it never hides the kitchen

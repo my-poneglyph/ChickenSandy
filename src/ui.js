@@ -194,6 +194,12 @@ window.CS = window.CS || {};
     },
     hideScreen: function () { el.screen.classList.add('hidden'); el.screen.innerHTML = ''; },
 
+    /* Which build you are looking at. Handy when someone reports a bug against
+       a deploy that has already moved on -- every merge to main ships. */
+    versionHTML: function () {
+      return '<div class="ver">v' + (CS.VERSION || '0.0.0') + '</div>';
+    },
+
     howToHTML: function () {
       var touch = CS.platform && CS.platform.coarse;
       var controls = touch
@@ -236,7 +242,8 @@ window.CS = window.CS || {};
         '<p>You are the chef. You are also a chicken. Try not to think about the menu.</p>' +
         (bestDay > 1 ? '<p style="color:var(--gold)">Best run so far: Day ' + bestDay + '</p>' : '') +
         this.howToHTML() +
-        '<button class="big" id="startBtn">START DAY 1</button>');
+        '<button class="big" id="startBtn">START DAY 1</button>' +
+        this.versionHTML());
       c.querySelector('#startBtn').onclick = onStart;
       this.setHudVisible(false);
     },
@@ -317,7 +324,8 @@ window.CS = window.CS || {};
         '<button class="btn" id="pPix">PIXEL</button>' +
         '</div>' +
         '<button class="big" id="resumeBtn">RESUME</button>' +
-        '<button class="big" id="quitBtn" style="margin-left:10px;background:#5a381c;border-color:#2e1c0f;box-shadow:inset 0 3px 0 #8a5a2b,0 5px 0 #2e1c0f">END RUN</button>');
+        '<button class="big" id="quitBtn" style="margin-left:10px;background:#5a381c;border-color:#2e1c0f;box-shadow:inset 0 3px 0 #8a5a2b,0 5px 0 #2e1c0f">END RUN</button>' +
+        this.versionHTML());
       c.querySelector('#resumeBtn').onclick = onResume;
       c.querySelector('#quitBtn').onclick = onQuit;
       // settings live here on phones, where the corner buttons are hidden
