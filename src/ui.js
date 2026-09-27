@@ -3,7 +3,7 @@ window.CS = window.CS || {};
 (function (CS) {
   'use strict';
 
-  var el = {}, ticketEls = {};
+  var el = {}, ticketEls = {}, lastRailH = -1;
 
   function $(id) { return document.getElementById(id); }
   function chip(id) {
@@ -156,11 +156,20 @@ window.CS = window.CS || {};
           delete ticketEls[id];
         }
       });
+
+      // phone layout stacks the next HUD row directly under the rail, and the
+      // rail's height depends on how fussy the current tickets are
+      var h = el.tickets.offsetHeight;
+      if (h !== lastRailH) {
+        lastRailH = h;
+        document.documentElement.style.setProperty('--ticketH', h + 'px');
+      }
     },
 
     clearTickets: function () {
       el.tickets.innerHTML = '';
       ticketEls = {};
+      lastRailH = -1;
     },
 
     toast: function (msg, type) {

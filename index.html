@@ -277,14 +277,16 @@
   body.mobile #btnHelp{font-size:0;padding:7px 12px;border-width:3px;}
   body.mobile #btnHelp::after{content:'\275A\275A';font-size:13px;letter-spacing:1px;}
 
+  /* The hint sits just above the thumb controls; everything else stacks from
+     the top, offset by the live ticket-rail height (--ticketH, set in JS). */
   body.mobile #hint{
-    top:116px;bottom:auto;font-size:9px;padding:4px 9px;
-    max-width:92vw;white-space:normal;text-align:center;
+    top:auto;bottom:calc(184px + env(safe-area-inset-bottom));
+    font-size:9px;padding:4px 9px;max-width:88vw;white-space:normal;text-align:center;
   }
   body.mobile #hint .key{display:none;}
 
-  body.mobile #leftstack{top:146px;left:4px;bottom:auto;gap:4px;}
-  body.mobile #fryers{top:146px;right:4px;bottom:auto;
+  body.mobile #leftstack{top:calc(56px + var(--ticketH,60px));left:4px;bottom:auto;gap:4px;}
+  body.mobile #fryers{top:calc(56px + var(--ticketH,60px));right:4px;bottom:auto;
     flex-direction:column;align-items:flex-end;gap:3px;}
 
   body.mobile #tickets{left:4px;right:4px;top:52px;gap:4px;flex-wrap:nowrap;}
@@ -294,8 +296,6 @@
   body.mobile .ticket .tbody{font-size:8px;padding:3px 4px 1px;line-height:1.35;}
   body.mobile .line .bullet{display:none;}
   body.mobile .sub{padding-left:0;font-size:7px;gap:2px 3px;}
-  body.mobile .chip span:not(.sw){display:none;}   /* colour swatches only */
-  body.mobile .chip{gap:0;}
   body.mobile .bar{height:5px;}
 
   body.mobile .fry{min-width:58px;padding:2px 5px;border-width:2px;}
@@ -312,8 +312,8 @@
     body.mobile #hint{display:none;}
     body.mobile .ticket .tbody{font-size:7px;}
     body.mobile #tickets{top:44px;}
-    body.mobile #leftstack{top:104px;}
-    body.mobile #fryers{top:104px;}
+    body.mobile #leftstack{top:calc(46px + var(--ticketH,50px));}
+    body.mobile #fryers{top:calc(46px + var(--ticketH,50px));}
     body.mobile #toasts{bottom:calc(120px + env(safe-area-inset-bottom));}
     .tbtn{width:56px;height:56px;font-size:9px;}
     .tbtn.use{width:76px;height:76px;font-size:12px;}

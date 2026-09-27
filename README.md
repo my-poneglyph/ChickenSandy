@@ -46,6 +46,46 @@ powershell -ExecutionPolicy Bypass -File serve.ps1
 
 ---
 
+## Phones, tablets and Telegram
+
+The game detects a touch device and switches to an on-screen control scheme:
+
+* **Drag anywhere in the left half** for a floating analogue thumbstick — the stick
+  appears where your thumb lands, so you never have to look for it.
+* **USE / JUMP / DASH** buttons sit bottom-right under your other thumb. Holding
+  JUMP still glides, and the JUMP button relabels itself `FLAP ••` → `GLIDE` as you
+  spend flaps; DASH greys out while it's cooling down.
+* The HUD switches to a compact layout: one thin stats row, a four-across ticket
+  rail, then held-item and fryer read-outs. The rail's height is measured live, so
+  the rows below it never collide with a fussy ticket.
+* Camera, sound and pixel-size toggles move into the pause card (tap **❚❚**).
+* Phones render at half resolution with a smaller shadow map and one less light.
+
+Both portrait and landscape work; landscape shows considerably more kitchen.
+
+Add `?ui=mobile` or `?ui=desktop` to the URL to force either layout for testing.
+
+### Deploying as a Telegram Mini App
+
+The game is a static site, so any HTTPS host works — GitHub Pages, Cloudflare Pages,
+Netlify, Vercel, or your own server.
+
+1. Upload either the whole folder (`index.html`, `src/`, `vendor/`) or just
+   `ChickenSandy-standalone.html`, which is the entire game in one file and is the
+   simplest thing to host.
+2. In [@BotFather](https://t.me/BotFather): create a bot, then `/newapp` to attach a
+   Mini App pointing at your HTTPS URL (or `/setmenubutton` for a menu-button app).
+3. Open it from Telegram.
+
+There is nothing to configure in the code. On load the game checks whether it is
+running inside Telegram and, if so, calls `ready()`, `expand()`,
+`disableVerticalSwipes()` (so dragging the thumbstick can't close the app), matches
+the header and background to the game's palette, and follows Telegram's
+`viewportChanged` events as the webview resizes. Jump, dash and USE also fire haptic
+feedback. Outside Telegram none of that runs, and the Telegram SDK is only fetched
+when the page is served over http(s) — opened from the filesystem the game makes no
+network requests at all.
+
 ## Controls
 
 | Key | Action |
@@ -158,6 +198,8 @@ number and kind of sauce cups, fries present or not.
 index.html                    page, HUD markup and all the CSS
 vendor/three.min.js           Three.js r128 (vendored so it runs offline)
 src/
+  platform.js                 touch/mobile detection, viewport sizing, Telegram
+  touch.js                    on-screen thumbstick and action buttons
   config.js                   map, recipes, timings, scoring, difficulty curve
   textures.js                 procedural 16x16 pixel textures (wood, oil, breading…)
   models.js                   voxel builders: chef, customers, food, signs, labels
