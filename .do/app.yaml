@@ -1,0 +1,23 @@
+# DigitalOcean App Platform spec for Chicken Sandy.
+#
+# The game is a plain static site: no build step, no server, no runtime network
+# calls. The `html` environment slug tells App Platform to skip buildpack
+# detection entirely and just serve the repo root through its CDN.
+#
+# First deploy:
+#   doctl apps create --spec .do/app.yaml
+# Later updates happen automatically on every push to main.
+name: chicken-sandy
+region: nyc
+
+static_sites:
+  - name: web
+    github:
+      repo: my-poneglyph/ChickenSandy
+      branch: main
+      deploy_on_push: true
+    source_dir: /
+    output_dir: /
+    environment_slug: html
+    index_document: index.html
+    error_document: index.html
