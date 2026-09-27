@@ -59,9 +59,14 @@ The game detects a touch device and switches to an on-screen control scheme:
   rail, then held-item and fryer read-outs. The rail's height is measured live, so
   the rows below it never collide with a fussy ticket.
 * Camera, sound and pixel-size toggles move into the pause card (tap **❚❚**).
-* Phones render at half resolution with a smaller shadow map and one less light.
+* Phones render at CSS resolution with a smaller shadow map and one less light.
 
-Both portrait and landscape work; landscape shows considerably more kitchen.
+Both orientations work, and the ticket rail is laid out differently in each.
+Portrait has height to spare, so the rail runs across the top. Landscape does not —
+a phone on its side is about 810x375, where a full-width rail costs a quarter of the
+screen and covers the back of the kitchen — so below 470px tall the rail rotates into
+a slim column down the left edge, the held-item card drops to the bottom, and the
+thumbstick zone starts clear of the column. Same information, out of the play space.
 
 Add `?ui=mobile` or `?ui=desktop` to the URL to force either layout for testing.
 
@@ -219,7 +224,7 @@ src/
   interact.js                 item data + resolve(): the single "what does E do" rule
   orders.js                   customer queue, ticket generation, order matching
   ui.js                       ticket rail, held-item card, hint line, screens
-  audio.js                    WebAudio chiptune SFX and music loop
+  audio.js                    WebAudio SFX plus the four-voice music engine
   game.js                     renderer, camera, player, main loop, scoring
 build-standalone.ps1          bundles everything into one HTML file
 serve.ps1                     optional zero-dependency local server
@@ -244,6 +249,28 @@ Movement feel lives at the top of `src/game.js`: `GRAVITY`, `JUMP_V`, `FLAP_V`,
 `MAX_FLAPS`, `GLIDE_FALL`, `DASH_SPEED`, `DASH_TIME`, `DASH_CD`. The chef's poses are
 all in one function, `animateChef()`, which blends standing, walking, sprinting,
 airborne and flapping.
+
+### The music
+
+`src/audio.js` synthesises everything; there are no audio files. The music is four
+bars of **Am7 - Dm7 - G7 - Cmaj7** at 82bpm played by four voices — a swelling pad
+behind a slowly-breathing lowpass, a plucked bass that walks a semitone into each
+chord change, an off-beat electric-piano figure and a sparse melody on the C major
+pentatonic, with a dotted-eighth delay on the two lead voices. The pad and bass are
+fixed; the piano and melody are chosen per bar with rests and a random walk, so the
+loop never lands the same way twice, and the melody sits out the first time round so
+the shift opens quietly.
+
+Notes are queued ahead against `ctx.currentTime` by a lookahead scheduler rather than
+fired one at a time from `setInterval`, which is what keeps the timing steady — and
+the queue is 1.4s deep so a backgrounded tab, where timers are throttled to roughly
+one tick a second, does not punch holes in the loop.
+
+To retune it, `PROG` is the chord progression, `PENT` the melody's note pool, and
+`BPM` the tempo; each voice (`pad`, `bass`, `keys`, `melody`, `brush`) is a short
+function of its own, and `scheduleStep` decides what plays on which sixteenth.
+`CS.audio.debug()` returns the live `AudioContext` and gain nodes so the mix can be
+metered with an `AnalyserNode` instead of judged by ear.
 
 ### A note on colour
 

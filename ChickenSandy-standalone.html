@@ -13,6 +13,7 @@
     --wood:#8a5a2b; --wood-dk:#2e1c0f; --wood-md:#5a381c; --cream:#f7e9cd;
     --gold:#f0a63c; --red:#c0392b; --red-dk:#7e2419; --green:#6fbf3a;
     --ink:#2c1c10; --paper:#f4e4c1; --paper-dk:#d9c298;
+    --railW:146px;   /* width of the landscape ticket column */
   }
   *{box-sizing:border-box;margin:0;padding:0;}
   html,body{height:100%;overflow:hidden;background:#1a1009;}
@@ -310,18 +311,50 @@
   body.mobile #toasts{top:auto;bottom:calc(178px + env(safe-area-inset-bottom));}
   body.mobile .toast{font-size:10px;padding:4px 9px;border-width:2px;}
 
-  /* Short landscape phones: drop the hint row and tighten everything up. */
+  /* ---------------------------------------------- short landscape phones ---
+     A phone on its side is ~810x375: wide, but desperately short. The portrait
+     rail -- a full-width band of tickets across the top -- costs 23% of the
+     height there, straight across the back of the kitchen. Height is the
+     scarce axis in landscape and width is the plentiful one, so the rail turns
+     ninety degrees: a slim column down the left edge. Same screen area, out of
+     the play space. Everything else tightens up around it. */
   @media (max-height:470px){
     body.mobile #hint{display:none;}
-    body.mobile .ticket .tbody{font-size:7px;}
-    body.mobile #tickets{top:44px;}
-    body.mobile #leftstack{top:calc(46px + var(--ticketH,50px));}
-    body.mobile #fryers{top:calc(46px + var(--ticketH,50px));}
-    body.mobile #toasts{bottom:calc(120px + env(safe-area-inset-bottom));}
+
+    body.mobile #tickets{
+      left:4px; right:auto; top:40px; bottom:4px;
+      width:var(--railW);
+      flex-direction:column; flex-wrap:wrap; align-content:flex-start;
+      gap:4px;
+    }
+    /* Tickets size to their own content and stack downwards; if a busy day
+       overflows the column, flex-wrap starts a second one beside it rather
+       than clipping the fourth order off the bottom. */
+    body.mobile .ticket{flex:0 0 auto;width:var(--railW);}
+    body.mobile .ticket .thead{font-size:7px;padding:2px 3px;}
+    body.mobile .ticket .face{width:8px;height:8px;}
+    body.mobile .ticket .tbody{font-size:7px;padding:2px 4px 1px;line-height:1.3;}
+    body.mobile .sub{font-size:6px;gap:1px 3px;}
+    body.mobile .sw{width:6px;height:6px;}
+    body.mobile .bar{height:4px;margin-top:3px;}
+
+    /* the held card moves out from under the old rail to the bottom, between
+       the ticket column and the thumb buttons */
+    body.mobile #leftstack{
+      top:auto; bottom:calc(6px + env(safe-area-inset-bottom));
+      left:calc(var(--railW) + 10px);
+    }
+    body.mobile #held{max-width:30vw;}
+    body.mobile #fryers{top:40px;}
+    body.mobile #toasts{top:auto;bottom:calc(96px + env(safe-area-inset-bottom));}
+
     .tbtn{width:56px;height:56px;font-size:9px;}
     .tbtn.use{width:76px;height:76px;font-size:12px;}
     #stick{width:98px;height:98px;margin:-49px 0 0 -49px;}
     #nub{width:42px;height:42px;}
+    /* start the drag zone clear of the ticket column, so the floating stick
+       never springs up underneath an order */
+    body.mobile #stickZone{left:var(--railW);width:calc(52% - var(--railW) + 90px);}
   }
 
   /* Cards must scroll on a phone rather than overflow off-screen. */
@@ -766,7 +799,8 @@ window.CS = window.CS || {};
   'use strict';
 
   var ctx = null, master = null, musicGain = null, sizzleGain = null;
-  var muted = false, started = false, noiseBuf = null, musicTimer = null, step = 0;
+  var muted = false, started = false, noiseBuf = null, musicTimer = null;
+  var padBus = null, padFilter = null, leadBus = null;
 
   function ensure() {
     if (ctx) return ctx;
@@ -774,7 +808,33 @@ window.CS = window.CS || {};
     if (!AC) return null;
     ctx = new AC();
     master = ctx.createGain(); master.gain.value = 0.45; master.connect(ctx.destination);
-    musicGain = ctx.createGain(); musicGain.gain.value = 0.16; musicGain.connect(master);
+    musicGain = ctx.createGain(); musicGain.gain.value = 0.20; musicGain.connect(master);
+
+    /* ---- music buses ----
+       The pad goes through its own slowly-breathing lowpass so the chords
+       swell rather than sit there; the two lead voices share a dotted-eighth
+       delay, which is what turns a handful of sparse notes into something
+       that sounds like a room rather than a beep. */
+    padFilter = ctx.createBiquadFilter();
+    padFilter.type = 'lowpass'; padFilter.frequency.value = 820; padFilter.Q.value = 0.4;
+    padBus = ctx.createGain(); padBus.gain.value = 1;
+    padBus.connect(padFilter); padFilter.connect(musicGain);
+
+    var lfo = ctx.createOscillator(), lfoAmt = ctx.createGain();
+    lfo.frequency.value = 0.055;            // one slow breath every ~18s
+    lfoAmt.gain.value = 260;
+    lfo.connect(lfoAmt); lfoAmt.connect(padFilter.frequency);
+    lfo.start();
+
+    leadBus = ctx.createGain(); leadBus.gain.value = 1;
+    leadBus.connect(musicGain);
+    var delay = ctx.createDelay(1.0), fb = ctx.createGain(), wet = ctx.createGain();
+    delay.delayTime.value = STEP * 3;       // dotted eighth
+    fb.gain.value = 0.30; wet.gain.value = 0.30;
+    leadBus.connect(delay); delay.connect(fb); fb.connect(delay);
+    var damp = ctx.createBiquadFilter();    // each repeat a little darker
+    damp.type = 'lowpass'; damp.frequency.value = 2200;
+    delay.connect(damp); damp.connect(wet); wet.connect(musicGain);
 
     // white-noise buffer reused by the fryer sizzle and the trash thunk
     var n = ctx.sampleRate * 1.2;
@@ -811,30 +871,155 @@ window.CS = window.CS || {};
     s.start(t); s.stop(t + dur);
   }
 
-  /* ---------------------------------------------------------- music loop */
-  // Two-bar warm shuffle in A minor pentatonic. Low and unobtrusive.
-  var BASS = [110, 110, 146.8, 146.8, 164.8, 164.8, 130.8, 130.8];
-  var LEAD = [440, 523.3, 440, 392, 349.2, 392, 440, 523.3];
+  /* ======================================================== music =========
+     Four bars of Am7 - Dm7 - G7 - Cmaj7 at 82bpm, played by four soft voices:
+     a swelling pad, a plucked bass that walks into each change, an off-beat
+     electric-piano figure and a sparse pentatonic melody. Only the pad and
+     bass are on a fixed pattern; the piano and melody are chosen per bar with
+     rests, so the loop never lands the same way twice.
 
-  function musicStep() {
-    if (muted || !ctx) return;
-    var t = ctx.currentTime, i = step % 8;
+     Two deliberate differences from the old loop. It is not a square wave --
+     every voice is a sine or triangle with a real attack, which is what makes
+     the difference between a tone and a beep. And notes are scheduled ahead
+     against ctx.currentTime instead of being fired from setInterval, so the
+     timing does not drift, stutter under load, or fire in a clump when a
+     backgrounded tab wakes up.                                             */
+
+  var BPM = 82;
+  var STEP = 60 / BPM / 4;        // one sixteenth, ~0.183s
+  var BAR = STEP * 16;
+  // A generous queue: a backgrounded tab throttles setInterval to about once a
+  // second, and anything shorter than that would leave audible holes in the
+  // loop every time the player switched away and back.
+  var AHEAD = 1.4;                // seconds of notes kept queued
+  var stepIndex = 0, nextStepTime = 0, loopCount = 0;
+
+  // root, then the voicing the pad and piano draw from
+  var PROG = [
+    { root: 110.00, notes: [220.00, 261.63, 329.63, 392.00] },   // Am7
+    { root: 146.83, notes: [293.66, 349.23, 440.00, 523.25] },   // Dm7
+    { root:  98.00, notes: [196.00, 246.94, 293.66, 349.23] },   // G7
+    { root: 130.81, notes: [261.63, 329.63, 392.00, 493.88] }    // Cmaj7
+  ];
+  // C major pentatonic: every note of it is consonant over all four chords,
+  // which is why the melody can wander freely without ever needing to resolve
+  var PENT = [392.00, 440.00, 523.25, 587.33, 659.25, 783.99, 880.00, 1046.50];
+  var melIdx = 3;
+
+  function clamp(v, a, b) { return v < a ? a : (v > b ? b : v); }
+
+  /* A plain ADSR on a gain node. linearRamp, not exponentialRamp, because the
+     exponential form cannot reach zero and leaves every note buzzing. */
+  function shape(g, t, peak, atk, dur, rel) {
+    g.gain.setValueAtTime(0, t);
+    g.gain.linearRampToValueAtTime(peak, t + atk);
+    g.gain.setValueAtTime(peak, t + Math.max(atk, dur));
+    g.gain.linearRampToValueAtTime(0, t + Math.max(atk, dur) + rel);
+  }
+
+  function pad(ch, t) {
+    ch.notes.forEach(function (f, i) {
+      [-5, 6].forEach(function (cents) {      // two slightly detuned layers
+        var o = ctx.createOscillator(), g = ctx.createGain();
+        o.type = i % 2 ? 'sine' : 'triangle';
+        o.frequency.value = f;
+        o.detune.value = cents;
+        shape(g, t, 0.036, 0.85, BAR - 0.55, 0.75);
+        o.connect(g); g.connect(padBus);
+        o.start(t); o.stop(t + BAR + 0.4);
+      });
+    });
+  }
+
+  function bass(f, t, dur, vol) {
     var o = ctx.createOscillator(), g = ctx.createGain();
-    o.type = 'triangle'; o.frequency.value = BASS[i];
-    g.gain.setValueAtTime(0.0001, t);
-    g.gain.exponentialRampToValueAtTime(0.5, t + 0.02);
-    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.34);
-    o.connect(g); g.connect(musicGain); o.start(t); o.stop(t + 0.36);
+    o.type = 'sine'; o.frequency.value = f;
+    shape(g, t, vol == null ? 0.30 : vol, 0.018, dur * 0.45, dur * 0.55);
+    o.connect(g); g.connect(musicGain);
+    o.start(t); o.stop(t + dur + 0.1);
+    // a quiet octave up so the bass still reads on a phone speaker
+    var o2 = ctx.createOscillator(), g2 = ctx.createGain();
+    o2.type = 'triangle'; o2.frequency.value = f * 2;
+    shape(g2, t, 0.045, 0.012, dur * 0.25, dur * 0.4);
+    o2.connect(g2); g2.connect(musicGain);
+    o2.start(t); o2.stop(t + dur + 0.1);
+  }
 
-    if (i % 2 === 0) {
-      var o2 = ctx.createOscillator(), g2 = ctx.createGain();
-      o2.type = 'square'; o2.frequency.value = LEAD[i];
-      g2.gain.setValueAtTime(0.0001, t);
-      g2.gain.exponentialRampToValueAtTime(0.13, t + 0.02);
-      g2.gain.exponentialRampToValueAtTime(0.0001, t + 0.24);
-      o2.connect(g2); g2.connect(musicGain); o2.start(t); o2.stop(t + 0.26);
+  function keys(f, t, vol) {
+    var o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = 'triangle'; o.frequency.value = f;
+    shape(g, t, vol, 0.012, 0.06, 0.55);
+    o.connect(g); g.connect(leadBus);
+    o.start(t); o.stop(t + 0.7);
+  }
+
+  function melody(f, t) {
+    var o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = 'sine'; o.frequency.value = f;
+    shape(g, t, 0.105, 0.02, 0.10, 0.85);
+    o.connect(g); g.connect(leadBus);
+    o.start(t); o.stop(t + 1.0);
+    // a whisper of the octave above gives it a glassy, bell-like edge
+    var o2 = ctx.createOscillator(), g2 = ctx.createGain();
+    o2.type = 'sine'; o2.frequency.value = f * 2;
+    shape(g2, t, 0.024, 0.02, 0.05, 0.45);
+    o2.connect(g2); g2.connect(leadBus);
+    o2.start(t); o2.stop(t + 0.6);
+  }
+
+  /* Brushed backbeat: filtered noise, nowhere near a drum machine. */
+  function brush(t, vol) {
+    var s = ctx.createBufferSource(); s.buffer = noiseBuf;
+    s.playbackRate.value = 1.8;
+    var f = ctx.createBiquadFilter(); f.type = 'highpass'; f.frequency.value = 5200;
+    var g = ctx.createGain();
+    g.gain.setValueAtTime(vol, t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.09);
+    s.connect(f); f.connect(g); g.connect(musicGain);
+    s.start(t); s.stop(t + 0.12);
+  }
+
+  function scheduleStep(i, t) {
+    var bar = (i >> 4) & 3, s = i & 15;
+    var ch = PROG[bar], next = PROG[(bar + 1) & 3];
+
+    if (s === 0) { pad(ch, t); bass(ch.root, t, 0.85); }
+    if (s === 6) bass(ch.root, t, 0.34, 0.20);
+    if (s === 8) bass(ch.root * 1.5, t, 0.62, 0.26);     // the fifth
+    // walk a semitone into the next chord on the last eighth of the bar
+    if (s === 14) bass(next.root * 0.9439, t, 0.30, 0.19);
+
+    // electric piano on the off-beats, two of the four slots per bar
+    if (s === 2 || s === 7 || s === 10 || s === 15) {
+      if (Math.random() < 0.55) {
+        keys(ch.notes[1 + ((i + bar) % 3)], t, 0.055 + Math.random() * 0.02);
+      }
     }
-    step++;
+
+    // the melody sits out the first loop, so the shift opens quietly
+    if (loopCount > 0 && (s === 0 || s === 3 || s === 6 || s === 10 || s === 12)) {
+      if (Math.random() < 0.38) {
+        var jump = Math.random() < 0.72 ? 1 : 2;
+        melIdx = clamp(melIdx + (Math.random() < 0.5 ? -jump : jump), 0, PENT.length - 1);
+        melody(PENT[melIdx], t);
+      }
+    }
+
+    if (s === 4 || s === 12) brush(t, s === 12 ? 0.030 : 0.020);
+
+    if (i === 63) loopCount++;
+  }
+
+  /* Lookahead scheduler: queue everything that falls inside the next AHEAD
+     seconds, then go back to sleep. Called far more often than a note lands. */
+  function pump() {
+    if (!ctx) return;
+    while (nextStepTime < ctx.currentTime + AHEAD) {
+      if (nextStepTime < ctx.currentTime) nextStepTime = ctx.currentTime + 0.02;
+      if (!muted) scheduleStep(stepIndex, nextStepTime);
+      stepIndex = (stepIndex + 1) & 63;
+      nextStepTime += STEP;
+    }
   }
 
   CS.audio = {
@@ -846,16 +1031,22 @@ window.CS = window.CS || {};
     startMusic: function () {
       this.resume();
       if (musicTimer || !ctx) return;
-      step = 0;
-      musicStep();
-      musicTimer = setInterval(musicStep, 340);
+      stepIndex = 0; loopCount = 0; melIdx = 3;
+      nextStepTime = ctx.currentTime + 0.08;
+      pump();
+      musicTimer = setInterval(pump, 40);
     },
+    // the timer stops, but notes already queued are left to ring out
     stopMusic: function () { if (musicTimer) { clearInterval(musicTimer); musicTimer = null; } },
     setMuted: function (m) {
       muted = m;
       if (master) master.gain.value = m ? 0 : 0.45;
     },
     isMuted: function () { return muted; },
+
+    /* Matches CS.game.debug(): hands the console the live nodes so the mix can
+       be metered with an AnalyserNode rather than judged by ear. */
+    debug: function () { return { ctx: ctx, master: master, music: musicGain, step: stepIndex }; },
 
     /* one-shots */
     pick:    function () { tone(520, 0.07, 'square', 0.16, 720); },
@@ -1154,7 +1345,8 @@ window.CS = window.CS || {};
 
   CS.mat = function (o) {
     o = o || {};
-    var key = [o.color || 0xffffff, o.tex || '-', o.emissive || 0,
+    var rep = o.rep ? (o.rep[0] + 'x' + o.rep[1]) : '-';
+    var key = [o.color || 0xffffff, o.tex || '-', rep, o.emissive || 0,
       o.opacity == null ? 1 : o.opacity, o.basic ? 1 : 0, o.vc ? 1 : 0].join('|');
     if (matCache[key]) return matCache[key];
     var params = {
@@ -1162,7 +1354,9 @@ window.CS = window.CS || {};
       transparent: o.opacity != null && o.opacity < 1,
       opacity: o.opacity == null ? 1 : o.opacity
     };
-    if (o.tex) params.map = CS.tex(o.tex);
+    // `rep` keeps a pattern at a fixed scale on faces of different sizes --
+    // without it a short panel stretches one tile of the checker into stripes
+    if (o.tex) params.map = o.rep ? CS.texRepeat(o.tex, o.rep[0], o.rep[1]) : CS.tex(o.tex);
     if (o.emissive) params.emissive = o.emissive;
     if (o.vc) params.vertexColors = true;
     var m = o.basic ? new THREE.MeshBasicMaterial(params) : new THREE.MeshLambertMaterial(params);
@@ -1179,7 +1373,8 @@ window.CS = window.CS || {};
       mat = m;
     } else {
       var o = (typeof m === 'number') ? { color: m } : (m || {});
-      mat = CS.mat({ color: o.color, tex: o.tex, emissive: o.emissive, opacity: o.opacity, basic: o.basic, vc: true });
+      mat = CS.mat({ color: o.color, tex: o.tex, rep: o.rep, emissive: o.emissive,
+                     opacity: o.opacity, basic: o.basic, vc: true });
     }
     var mesh = new THREE.Mesh(BOX, mat);
     mesh.scale.set(w, h, d);
@@ -1197,6 +1392,16 @@ window.CS = window.CS || {};
      Built from a lot of small blocks rather than a few big ones, so the face
      shading has edges to work with and the silhouette reads at a distance.
      Every animated piece gets its own pivot group. */
+  /* A rounded slab: two crossed boxes whose union is an octagon rather than a
+     rectangle, so the corners read as curved instead of square. Stacking these
+     with a taper is how the bird gets an egg-shaped silhouette while every
+     piece stays an axis-aligned voxel and keeps the baked face shading. */
+  function slab(parent, w, h, d, mat, y, z, corner) {
+    var k = corner == null ? 0.76 : corner;
+    add(parent, CS.box(w, h, d * k, mat, 0, y, z || 0));
+    add(parent, CS.box(w * k, h, d, mat, 0, y, z || 0));
+  }
+
   CS.models.chef = function () {
     var g = new THREE.Group();
     var parts = {};
@@ -1212,9 +1417,10 @@ window.CS = window.CS || {};
     ['legL', 'legR'].forEach(function (id, i) {
       var s = i ? 1 : -1;
       var leg = new THREE.Group();
-      leg.position.set(s * 0.13, 0, 0);
+      leg.position.set(s * 0.15, 0, 0);
       hips.add(leg);
-      add(leg, CS.box(0.15, 0.13, 0.15, PLUME_D, 0, -0.05, 0));      // feathered thigh
+      add(leg, CS.box(0.20, 0.15, 0.20, PLUME_D, 0, -0.04, 0));      // feathered thigh
+      add(leg, CS.box(0.15, 0.07, 0.15, PLUME_D, 0, -0.13, 0));      // fluff over the shin
       add(leg, CS.box(0.10, 0.20, 0.10, SHIN, 0, -0.21, 0));          // scaly shin
       add(leg, CS.box(0.12, 0.06, 0.12, FOOT, 0, -0.33, 0));          // ankle
       add(leg, CS.box(0.07, 0.05, 0.20, FOOT, 0, -0.35, 0.09));       // middle toe
@@ -1225,73 +1431,98 @@ window.CS = window.CS || {};
       parts[id] = leg;
     });
 
-    /* ---- body ---- */
+    /* ---- body ----
+       Six tapered slabs instead of one torso box: narrow and tucked under the
+       tail, bulging through the middle, drawing back in at the shoulders. The
+       breast layers are pushed slightly forward as well as out, so she is
+       round from the side as well as from the front. */
     var body = new THREE.Group(); body.position.y = 0.28; g.add(body);
     parts.body = body;
-    add(body, CS.box(0.58, 0.52, 0.42, PLUME, 0, 0.28, 0));           // torso
-    add(body, CS.box(0.52, 0.17, 0.38, PLUME_D, 0, 0.04, 0));         // belly
-    add(body, CS.box(0.46, 0.13, 0.10, PLUME, 0, 0.45, 0.19));        // collar ruff
-    add(body, CS.box(0.30, 0.22, 0.08, PLUME_D, 0, 0.44, -0.20));     // shoulder hump
+    slab(body, 0.42, 0.10, 0.34, PLUME_D, 0.03, -0.01);   // tucked underside
+    slab(body, 0.58, 0.10, 0.46, PLUME_D, 0.12, 0.015);   // lower belly
+    slab(body, 0.68, 0.12, 0.55, PLUME, 0.22, 0.025);     // widest point
+    slab(body, 0.69, 0.11, 0.56, PLUME, 0.33, 0.02);      // breast
+    slab(body, 0.61, 0.10, 0.48, PLUME, 0.43, 0.005);     // upper chest
+    slab(body, 0.48, 0.09, 0.37, PLUME, 0.52, -0.01);     // shoulders
+    add(body, CS.box(0.44, 0.12, 0.10, PLUME, 0, 0.50, 0.20));        // collar ruff
+    add(body, CS.box(0.32, 0.24, 0.09, PLUME_D, 0, 0.46, -0.22));     // shoulder hump
 
-    // tail: three fanned quills on their own pivot so they can sway
+    // tail: a perky fan off the rump, not the middle of the back. A block of
+    // rump fluff first, so the quills grow out of the bird instead of hanging
+    // behind it.
+    add(body, CS.box(0.34, 0.20, 0.14, PLUME_D, 0, 0.19, -0.25));
     parts.tail = new THREE.Group();
-    parts.tail.position.set(0, 0.32, -0.19);
+    parts.tail.position.set(0, 0.22, -0.28);
     body.add(parts.tail);
-    [[-0.11, 0.05, -0.30], [0, 0.11, 0], [0.11, 0.05, 0.30]].forEach(function (q, i) {
-      var f = add(parts.tail, CS.box(0.13, 0.26, 0.10, i === 1 ? PLUME : QUILL, q[0], q[1], -0.06));
-      f.rotation.x = -0.55;
+    [[-0.125, 0.00, -0.34], [-0.043, 0.05, -0.11],
+     [0.043, 0.05, 0.11], [0.125, 0.00, 0.34]].forEach(function (q, i) {
+      var mid = (i === 1 || i === 2);
+      var f = add(parts.tail, CS.box(mid ? 0.12 : 0.10, mid ? 0.23 : 0.19, 0.09,
+        mid ? PLUME : QUILL, q[0], q[1], -0.03));
+      f.rotation.x = -0.42;
       f.rotation.z = q[2];
     });
 
-    // apron: bib, waist band and two ties
-    add(body, CS.box(0.46, 0.36, 0.03, { color: 0xffffff, tex: 'checker' }, 0, 0.24, 0.252));
-    add(body, CS.box(0.54, 0.10, 0.05, { color: 0xc23a2c }, 0, 0.06, 0.245));
-    add(body, CS.box(0.06, 0.22, 0.03, { color: 0xc23a2c }, -0.17, 0.49, 0.235));
-    add(body, CS.box(0.06, 0.22, 0.03, { color: 0xc23a2c }, 0.17, 0.49, 0.235));
-    add(body, CS.box(0.07, 0.12, 0.03, { color: 0xa82e22 }, -0.25, 0.04, 0.10));
-    add(body, CS.box(0.07, 0.12, 0.03, { color: 0xa82e22 }, 0.25, 0.04, 0.10));
+    // apron: the bib is now three stepped panels so it lies on the curve of
+    // the breast instead of floating off it as one flat sheet would
+    // rep keeps the squares square across both panels instead of letting each
+    // one stretch a single tile of the checker into a band
+    var CHECK = { color: 0xffffff, tex: 'checker', rep: [2, 1] };
+    add(body, CS.box(0.42, 0.15, 0.03, CHECK, 0, 0.385, 0.262));
+    add(body, CS.box(0.46, 0.34, 0.03, CHECK, 0, 0.215, 0.298));
+    add(body, CS.box(0.50, 0.09, 0.05, { color: 0xc23a2c }, 0, 0.045, 0.215));
+    add(body, CS.box(0.06, 0.22, 0.03, { color: 0xc23a2c }, -0.16, 0.52, 0.215));
+    add(body, CS.box(0.06, 0.22, 0.03, { color: 0xc23a2c }, 0.16, 0.52, 0.215));
+    add(body, CS.box(0.07, 0.12, 0.03, { color: 0xa82e22 }, -0.27, 0.05, 0.10));
+    add(body, CS.box(0.07, 0.12, 0.03, { color: 0xa82e22 }, 0.27, 0.05, 0.10));
 
     /* ---- wings: upper arm + primary feathers, pivot at the shoulder ---- */
     ['wingL', 'wingR'].forEach(function (id, i) {
       var s = i ? 1 : -1;
       var w = new THREE.Group();
-      w.position.set(s * 0.31, 0.46, 0);
+      w.position.set(s * 0.33, 0.45, 0.01);
       body.add(w);
-      add(w, CS.box(0.11, 0.28, 0.26, PLUME, s * 0.04, -0.13, 0.01));
-      add(w, CS.box(0.09, 0.16, 0.30, QUILL, s * 0.06, -0.31, -0.02));   // primaries
-      add(w, CS.box(0.08, 0.07, 0.12, QUILL, s * 0.07, -0.40, -0.10));   // tip
+      // a fuller wing that tapers down and back, so from the side it folds
+      // against the body instead of standing off it like a paddle
+      add(w, CS.box(0.10, 0.16, 0.26, PLUME, s * 0.015, -0.06, 0.03));
+      add(w, CS.box(0.10, 0.15, 0.29, PLUME, s * 0.035, -0.19, 0.00));
+      add(w, CS.box(0.08, 0.15, 0.28, QUILL, s * 0.05, -0.32, -0.03));   // primaries
+      add(w, CS.box(0.07, 0.07, 0.14, QUILL, s * 0.055, -0.41, -0.11));  // tip
       parts[id] = w;
     });
 
     /* ---- head ---- */
-    var head = new THREE.Group(); head.position.set(0, 0.60, 0.02); body.add(head);
+    var head = new THREE.Group(); head.position.set(0, 0.61, 0.02); body.add(head);
     parts.head = head;
     add(head, CS.box(0.30, 0.16, 0.28, PLUME_D, 0, 0.02, 0));         // neck
-    add(head, CS.box(0.44, 0.38, 0.40, PLUME, 0, 0.22, 0));           // skull
-    add(head, CS.box(0.34, 0.10, 0.32, PLUME_D, 0, 0.06, 0.01));      // jaw shadow
-    add(head, CS.box(0.14, 0.12, 0.14, PLUME, -0.14, 0.24, -0.10));   // cheek tufts
-    add(head, CS.box(0.14, 0.12, 0.14, PLUME, 0.14, 0.24, -0.10));
+    // the skull gets the same slab treatment as the body: a round little head
+    slab(head, 0.38, 0.09, 0.34, PLUME_D, 0.09, 0.005);               // jowl
+    slab(head, 0.46, 0.15, 0.42, PLUME, 0.20, 0.01);                  // widest
+    slab(head, 0.44, 0.11, 0.40, PLUME, 0.31, 0.005);
+    slab(head, 0.34, 0.07, 0.31, PLUME, 0.39, 0);                     // crown
+    add(head, CS.box(0.15, 0.13, 0.15, PLUME, -0.15, 0.22, -0.11));   // cheek tufts
+    add(head, CS.box(0.15, 0.13, 0.15, PLUME, 0.15, 0.22, -0.11));
 
     // eyes on their own group so they can blink
     parts.eyes = new THREE.Group();
     head.add(parts.eyes);
     [-1, 1].forEach(function (s) {
-      add(parts.eyes, CS.box(0.11, 0.12, 0.02, { color: 0xf6f3ea }, s * 0.11, 0.25, 0.181));
-      add(parts.eyes, CS.box(0.07, 0.09, 0.02, { color: 0x161210 }, s * 0.115, 0.25, 0.191));
-      add(parts.eyes, CS.box(0.03, 0.03, 0.02, { color: 0xffffff }, s * 0.09, 0.28, 0.20));
+      add(parts.eyes, CS.box(0.11, 0.12, 0.02, { color: 0xf6f3ea }, s * 0.11, 0.23, 0.201));
+      add(parts.eyes, CS.box(0.07, 0.09, 0.02, { color: 0x161210 }, s * 0.115, 0.23, 0.211));
+      add(parts.eyes, CS.box(0.03, 0.03, 0.02, { color: 0xffffff }, s * 0.09, 0.26, 0.22));
     });
 
     // beak in two halves, with the lower one able to open
-    add(head, CS.box(0.19, 0.09, 0.16, BEAK, 0, 0.165, 0.235));
-    add(head, CS.box(0.13, 0.04, 0.12, BEAK_D, 0, 0.215, 0.27));      // ridge
-    parts.jaw = new THREE.Group(); parts.jaw.position.set(0, 0.12, 0.17); head.add(parts.jaw);
+    add(head, CS.box(0.19, 0.09, 0.16, BEAK, 0, 0.155, 0.255));
+    add(head, CS.box(0.13, 0.04, 0.12, BEAK_D, 0, 0.205, 0.285));     // ridge
+    parts.jaw = new THREE.Group(); parts.jaw.position.set(0, 0.11, 0.19); head.add(parts.jaw);
     add(parts.jaw, CS.box(0.16, 0.05, 0.13, BEAK_D, 0, 0, 0.07));
     // wattle under the beak
-    add(head, CS.box(0.09, 0.14, 0.07, COMB, -0.04, 0.02, 0.20));
-    add(head, CS.box(0.07, 0.10, 0.06, 0xb02a24, 0.05, 0.04, 0.20));
+    add(head, CS.box(0.09, 0.14, 0.07, COMB, -0.04, 0.01, 0.22));
+    add(head, CS.box(0.07, 0.10, 0.06, 0xb02a24, 0.05, 0.03, 0.22));
 
     // the toque: band, stalk, puff, crown, plus a couple of fold ridges
-    var hat = new THREE.Group(); hat.position.set(0, 0.40, 0); head.add(hat);
+    var hat = new THREE.Group(); hat.position.set(0, 0.42, 0); head.add(hat);
     parts.hat = hat;
     add(hat, CS.box(0.50, 0.11, 0.46, { color: 0xeae7dc }, 0, 0.03, 0));   // brim band
     add(hat, CS.box(0.44, 0.15, 0.41, { color: 0xf7f5ee }, 0, 0.15, 0));   // stalk
@@ -1303,7 +1534,7 @@ window.CS = window.CS || {};
 
     // where a carried item sits
     parts.hands = new THREE.Object3D();
-    parts.hands.position.set(0, 0.42, 0.40);
+    parts.hands.position.set(0, 0.42, 0.44);
     body.add(parts.hands);
 
     g.traverse(function (o) { if (o.isMesh) { o.castShadow = true; o.receiveShadow = false; } });

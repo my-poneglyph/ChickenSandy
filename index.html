@@ -13,6 +13,7 @@
     --wood:#8a5a2b; --wood-dk:#2e1c0f; --wood-md:#5a381c; --cream:#f7e9cd;
     --gold:#f0a63c; --red:#c0392b; --red-dk:#7e2419; --green:#6fbf3a;
     --ink:#2c1c10; --paper:#f4e4c1; --paper-dk:#d9c298;
+    --railW:146px;   /* width of the landscape ticket column */
   }
   *{box-sizing:border-box;margin:0;padding:0;}
   html,body{height:100%;overflow:hidden;background:#1a1009;}
@@ -310,18 +311,50 @@
   body.mobile #toasts{top:auto;bottom:calc(178px + env(safe-area-inset-bottom));}
   body.mobile .toast{font-size:10px;padding:4px 9px;border-width:2px;}
 
-  /* Short landscape phones: drop the hint row and tighten everything up. */
+  /* ---------------------------------------------- short landscape phones ---
+     A phone on its side is ~810x375: wide, but desperately short. The portrait
+     rail -- a full-width band of tickets across the top -- costs 23% of the
+     height there, straight across the back of the kitchen. Height is the
+     scarce axis in landscape and width is the plentiful one, so the rail turns
+     ninety degrees: a slim column down the left edge. Same screen area, out of
+     the play space. Everything else tightens up around it. */
   @media (max-height:470px){
     body.mobile #hint{display:none;}
-    body.mobile .ticket .tbody{font-size:7px;}
-    body.mobile #tickets{top:44px;}
-    body.mobile #leftstack{top:calc(46px + var(--ticketH,50px));}
-    body.mobile #fryers{top:calc(46px + var(--ticketH,50px));}
-    body.mobile #toasts{bottom:calc(120px + env(safe-area-inset-bottom));}
+
+    body.mobile #tickets{
+      left:4px; right:auto; top:40px; bottom:4px;
+      width:var(--railW);
+      flex-direction:column; flex-wrap:wrap; align-content:flex-start;
+      gap:4px;
+    }
+    /* Tickets size to their own content and stack downwards; if a busy day
+       overflows the column, flex-wrap starts a second one beside it rather
+       than clipping the fourth order off the bottom. */
+    body.mobile .ticket{flex:0 0 auto;width:var(--railW);}
+    body.mobile .ticket .thead{font-size:7px;padding:2px 3px;}
+    body.mobile .ticket .face{width:8px;height:8px;}
+    body.mobile .ticket .tbody{font-size:7px;padding:2px 4px 1px;line-height:1.3;}
+    body.mobile .sub{font-size:6px;gap:1px 3px;}
+    body.mobile .sw{width:6px;height:6px;}
+    body.mobile .bar{height:4px;margin-top:3px;}
+
+    /* the held card moves out from under the old rail to the bottom, between
+       the ticket column and the thumb buttons */
+    body.mobile #leftstack{
+      top:auto; bottom:calc(6px + env(safe-area-inset-bottom));
+      left:calc(var(--railW) + 10px);
+    }
+    body.mobile #held{max-width:30vw;}
+    body.mobile #fryers{top:40px;}
+    body.mobile #toasts{top:auto;bottom:calc(96px + env(safe-area-inset-bottom));}
+
     .tbtn{width:56px;height:56px;font-size:9px;}
     .tbtn.use{width:76px;height:76px;font-size:12px;}
     #stick{width:98px;height:98px;margin:-49px 0 0 -49px;}
     #nub{width:42px;height:42px;}
+    /* start the drag zone clear of the ticket column, so the floating stick
+       never springs up underneath an order */
+    body.mobile #stickZone{left:var(--railW);width:calc(52% - var(--railW) + 90px);}
   }
 
   /* Cards must scroll on a phone rather than overflow off-screen. */
