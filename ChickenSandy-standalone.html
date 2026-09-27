@@ -173,6 +173,8 @@
     animation-delay:0s,1.3s;
   }
   .toast.good{border-color:#3f7a22;color:#c8f2a2;}
+  .toast.tip{border-color:#b8862a;color:var(--gold);}
+  .scoreline .tipval{color:var(--gold);}
   .toast.bad{border-color:var(--red-dk);color:#ffb3a0;}
   .toast.info{border-color:#8a6b3c;}
   @keyframes toastin{from{transform:translateY(-14px) scale(.9);opacity:0}}
@@ -759,7 +761,18 @@ window.CS = window.CS || {};
     sandwich: 60, extra: 12, fries: 30, cup: 16,
     speedBonus: 0.6,     // up to +60% of base for a fast serve
     comboStep: 0.25, comboMax: 4,
-    missPenalty: 40
+    missPenalty: 40,
+
+    /* Tips. A customer served with `minLeft` or less of their patience
+       remaining never tips; above that both the chance and the size scale
+       with how early you were, so the payoff is for staying ahead of the
+       queue rather than for luck. */
+    tip: {
+      minLeft: 0.45,     // fraction of patience that must still be on the clock
+      chance: 0.85,      // odds at a perfect serve, tapering to 0 at minLeft
+      share: 0.30,       // tip as a fraction of the order's base reward
+      bigTip: 30         // at or above this, they drop three coins, not one
+    }
   };
 
   /* ---------------------------------------------------------------- utils */
@@ -786,8 +799,36 @@ window.CS = window.CS || {};
     return arr;
   };
 
-  /* Customer shirt colours — one per villager in the queue. */
-  CS.CUSTOMER_COLORS = [0x4f7fc4, 0xb5543f, 0x6a4f9c, 0x3f8a6b, 0xc08a30, 0x9c4f7a, 0x4f8ea0];
+  /* ----------------------------------------------------------- customers
+     One entry per species. `fur`/`belly`/`snout` colour the shared chunky
+     body; the rest are the features CS.models.customer() bolts on. Ears are
+     'point' | 'droop' | 'tall' | 'round' | 'flop' | 'none', tails are
+     'up' | 'wag' | 'puff' | 'curl' | 'bush' | 'none'. `tint` is what shows on
+     the ticket, so keep the seven readably different from each other. */
+  CS.CRITTERS = [
+    { name: 'Cat',    fur: 0xf0a24a, belly: 0xfbe6c8, snout: 0xfbe6c8, nose: 0xe0736b,
+      ears: 'point', tail: 'up',   stripes: true,  tint: 0xf0a24a },
+    { name: 'Pup',    fur: 0xb9834e, belly: 0xf1ddbf, snout: 0xf1ddbf, nose: 0x2a201a,
+      ears: 'droop', tail: 'wag',  patch: true,   tint: 0xb9834e },
+    { name: 'Bunny',  fur: 0xf2eee6, belly: 0xffffff, snout: 0xffffff, nose: 0xe89aa8,
+      ears: 'tall',  tail: 'puff', tint: 0xe6dfd2 },
+    { name: 'Bear',   fur: 0x8d6240, belly: 0xc9a179, snout: 0xc9a179, nose: 0x2a201a,
+      ears: 'round', tail: 'none', tint: 0x8d6240 },
+    { name: 'Piglet', fur: 0xf0a3ae, belly: 0xffd0d6, snout: 0xffb6c1, nose: 0xd4737f,
+      ears: 'flop',  tail: 'curl', tint: 0xf0a3ae },
+    { name: 'Fox',    fur: 0xd9622c, belly: 0xf6eadd, snout: 0xf6eadd, nose: 0x2a201a,
+      ears: 'point', tail: 'bush', tipped: true,  tint: 0xd9622c },
+    { name: 'Frog',   fur: 0x74b84a, belly: 0xd3e8a8, snout: 0xd3e8a8, nose: 0x3e6b25,
+      ears: 'none',  tail: 'none', bigEyes: true, tint: 0x74b84a },
+    { name: 'Mouse',  fur: 0x9aa3ad, belly: 0xdfe4e9, snout: 0xdfe4e9, nose: 0xe08fa0,
+      ears: 'round', tail: 'none', bigEars: true, tint: 0x9aa3ad }
+  ];
+
+  /* Where the dining room's front door is. world.js cuts the hole here and
+     orders.js walks customers through it, so the two must agree. */
+  CS.DOOR_X = CS.OX + (CS.SERVE_COL + 0.5) * CS.TILE;   // straight behind the queue
+  CS.DOOR_W = 2.8;
+  CS.MAX_ORDERS_CAP = 4;       // widest the queue ever gets, across all days
 })(window.CS);
 
 </script>
@@ -1063,7 +1104,45 @@ window.CS = window.CS || {};
     },
     error:   function () { tone(200, 0.14, 'square', 0.2, 120); setTimeout(function () { tone(150, 0.2, 'square', 0.18, 90); }, 120); },
     trash:   function () { noise(0.22, 300, 0.26, 0.6); },
-    newOrder:function () { tone(784, 0.07, 'triangle', 0.2); setTimeout(function () { tone(1046, 0.1, 'triangle', 0.2); }, 70); },
+
+    /* The brass bell over the shop door, rung by a customer coming in. Two
+       sines a fifth apart with a long tail, so it rings rather than blips. */
+    doorbell: function () {
+      tone(1318.5, 0.85, 'sine', 0.13);
+      tone(1976.0, 0.70, 'sine', 0.07);
+      setTimeout(function () {
+        tone(1318.5, 0.55, 'sine', 0.07);
+        tone(1976.0, 0.45, 'sine', 0.04);
+      }, 115);
+    },
+
+    /* The till: the clunk of the drawer, the ring of the bell inside it, and
+       the rattle of change. Played when a customer pays. */
+    cash: function () {
+      noise(0.07, 2300, 0.16, 1.2);                   // key press
+      tone(1567.98, 0.55, 'sine', 0.20);              // the bell
+      tone(2349.32, 0.40, 'sine', 0.10);
+      setTimeout(function () {
+        noise(0.16, 420, 0.22, 0.7);                  // drawer sliding open
+        tone(130, 0.14, 'sine', 0.12, 96);            // and hitting the stop
+      }, 120);
+      setTimeout(function () {
+        noise(0.09, 5200, 0.10, 2.2);                 // change rattling in
+        noise(0.07, 3800, 0.07, 2.4);
+      }, 245);
+    },
+
+    /* Loose coins landing on a wooden counter -- the tip. */
+    coins: function () {
+      for (var i = 0; i < 3; i++) {
+        (function (d) {
+          setTimeout(function () {
+            noise(0.05, 4200 + Math.random() * 2600, 0.09, 3.0);
+            tone(1760 + Math.random() * 700, 0.10, 'sine', 0.07);
+          }, d);
+        })(i * 85 + Math.random() * 40);
+      }
+    },
     warn:    function () { tone(880, 0.06, 'square', 0.13); },
 
     /* movement */
@@ -1541,45 +1620,179 @@ window.CS = window.CS || {};
     return { group: g, parts: parts };
   };
 
-  /* -------------------------------------------------------- the customer */
-  CS.models.customer = function (shirt, seed) {
-    var g = new THREE.Group();
-    var parts = {};
-    var skin = [0xe0b48a, 0xc08a5e, 0x8d5f3c, 0xf0cba6][seed % 4];
+  /* -------------------------------------------------------- the customer
+     The queue is an assortment of small animals. Body, arms and legs are the
+     same chunky rig for every species -- which is what lets orders.js drive
+     one walk cycle for all of them -- and the species table in config.js
+     supplies the colours plus the ears, snout and tail bolted on top.
 
-    var hips = new THREE.Group(); hips.position.y = 0.34; g.add(hips);
+     `parts` is the contract with orders.js: legL, legR, armL, armR, head,
+     body, tail and mark. Keep those names if you add a species.             */
+  CS.models.customer = function (speciesIdx, seed) {
+    var C = CS.CRITTERS[speciesIdx % CS.CRITTERS.length];
+    var g = new THREE.Group();
+    var parts = { species: C };
+    var FUR = C.fur, BELLY = C.belly, SNOUT = C.snout;
+    var FUR_D = CS.shade(FUR, -26);
+
+    /* ---- legs: stubby, with a paw ---- */
+    var hips = new THREE.Group(); hips.position.y = 0.30; g.add(hips);
     ['legL', 'legR'].forEach(function (id, i) {
       var leg = new THREE.Group();
-      leg.position.set(i ? 0.12 : -0.12, 0, 0);
+      leg.position.set(i ? 0.13 : -0.13, 0, 0);
       hips.add(leg);
-      add(leg, CS.box(0.16, 0.34, 0.16, 0x3c3a52, 0, -0.17, 0));
+      add(leg, CS.box(0.17, 0.22, 0.17, FUR, 0, -0.11, 0));
+      add(leg, CS.box(0.19, 0.09, 0.23, FUR_D, 0, -0.245, 0.03));   // paw
       parts[id] = leg;
     });
 
-    var body = new THREE.Group(); body.position.y = 0.34; g.add(body); parts.body = body;
-    add(body, CS.box(0.46, 0.52, 0.30, shirt, 0, 0.26, 0));
-    add(body, CS.box(0.46, 0.10, 0.31, CS.shade(shirt, -40), 0, 0.06, 0));
-    parts.armL = new THREE.Group(); parts.armL.position.set(-0.30, 0.46, 0); body.add(parts.armL);
-    add(parts.armL, CS.box(0.13, 0.40, 0.15, shirt, 0, -0.18, 0));
-    add(parts.armL, CS.box(0.14, 0.12, 0.16, skin, 0, -0.42, 0));
-    parts.armR = new THREE.Group(); parts.armR.position.set(0.30, 0.46, 0); body.add(parts.armR);
-    add(parts.armR, CS.box(0.13, 0.40, 0.15, shirt, 0, -0.18, 0));
-    add(parts.armR, CS.box(0.14, 0.12, 0.16, skin, 0, -0.42, 0));
+    /* ---- body: a pear, widest at the belly ---- */
+    var body = new THREE.Group(); body.position.y = 0.30; g.add(body); parts.body = body;
+    slab(body, 0.44, 0.10, 0.34, FUR, 0.05, 0);
+    slab(body, 0.52, 0.13, 0.40, FUR, 0.16, 0.005);
+    slab(body, 0.50, 0.13, 0.38, FUR, 0.29, 0);
+    slab(body, 0.44, 0.11, 0.33, FUR, 0.40, -0.005);
+    // a paler front, which is most of what makes an animal read as an animal
+    add(body, CS.box(0.30, 0.30, 0.03, BELLY, 0, 0.20, 0.196));
+    if (C.patch) add(body, CS.box(0.14, 0.13, 0.03, FUR_D, -0.13, 0.32, 0.197));
 
-    var head = new THREE.Group(); head.position.set(0, 0.56, 0); body.add(head); parts.head = head;
-    add(head, CS.box(0.38, 0.38, 0.34, skin, 0, 0.19, 0));
-    add(head, CS.box(0.40, 0.12, 0.36, [0x3a2a1c, 0x6b4a2a, 0x2b2b2b, 0xa8712f][seed % 4], 0, 0.36, 0));
-    add(head, CS.box(0.08, 0.09, 0.02, 0x1a1512, -0.09, 0.22, 0.171));
-    add(head, CS.box(0.08, 0.09, 0.02, 0x1a1512, 0.09, 0.22, 0.171));
-    add(head, CS.box(0.10, 0.12, 0.09, CS.shade(skin, -18), 0, 0.13, 0.19));  // nose
+    /* ---- arms ---- */
+    [['armL', -1], ['armR', 1]].forEach(function (a) {
+      var arm = new THREE.Group();
+      arm.position.set(a[1] * 0.28, 0.38, 0);
+      body.add(arm);
+      add(arm, CS.box(0.12, 0.26, 0.14, FUR, 0, -0.13, 0));
+      add(arm, CS.box(0.14, 0.10, 0.16, FUR_D, 0, -0.29, 0.01));    // paw
+      parts[a[0]] = arm;
+    });
 
-    // impatience mark, shown when the ticket is nearly out of time
-    parts.mark = new THREE.Group(); parts.mark.position.set(0, 1.55, 0); parts.mark.visible = false; g.add(parts.mark);
+    /* ---- tail: on its own pivot, so it can wag ---- */
+    parts.tail = new THREE.Group();
+    parts.tail.position.set(0, 0.16, -0.20);
+    body.add(parts.tail);
+    if (C.tail === 'up' || C.tail === 'wag') {
+      add(parts.tail, CS.box(0.10, 0.10, 0.20, FUR, 0, 0.04, -0.09));
+      add(parts.tail, CS.box(0.10, 0.22, 0.10, FUR, 0, 0.19, -0.16));
+      add(parts.tail, CS.box(0.10, 0.12, 0.10, C.tipped ? 0xf6eadd : FUR, 0, 0.34, -0.16));
+      parts.tail.rotation.x = C.tail === 'wag' ? 0.25 : 0;
+    } else if (C.tail === 'bush') {
+      add(parts.tail, CS.box(0.20, 0.20, 0.24, FUR, 0, 0.02, -0.12));
+      add(parts.tail, CS.box(0.22, 0.24, 0.20, FUR, 0, 0.20, -0.22));
+      add(parts.tail, CS.box(0.18, 0.16, 0.16, 0xf6eadd, 0, 0.38, -0.28));
+    } else if (C.tail === 'puff') {
+      add(parts.tail, CS.box(0.18, 0.18, 0.16, 0xffffff, 0, 0.02, -0.08));
+    } else if (C.tail === 'curl') {
+      add(parts.tail, CS.box(0.08, 0.08, 0.13, FUR, 0, 0.06, -0.07));
+      add(parts.tail, CS.box(0.08, 0.13, 0.08, FUR, 0, 0.15, -0.12));
+      add(parts.tail, CS.box(0.08, 0.08, 0.12, FUR, 0, 0.21, -0.07));
+    }
+
+    /* ---- head ---- */
+    var head = new THREE.Group(); head.position.set(0, 0.50, 0.01); body.add(head);
+    parts.head = head;
+    slab(head, 0.34, 0.09, 0.31, FUR, 0.07, 0);
+    slab(head, 0.42, 0.16, 0.38, FUR, 0.18, 0.005);
+    slab(head, 0.36, 0.09, 0.33, FUR, 0.29, 0);
+
+    // ears. `eh` tracks how tall this species ends up, so the impatience mark
+    // floats clear of a bunny's ears as well as a frog's flat head.
+    var eh = 0.36;
+    if (C.ears === 'point') {
+      [-1, 1].forEach(function (s) {
+        add(head, CS.box(0.12, 0.13, 0.07, FUR, s * 0.13, 0.35, -0.01));
+        add(head, CS.box(0.07, 0.09, 0.05, C.stripes ? 0xf7cfae : FUR_D, s * 0.13, 0.42, 0.01));
+      });
+      eh = 0.48;
+    } else if (C.ears === 'tall') {
+      [-1, 1].forEach(function (s) {
+        var e = add(head, CS.box(0.11, 0.40, 0.09, FUR, s * 0.12, 0.52, -0.02));
+        e.rotation.z = s * 0.16;
+        var inner = add(head, CS.box(0.06, 0.30, 0.06, 0xf6c9d2, s * 0.13, 0.52, 0.02));
+        inner.rotation.z = s * 0.16;
+      });
+      eh = 0.76;
+    } else if (C.ears === 'round') {
+      var er = C.bigEars ? 0.20 : 0.15;
+      var ex = C.bigEars ? 0.20 : 0.16;
+      [-1, 1].forEach(function (s) {
+        add(head, CS.box(er, er, 0.07, FUR, s * ex, 0.34, -0.02));
+        add(head, CS.box(er * 0.6, er * 0.6, 0.05, BELLY, s * ex, 0.34, 0.02));
+      });
+      eh = 0.46;
+    } else if (C.ears === 'droop') {
+      [-1, 1].forEach(function (s) {
+        add(head, CS.box(0.10, 0.26, 0.13, FUR_D, s * 0.23, 0.18, -0.02));
+        add(head, CS.box(0.10, 0.09, 0.13, FUR_D, s * 0.23, 0.30, -0.02));
+      });
+    } else if (C.ears === 'flop') {
+      [-1, 1].forEach(function (s) {
+        var e = add(head, CS.box(0.15, 0.14, 0.06, FUR_D, s * 0.14, 0.33, 0.10));
+        e.rotation.x = 0.55;
+      });
+      eh = 0.42;
+    }
+
+    // eyes -- a frog's bulge off the top of the skull, everyone else's sit flat
+    parts.eyes = new THREE.Group(); head.add(parts.eyes);
+    if (C.bigEyes) {
+      [-1, 1].forEach(function (s) {
+        add(parts.eyes, CS.box(0.17, 0.16, 0.17, FUR, s * 0.14, 0.34, 0.02));
+        add(parts.eyes, CS.box(0.11, 0.11, 0.06, 0xffffff, s * 0.145, 0.35, 0.10));
+        add(parts.eyes, CS.box(0.07, 0.08, 0.04, 0x161210, s * 0.15, 0.35, 0.13));
+      });
+      eh = 0.46;
+    } else {
+      [-1, 1].forEach(function (s) {
+        add(parts.eyes, CS.box(0.08, 0.10, 0.02, 0xffffff, s * 0.10, 0.21, 0.191));
+        add(parts.eyes, CS.box(0.06, 0.08, 0.02, 0x161210, s * 0.105, 0.21, 0.201));
+        add(parts.eyes, CS.box(0.025, 0.03, 0.02, 0xffffff, s * 0.085, 0.235, 0.21));
+      });
+    }
+
+    // snout and nose
+    if (C.name === 'Piglet') {
+      add(head, CS.box(0.19, 0.15, 0.09, SNOUT, 0, 0.13, 0.215));
+      add(head, CS.box(0.04, 0.05, 0.03, C.nose, -0.045, 0.13, 0.262));
+      add(head, CS.box(0.04, 0.05, 0.03, C.nose, 0.045, 0.13, 0.262));
+    } else if (C.bigEyes) {
+      add(head, CS.box(0.26, 0.04, 0.03, CS.shade(FUR, -40), 0, 0.10, 0.195));   // wide grin
+    } else {
+      add(head, CS.box(0.17, 0.12, 0.11, SNOUT, 0, 0.12, 0.215));
+      add(head, CS.box(0.08, 0.06, 0.04, C.nose, 0, 0.16, 0.27));
+      add(head, CS.box(0.02, 0.04, 0.02, CS.shade(FUR, -45), 0, 0.09, 0.275));   // mouth
+    }
+    if (C.stripes) {
+      add(head, CS.box(0.06, 0.03, 0.10, FUR_D, -0.06, 0.305, -0.10));
+      add(head, CS.box(0.06, 0.03, 0.10, FUR_D, 0.06, 0.305, -0.10));
+    }
+
+    /* A cap on some of them, picked off the seed, so two Bunnies standing in
+       the same queue still read as two different customers. */
+    if (seed % 5 > 2 && C.ears !== 'tall') {
+      var cap = [0x6a4f9c, 0x3f8a6b, 0x4f7fc4, 0xc0563f][seed % 4];
+      add(head, CS.box(0.40, 0.08, 0.36, cap, 0, 0.33, 0));
+      add(head, CS.box(0.30, 0.10, 0.28, CS.shade(cap, 18), 0, 0.42, 0));
+      eh = Math.max(eh, 0.52);
+    }
+
+    // impatience mark, floating clear of whatever this species has on its head
+    parts.mark = new THREE.Group();
+    parts.mark.position.set(0, 0.30 + 0.50 + eh + 0.34, 0);
+    parts.mark.visible = false;
+    g.add(parts.mark);
     add(parts.mark, CS.box(0.10, 0.26, 0.10, CS.mat({ color: 0xff3b2e, basic: true }), 0, 0.16, 0));
     add(parts.mark, CS.box(0.10, 0.10, 0.10, CS.mat({ color: 0xff3b2e, basic: true }), 0, -0.04, 0));
 
     g.traverse(function (o) { if (o.isMesh) o.castShadow = true; });
-    return { group: g, parts: parts };
+    return { group: g, parts: parts, species: C };
+  };
+
+  /* A tip coin, tossed on the counter when a customer is happy. */
+  CS.models.coin = function () {
+    var g = new THREE.Group();
+    g.add(CS.box(0.16, 0.16, 0.04, CS.mat({ color: 0xf5c243 }), 0, 0, 0));
+    g.add(CS.box(0.09, 0.09, 0.055, CS.mat({ color: 0xffe89a }), 0, 0, 0));
+    return g;
   };
 
   /* ------------------------------------------------------------ the food */
@@ -2114,6 +2327,52 @@ window.CS = window.CS || {};
     scene.add(m);
   }
 
+  /* The shop's front door: frame, two leaves propped open, a strip of porch
+     so arrivals are not walking on nothing, and a lamp outside. Customers
+     spawn out there in the dark and the wall hides them until they step
+     through, which is what sells them as having come in off the street. */
+  function doorway(scene, x, z, w, h) {
+    var post = 0.16;
+    // frame
+    [-1, 1].forEach(function (s) {
+      scene.add(CS.box(post, h, 0.34, { color: 0x6b4526 }, x + s * (w / 2 - post / 2), h / 2, z));
+    });
+    scene.add(CS.box(w + post, 0.20, 0.34, { color: 0x6b4526 }, x, h - 0.10, z));
+    scene.add(CS.box(w + post * 2.4, 0.16, 0.50, { color: 0x5a381c }, x, h + 0.10, z));
+
+    // two leaves, hinged on the posts and propped open into the room
+    [-1, 1].forEach(function (s) {
+      var hinge = new THREE.Group();
+      hinge.position.set(x + s * (w / 2 - post), 0, z + 0.06);
+      // ~66 deg: wide enough to walk through, shallow enough that the leaves
+      // still catch the light instead of vanishing edge-on into the doorway
+      hinge.rotation.y = s * 1.15;
+      scene.add(hinge);
+      var leafW = w / 2 - post * 0.5;
+      var leaf = CS.box(leafW, h - 0.22, 0.10, { color: 0xffffff, tex: 'counterWood' },
+        -s * leafW / 2, (h - 0.22) / 2, 0);
+      hinge.add(leaf);
+      hinge.add(CS.box(leafW * 0.8, 0.10, 0.12, { color: 0x6b4526 }, -s * leafW / 2, h * 0.62, 0.02));
+      hinge.add(CS.box(leafW * 0.8, 0.10, 0.12, { color: 0x6b4526 }, -s * leafW / 2, h * 0.28, 0.02));
+      hinge.add(CS.box(0.07, 0.07, 0.07, { color: 0xc8a24a }, -s * (leafW - 0.16), h * 0.45, 0.09));
+    });
+
+    // the little brass bell the door knocks on the way in
+    scene.add(CS.box(0.12, 0.14, 0.12, { color: 0xd8a83a }, x, h - 0.28, z + 0.22));
+
+    // porch: a slab of boards outside, and a dark backdrop so the doorway is
+    // an opening onto somewhere rather than a hole into the void
+    var porch = CS.box(w + 3.0, 0.08, 4.0, { color: 0xffffff, tex: 'diningFloor' },
+      x, -0.05, z - 2.2);
+    porch.receiveShadow = true;
+    scene.add(porch);
+    scene.add(CS.box(w + 4.4, 3.4, 0.4, { color: 0x24170d }, x, 1.7, z - 4.3));
+    scene.add(CS.box(0.4, 3.4, 4.4, { color: 0x24170d }, x - (w + 4.0) / 2, 1.7, z - 2.2));
+    scene.add(CS.box(0.4, 3.4, 4.4, { color: 0x24170d }, x + (w + 4.0) / 2, 1.7, z - 2.2));
+
+    lantern(scene, x - (w / 2 + 0.75), 2.15, z - 0.55);
+  }
+
   function lantern(scene, x, y, z) {
     var g = new THREE.Group();
     g.add(CS.box(0.08, 0.7, 0.08, { color: 0x2e2a26 }, 0, 0.62, 0));
@@ -2311,16 +2570,34 @@ window.CS = window.CS || {};
         }
       }
 
-      // ---- dining room back wall, so the queue is not standing in a void
+      /* ---- dining room back wall, with the front door cut into it ----
+         The wall is two segments and a lintel rather than one box, so there
+         is a real opening for customers to walk through. The gap lines up
+         with CS.DOOR_X, which is directly behind the queue, so an arrival
+         walks in and straight down the line without a detour. */
       var backZ = CS.OZ - 9.5;
-      var bw = CS.box(fw + 10, 3.6, 0.6, { color: 0xffffff, tex: 'wall' },
-        CS.OX + fw / 2, 1.8, backZ);
-      bw.receiveShadow = true;
-      scene.add(bw);
-      scene.add(CS.box(fw + 10, 0.3, 0.9, { color: 0x5a381c }, CS.OX + fw / 2, 3.7, backZ));
+      var wallW = fw + 10, wallCx = CS.OX + fw / 2;
+      var wallX0 = wallCx - wallW / 2, wallX1 = wallCx + wallW / 2;
+      var dx = CS.DOOR_X, dw = CS.DOOR_W, dh = 2.5;
+      var gap0 = dx - dw / 2, gap1 = dx + dw / 2;
+
+      [[wallX0, gap0], [gap1, wallX1]].forEach(function (seg) {
+        var w = seg[1] - seg[0];
+        if (w <= 0.01) return;
+        var m = CS.box(w, 3.6, 0.6, { color: 0xffffff, tex: 'wall' },
+          (seg[0] + seg[1]) / 2, 1.8, backZ);
+        m.receiveShadow = true;
+        scene.add(m);
+      });
+      // lintel over the opening, then the cornice runs unbroken above it all
+      scene.add(CS.box(dw, 3.6 - dh, 0.6, { color: 0xffffff, tex: 'wall' },
+        dx, dh + (3.6 - dh) / 2, backZ));
+      scene.add(CS.box(wallW, 0.3, 0.9, { color: 0x5a381c }, wallCx, 3.7, backZ));
+
+      doorway(scene, dx, backZ, dw, dh);
 
       var s1 = CS.models.signBoard(['Good Food', 'Happy', 'Chicken'], 4.4);
-      s1.position.set(CS.OX + fw * 0.26, 2.0, backZ + 0.35);
+      s1.position.set(CS.OX + fw * 0.08, 2.0, backZ + 0.35);
       scene.add(s1);
       var s2 = CS.models.signBoard(['Chicken', 'Sandwich', '= Happiness'], 4.4);
       s2.position.set(CS.OX + fw * 0.74, 2.0, backZ + 0.35);
@@ -2341,7 +2618,9 @@ window.CS = window.CS || {};
       lantern(scene, CS.OX + T * 12.0, 2.45, CS.OZ + T * 2.2);
       lantern(scene, CS.OX + T * 7.0, 2.45, CS.OZ + T * 6.6);
       lantern(scene, CS.OX + T * 3.2, 2.45, CS.OZ + T * 4.4);
-      lantern(scene, CS.OX + T * 4.5, 2.6, CS.OZ - 3.0);
+      // clear of CS.DOOR_X: these used to hang straight down the sight line
+      // between the queue and the front door
+      lantern(scene, CS.OX + T * 2.6, 2.6, CS.OZ - 3.0);
       lantern(scene, CS.OX + T * 10.5, 2.6, CS.OZ - 3.0);
 
       // ---- dining room dressing, visible over the serving counter
@@ -2714,14 +2993,70 @@ window.CS = window.CS || {};
     return true;
   }
 
+  /* ------------------------------------------------- where people stand
+     The queue runs from the serving window back towards the front door, so
+     an arrival joins the end of it the moment they are through the frame. */
   function queueSpot(i) {
     var p = CS.tileToWorld(CS.SERVE_COL, 0);
     return { x: p.x + (i % 2 ? 0.55 : -0.35), z: CS.OZ - 1.5 - i * 1.75 };
   }
 
+  var WALL_Z = CS.OZ - 9.5;              // the dining room's back wall
+  var OUTSIDE_Z = WALL_Z - 2.9;          // out on the porch, hidden by the wall
+  var THRESHOLD_Z = WALL_Z + 0.15;       // in the door frame
+  var INSIDE_Z = WALL_Z + 1.7;           // one step inside
+  var EXIT_X = CS.DOOR_X + 2.3;          // served customers leave down their own
+                                         // lane, rather than back through the queue
+  var WALK = 2.1, HURRY = 3.4;
+
+  /* Move `g` towards (tx,tz) at a constant speed, turning to face the way it
+     is going. Returns the distance actually covered, which is what drives the
+     walk cycle -- animating off a timer instead leaves legs paddling while a
+     customer stands still. */
+  function stepToward(g, tx, tz, speed, dt) {
+    var dx = tx - g.position.x, dz = tz - g.position.z;
+    var d = Math.hypot(dx, dz);
+    if (d < 0.015) return 0;
+    var m = Math.min(d, speed * dt);
+    g.position.x += dx / d * m;
+    g.position.z += dz / d * m;
+    var want = Math.atan2(dx, dz);
+    var diff = ((want - g.rotation.y + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
+    g.rotation.y += diff * Math.min(1, dt * 8);
+    return m;
+  }
+
+  /* Turn back to face the serving window once they have stopped. */
+  function faceCounter(g, dt) {
+    var diff = ((0 - g.rotation.y + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
+    g.rotation.y += diff * Math.min(1, dt * 6);
+  }
+
+  function animateCust(c, dt, moved) {
+    var p = c.parts, sp = p.species;
+    c.walk += moved * 4.4;
+    c.bob += dt * 1.9;
+    // gait eases between standing and walking so nothing snaps
+    c.gait += ((moved > 0.0008 ? 1 : 0) - c.gait) * Math.min(1, dt * 11);
+    var sw = Math.sin(c.walk) * 0.8 * c.gait;
+    p.legL.rotation.x = sw;
+    p.legR.rotation.x = -sw;
+    p.armL.rotation.x = -sw * 0.7;
+    p.armR.rotation.x = sw * 0.7;
+    c.group.position.y = Math.abs(Math.sin(c.walk)) * 0.06 * c.gait
+      + Math.sin(c.bob) * 0.016 * (1 - c.gait);
+    if (sp.tail === 'wag') {
+      // a pup wags hard while walking and idles with a slow sweep
+      p.tail.rotation.y = Math.sin(c.walk * 1.6 + c.bob * 4) * (0.25 + 0.45 * c.gait);
+    } else if (sp.tail !== 'none') {
+      p.tail.rotation.y = Math.sin(c.bob * 1.15) * 0.16;
+    }
+  }
+
   var O = CS.orders = {
     list: [],
     leaving: [],
+    coins: [],
     spawnTimer: 0,
     level: null,
 
@@ -2730,8 +3065,10 @@ window.CS = window.CS || {};
     reset: function (level) {
       this.list.forEach(function (o) { scene.remove(o.cust.group); });
       this.leaving.forEach(function (c) { scene.remove(c.group); });
+      this.coins.forEach(function (c) { scene.remove(c.m); });
       this.list.length = 0;
       this.leaving.length = 0;
+      this.coins.length = 0;
       this.level = level || CS.levelFor(1);
       this.spawnTimer = CS.FIRST_SPAWN;
       nextId = 1;
@@ -2792,26 +3129,45 @@ window.CS = window.CS || {};
       };
     },
 
+    /* Pick a species nobody in the queue is currently wearing, so the ticket
+       colours stay tellable apart. Falls back to any species once the shop is
+       busier than the roster is long. */
+    pickSpecies: function () {
+      var taken = this.list.map(function (o) { return o.species; });
+      var free = [];
+      for (var i = 0; i < CS.CRITTERS.length; i++) if (taken.indexOf(i) < 0) free.push(i);
+      return free.length ? CS.pick(free) : ri(CS.CRITTERS.length);
+    },
+
     spawn: function (progress) {
       if (this.list.length >= this.level.maxOrders) return null;
       var t = this.makeTicket(progress);
       var idx = this.list.length;
       var seed = ri(1000);
-      var shirt = CS.CUSTOMER_COLORS[seed % CS.CUSTOMER_COLORS.length];
-      var cust = CS.models.customer(shirt, seed);
+      var species = this.pickSpecies();
+      var cust = CS.models.customer(species, seed);
       var spot = queueSpot(idx);
-      var back = queueSpot(CS.MAX_ORDERS_CAP + 2);
-      cust.group.position.set(spot.x, 0, back.z);
+
+      // Start out on the porch, behind the wall, and walk in through the door.
+      // Staggered by queue position so two arrivals in the same second are not
+      // standing inside each other out there.
+      cust.group.position.set(CS.DOOR_X, 0, OUTSIDE_Z - idx * 1.15);
       cust.group.rotation.y = 0;
+      cust.state = 'enter';
+      cust.path = [
+        { x: CS.DOOR_X, z: THRESHOLD_Z },
+        { x: CS.DOOR_X, z: INSIDE_Z }
+      ];
+      cust.walk = 0; cust.bob = Math.random() * 6.28; cust.gait = 0; cust.t = 0;
       scene.add(cust.group);
 
       t.cust = cust;
-      t.shirt = shirt;
-      t.css = '#' + ('000000' + shirt.toString(16)).slice(-6);
+      t.species = species;
+      t.critter = cust.species;
+      t.css = '#' + ('000000' + cust.species.tint.toString(16)).slice(-6);
       t.tx = spot.x; t.tz = spot.z;
-      t.bob = Math.random() * 6.28;
       this.list.push(t);
-      CS.audio.newOrder();
+      CS.audio.doorbell();
       return t;
     },
 
@@ -2839,6 +3195,9 @@ window.CS = window.CS || {};
       return best;
     },
 
+    /* Served or walked out, they take the same route home: step sideways out
+       of the line, back down the exit lane, and out through the front door.
+       A happy one celebrates on the spot first; an unhappy one just goes. */
     complete: function (order, happy) {
       var i = this.list.indexOf(order);
       if (i >= 0) this.list.splice(i, 1);
@@ -2846,14 +3205,38 @@ window.CS = window.CS || {};
       var c = order.cust;
       c.happy = happy;
       c.t = 0;
-      c.exitX = c.group.position.x + (happy ? 5.5 : -5.5);
-      if (!happy) {
-        c.group.traverse(function (o) {
-          if (o.isMesh && o.material && o.material.color) { /* leave colours alone */ }
-        });
-      }
+      c.state = 'leave';
+      c.cheer = happy ? 0.6 : 0;
+      c.speed = happy ? WALK : HURRY;
+      c.path = [
+        { x: EXIT_X, z: c.group.position.z },
+        { x: EXIT_X, z: INSIDE_Z },
+        { x: CS.DOOR_X, z: THRESHOLD_Z },
+        { x: CS.DOOR_X, z: OUTSIDE_Z }
+      ];
       this.leaving.push(c);
       this.relayout();
+    },
+
+    /* --------------------------------------------------------------- tips
+       A happy customer who was served briskly drops a coin or two on the
+       counter. Purely cosmetic here -- game.js owns what they are worth. */
+    tipBurst: function (x, y, z, n) {
+      for (var i = 0; i < n; i++) {
+        var m = CS.models.coin();
+        m.position.set(x + (Math.random() - 0.5) * 0.5, y + 0.25, z + (Math.random() - 0.5) * 0.4);
+        m.rotation.set(Math.random() * 3, Math.random() * 3, Math.random() * 3);
+        scene.add(m);
+        this.coins.push({
+          m: m, t: 0,
+          vy: 2.6 + Math.random() * 1.1,
+          vx: (Math.random() - 0.5) * 0.9,
+          vz: (Math.random() - 0.5) * 0.7,
+          spin: 6 + Math.random() * 6,
+          rest: y + 0.06
+        });
+      }
+      CS.audio.coins();
     },
 
     relayout: function () {
@@ -2878,31 +3261,35 @@ window.CS = window.CS || {};
         }
       }
 
+      /* ---- everyone in the queue: walk in, shuffle up, wait, fidget ---- */
       for (var i = this.list.length - 1; i >= 0; i--) {
         var o = this.list[i];
         o.left -= dt;
+        var c = o.cust, g = c.group, moved = 0;
+        c.t += dt;
+
+        if (c.state === 'enter') {
+          // follow the doorway waypoints, then join the back of the line
+          var wp = c.path[0];
+          moved = stepToward(g, wp.x, wp.z, WALK, dt);
+          if (moved === 0) {
+            c.path.shift();
+            if (!c.path.length) c.state = 'queue';
+          }
+        } else {
+          moved = stepToward(g, o.tx, o.tz, WALK, dt);
+          if (moved === 0) faceCounter(g, dt);
+        }
+        animateCust(c, dt, moved);
 
         var frac = o.left / o.limit;
         if (frac < 0.3 && !o.beeped) { o.beeped = true; CS.audio.warn(); }
-        o.cust.parts.mark.visible = frac < 0.3;
-
-        // walk to place, idle bob
-        var g = o.cust.group;
-        g.position.x += (o.tx - g.position.x) * Math.min(1, dt * 4);
-        g.position.z += (o.tz - g.position.z) * Math.min(1, dt * 3);
-        var moving = Math.abs(o.tz - g.position.z) > 0.05;
-        o.bob += dt * (moving ? 9 : 2.2);
-        g.position.y = moving ? Math.abs(Math.sin(o.bob)) * 0.08 : Math.sin(o.bob) * 0.02;
-        var swing = moving ? Math.sin(o.bob) * 0.7 : 0;
-        o.cust.parts.legL.rotation.x = swing;
-        o.cust.parts.legR.rotation.x = -swing;
-        o.cust.parts.armL.rotation.x = -swing * 0.6;
-        o.cust.parts.armR.rotation.x = swing * 0.6;
+        c.parts.mark.visible = frac < 0.3;
         if (frac < 0.3) {
-          o.cust.parts.mark.rotation.y += dt * 4;
-          o.cust.parts.head.rotation.z = Math.sin(o.bob * 3) * 0.12;
+          c.parts.mark.rotation.y += dt * 4;
+          c.parts.head.rotation.z = Math.sin(c.bob * 5) * 0.14;   // tapping a foot
         } else {
-          o.cust.parts.head.rotation.z *= 0.9;
+          c.parts.head.rotation.z *= 0.9;
         }
 
         if (o.left <= 0) {
@@ -2911,23 +3298,54 @@ window.CS = window.CS || {};
         }
       }
 
-      // customers walking off
+      /* ---- customers on their way out ---- */
       for (var j = this.leaving.length - 1; j >= 0; j--) {
-        var c = this.leaving[j];
-        c.t += dt;
-        var gg = c.group;
-        if (c.happy && c.t < 0.55) {
-          gg.position.y = Math.abs(Math.sin(c.t * 11)) * 0.32;   // little celebration hop
-          gg.rotation.y += dt * 7;
+        var lc = this.leaving[j];
+        lc.t += dt;
+        var lg = lc.group;
+
+        if (lc.cheer > 0) {
+          // a happy hop on the spot before they set off
+          lc.cheer -= dt;
+          lg.position.y = Math.abs(Math.sin(lc.t * 12)) * 0.30;
+          lg.rotation.y += dt * 7;
+          lc.parts.armL.rotation.x = -1.9;
+          lc.parts.armR.rotation.x = -1.9;
+          if (lc.parts.species.tail === 'wag') lc.parts.tail.rotation.y = Math.sin(lc.t * 22) * 0.8;
         } else {
-          gg.rotation.y = CS.lerp(gg.rotation.y, c.happy ? Math.PI / 2 : -Math.PI / 2, dt * 6);
-          gg.position.x += (c.exitX - gg.position.x) * Math.min(1, dt * 1.6);
-          gg.position.z -= dt * 0.6;
-          gg.position.y = Math.abs(Math.sin(c.t * 9)) * 0.07;
-          c.parts.legL.rotation.x = Math.sin(c.t * 9) * 0.7;
-          c.parts.legR.rotation.x = -Math.sin(c.t * 9) * 0.7;
+          var wp2 = lc.path[0];
+          var m2 = wp2 ? stepToward(lg, wp2.x, wp2.z, lc.speed, dt) : 0;
+          if (wp2 && m2 === 0) lc.path.shift();
+          animateCust(lc, dt, m2);
+          if (!lc.happy) lc.parts.head.rotation.y = Math.sin(lc.t * 7) * 0.22;
         }
-        if (c.t > 3.2) { scene.remove(gg); this.leaving.splice(j, 1); }
+
+        // gone through the door, or stuck long enough that something is wrong
+        if (!lc.path.length || lc.t > 14) {
+          scene.remove(lg);
+          this.leaving.splice(j, 1);
+        }
+      }
+
+      /* ---- tip coins arcing onto the counter ---- */
+      for (var k = this.coins.length - 1; k >= 0; k--) {
+        var co = this.coins[k];
+        co.t += dt;
+        co.vy -= 11 * dt;
+        co.m.position.x += co.vx * dt;
+        co.m.position.z += co.vz * dt;
+        co.m.position.y += co.vy * dt;
+        co.m.rotation.y += co.spin * dt;
+        co.m.rotation.x += co.spin * 0.5 * dt;
+        if (co.m.position.y < co.rest) {       // land flat and settle
+          co.m.position.y = co.rest;
+          co.vy = 0; co.vx *= 0.3; co.vz *= 0.3; co.spin *= 0.6;
+          co.m.rotation.x = Math.PI / 2;
+        }
+        if (co.t > 1.9) {
+          co.m.scale.setScalar(Math.max(0.001, 1 - (co.t - 1.9) / 0.5));
+        }
+        if (co.t > 2.4) { scene.remove(co.m); this.coins.splice(k, 1); }
       }
     }
   };
@@ -3233,6 +3651,9 @@ window.CS = window.CS || {};
         '<div class="scoreline"><span>Walked out</span><span>' + s.missed + '</span></div>' +
         '<div class="scoreline"><span>Best combo</span><span>x' + (Math.round(s.bestCombo * 100) / 100) + '</span></div>' +
         '<div class="scoreline"><span>Things burnt</span><span>' + s.burnt + '</span></div>' +
+        (s.tipCount
+          ? '<div class="scoreline"><span>Tips (' + s.tipCount + ')</span><span class="tipval">+' + s.tips + '</span></div>'
+          : '') +
         '<div class="scoreline"><span>Target</span><span>' + lv.target + '</span></div>' +
         '<div class="scoreline" style="border:none;font-size:17px;padding-top:10px"><span>TODAY</span><span>' + Math.round(s.score) + '</span></div>' +
         (passed ? '<div class="scoreline" style="border:none;font-size:12px;padding-top:0"><span>Career total</span><span>' + Math.round(total) + '</span></div>' : '') +
@@ -3483,6 +3904,7 @@ window.CS = window.CS || {};
     time: 120,
     score: 0, combo: 1, bestCombo: 1,
     served: 0, missed: 0, burnt: 0,
+    tips: 0, tipCount: 0,
     held: null, target: null
   };
 
@@ -3731,7 +4153,8 @@ window.CS = window.CS || {};
       CS.ui.toast('That is not on any ticket!', 'bad');
       return;
     }
-    var speed = 1 + CS.SCORE.speedBonus * (o.left / o.limit);
+    var left = o.left / o.limit;
+    var speed = 1 + CS.SCORE.speedBonus * left;
     var gain = Math.round(o.reward * speed * S.combo);
     S.score += gain;
     S.served++;
@@ -3739,11 +4162,29 @@ window.CS = window.CS || {};
     S.bestCombo = Math.max(S.bestCombo, S.combo);
     setHeld(null);
     CS.orders.complete(o, true);
-    CS.audio.serve();
+    CS.audio.cash();
     CS.ui.toast('+' + gain + '   ORDER #' + String(o.id).padStart(2, '0') + ' UP!', 'good');
 
     var sv = stations.filter(function (s) { return s.type === 'serve'; })[0];
     if (sv) CS.fx.burst(sv.x, sv.topY + 0.5, sv.z, 16, { color: 0xffd464, life: 0.8, vy: 2.2 });
+
+    /* ---- the tip ----
+       A customer served with time to spare leaves something on the counter.
+       Below TIP.minLeft nobody tips, and the chance and the size both climb
+       with how much of their patience was still on the clock -- so tipping is
+       the reward for a shop that keeps ahead of its queue, not a lottery. */
+    var T = CS.SCORE.tip;
+    if (left > T.minLeft && Math.random() < (left - T.minLeft) / (1 - T.minLeft) * T.chance) {
+      var tip = Math.max(1, Math.round(o.reward * T.share * left * S.combo));
+      var nCoins = tip >= T.bigTip ? 3 : (tip >= T.bigTip / 2 ? 2 : 1);
+      S.score += tip;
+      S.tips += tip;
+      S.tipCount++;
+      if (sv) CS.orders.tipBurst(sv.x, sv.topY, sv.z, nCoins);
+      setTimeout(function () {
+        CS.ui.toast('+' + tip + '   ' + o.critter.name.toUpperCase() + ' LEFT A TIP', 'tip');
+      }, 260);
+    }
   }
 
   function onExpire(o) {
@@ -4057,6 +4498,7 @@ window.CS = window.CS || {};
     S.time = S.level.seconds;
     S.score = 0; S.combo = 1; S.bestCombo = 1;
     S.served = 0; S.missed = 0; S.burnt = 0;
+    S.tips = 0; S.tipCount = 0;
     S.target = null;
     setHeld(null);
     stations.forEach(function (st) {

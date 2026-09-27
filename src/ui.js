@@ -295,6 +295,9 @@ window.CS = window.CS || {};
         '<div class="scoreline"><span>Walked out</span><span>' + s.missed + '</span></div>' +
         '<div class="scoreline"><span>Best combo</span><span>x' + (Math.round(s.bestCombo * 100) / 100) + '</span></div>' +
         '<div class="scoreline"><span>Things burnt</span><span>' + s.burnt + '</span></div>' +
+        (s.tipCount
+          ? '<div class="scoreline"><span>Tips (' + s.tipCount + ')</span><span class="tipval">+' + s.tips + '</span></div>'
+          : '') +
         '<div class="scoreline"><span>Target</span><span>' + lv.target + '</span></div>' +
         '<div class="scoreline" style="border:none;font-size:17px;padding-top:10px"><span>TODAY</span><span>' + Math.round(s.score) + '</span></div>' +
         (passed ? '<div class="scoreline" style="border:none;font-size:12px;padding-top:0"><span>Career total</span><span>' + Math.round(total) + '</span></div>' : '') +

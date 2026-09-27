@@ -268,7 +268,45 @@ window.CS = window.CS || {};
     },
     error:   function () { tone(200, 0.14, 'square', 0.2, 120); setTimeout(function () { tone(150, 0.2, 'square', 0.18, 90); }, 120); },
     trash:   function () { noise(0.22, 300, 0.26, 0.6); },
-    newOrder:function () { tone(784, 0.07, 'triangle', 0.2); setTimeout(function () { tone(1046, 0.1, 'triangle', 0.2); }, 70); },
+
+    /* The brass bell over the shop door, rung by a customer coming in. Two
+       sines a fifth apart with a long tail, so it rings rather than blips. */
+    doorbell: function () {
+      tone(1318.5, 0.85, 'sine', 0.13);
+      tone(1976.0, 0.70, 'sine', 0.07);
+      setTimeout(function () {
+        tone(1318.5, 0.55, 'sine', 0.07);
+        tone(1976.0, 0.45, 'sine', 0.04);
+      }, 115);
+    },
+
+    /* The till: the clunk of the drawer, the ring of the bell inside it, and
+       the rattle of change. Played when a customer pays. */
+    cash: function () {
+      noise(0.07, 2300, 0.16, 1.2);                   // key press
+      tone(1567.98, 0.55, 'sine', 0.20);              // the bell
+      tone(2349.32, 0.40, 'sine', 0.10);
+      setTimeout(function () {
+        noise(0.16, 420, 0.22, 0.7);                  // drawer sliding open
+        tone(130, 0.14, 'sine', 0.12, 96);            // and hitting the stop
+      }, 120);
+      setTimeout(function () {
+        noise(0.09, 5200, 0.10, 2.2);                 // change rattling in
+        noise(0.07, 3800, 0.07, 2.4);
+      }, 245);
+    },
+
+    /* Loose coins landing on a wooden counter -- the tip. */
+    coins: function () {
+      for (var i = 0; i < 3; i++) {
+        (function (d) {
+          setTimeout(function () {
+            noise(0.05, 4200 + Math.random() * 2600, 0.09, 3.0);
+            tone(1760 + Math.random() * 700, 0.10, 'sine', 0.07);
+          }, d);
+        })(i * 85 + Math.random() * 40);
+      }
+    },
     warn:    function () { tone(880, 0.06, 'square', 0.13); },
 
     /* movement */

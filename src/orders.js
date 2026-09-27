@@ -21,14 +21,70 @@ window.CS = window.CS || {};
     return true;
   }
 
+  /* ------------------------------------------------- where people stand
+     The queue runs from the serving window back towards the front door, so
+     an arrival joins the end of it the moment they are through the frame. */
   function queueSpot(i) {
     var p = CS.tileToWorld(CS.SERVE_COL, 0);
     return { x: p.x + (i % 2 ? 0.55 : -0.35), z: CS.OZ - 1.5 - i * 1.75 };
   }
 
+  var WALL_Z = CS.OZ - 9.5;              // the dining room's back wall
+  var OUTSIDE_Z = WALL_Z - 2.9;          // out on the porch, hidden by the wall
+  var THRESHOLD_Z = WALL_Z + 0.15;       // in the door frame
+  var INSIDE_Z = WALL_Z + 1.7;           // one step inside
+  var EXIT_X = CS.DOOR_X + 2.3;          // served customers leave down their own
+                                         // lane, rather than back through the queue
+  var WALK = 2.1, HURRY = 3.4;
+
+  /* Move `g` towards (tx,tz) at a constant speed, turning to face the way it
+     is going. Returns the distance actually covered, which is what drives the
+     walk cycle -- animating off a timer instead leaves legs paddling while a
+     customer stands still. */
+  function stepToward(g, tx, tz, speed, dt) {
+    var dx = tx - g.position.x, dz = tz - g.position.z;
+    var d = Math.hypot(dx, dz);
+    if (d < 0.015) return 0;
+    var m = Math.min(d, speed * dt);
+    g.position.x += dx / d * m;
+    g.position.z += dz / d * m;
+    var want = Math.atan2(dx, dz);
+    var diff = ((want - g.rotation.y + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
+    g.rotation.y += diff * Math.min(1, dt * 8);
+    return m;
+  }
+
+  /* Turn back to face the serving window once they have stopped. */
+  function faceCounter(g, dt) {
+    var diff = ((0 - g.rotation.y + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
+    g.rotation.y += diff * Math.min(1, dt * 6);
+  }
+
+  function animateCust(c, dt, moved) {
+    var p = c.parts, sp = p.species;
+    c.walk += moved * 4.4;
+    c.bob += dt * 1.9;
+    // gait eases between standing and walking so nothing snaps
+    c.gait += ((moved > 0.0008 ? 1 : 0) - c.gait) * Math.min(1, dt * 11);
+    var sw = Math.sin(c.walk) * 0.8 * c.gait;
+    p.legL.rotation.x = sw;
+    p.legR.rotation.x = -sw;
+    p.armL.rotation.x = -sw * 0.7;
+    p.armR.rotation.x = sw * 0.7;
+    c.group.position.y = Math.abs(Math.sin(c.walk)) * 0.06 * c.gait
+      + Math.sin(c.bob) * 0.016 * (1 - c.gait);
+    if (sp.tail === 'wag') {
+      // a pup wags hard while walking and idles with a slow sweep
+      p.tail.rotation.y = Math.sin(c.walk * 1.6 + c.bob * 4) * (0.25 + 0.45 * c.gait);
+    } else if (sp.tail !== 'none') {
+      p.tail.rotation.y = Math.sin(c.bob * 1.15) * 0.16;
+    }
+  }
+
   var O = CS.orders = {
     list: [],
     leaving: [],
+    coins: [],
     spawnTimer: 0,
     level: null,
 
@@ -37,8 +93,10 @@ window.CS = window.CS || {};
     reset: function (level) {
       this.list.forEach(function (o) { scene.remove(o.cust.group); });
       this.leaving.forEach(function (c) { scene.remove(c.group); });
+      this.coins.forEach(function (c) { scene.remove(c.m); });
       this.list.length = 0;
       this.leaving.length = 0;
+      this.coins.length = 0;
       this.level = level || CS.levelFor(1);
       this.spawnTimer = CS.FIRST_SPAWN;
       nextId = 1;
@@ -99,26 +157,45 @@ window.CS = window.CS || {};
       };
     },
 
+    /* Pick a species nobody in the queue is currently wearing, so the ticket
+       colours stay tellable apart. Falls back to any species once the shop is
+       busier than the roster is long. */
+    pickSpecies: function () {
+      var taken = this.list.map(function (o) { return o.species; });
+      var free = [];
+      for (var i = 0; i < CS.CRITTERS.length; i++) if (taken.indexOf(i) < 0) free.push(i);
+      return free.length ? CS.pick(free) : ri(CS.CRITTERS.length);
+    },
+
     spawn: function (progress) {
       if (this.list.length >= this.level.maxOrders) return null;
       var t = this.makeTicket(progress);
       var idx = this.list.length;
       var seed = ri(1000);
-      var shirt = CS.CUSTOMER_COLORS[seed % CS.CUSTOMER_COLORS.length];
-      var cust = CS.models.customer(shirt, seed);
+      var species = this.pickSpecies();
+      var cust = CS.models.customer(species, seed);
       var spot = queueSpot(idx);
-      var back = queueSpot(CS.MAX_ORDERS_CAP + 2);
-      cust.group.position.set(spot.x, 0, back.z);
+
+      // Start out on the porch, behind the wall, and walk in through the door.
+      // Staggered by queue position so two arrivals in the same second are not
+      // standing inside each other out there.
+      cust.group.position.set(CS.DOOR_X, 0, OUTSIDE_Z - idx * 1.15);
       cust.group.rotation.y = 0;
+      cust.state = 'enter';
+      cust.path = [
+        { x: CS.DOOR_X, z: THRESHOLD_Z },
+        { x: CS.DOOR_X, z: INSIDE_Z }
+      ];
+      cust.walk = 0; cust.bob = Math.random() * 6.28; cust.gait = 0; cust.t = 0;
       scene.add(cust.group);
 
       t.cust = cust;
-      t.shirt = shirt;
-      t.css = '#' + ('000000' + shirt.toString(16)).slice(-6);
+      t.species = species;
+      t.critter = cust.species;
+      t.css = '#' + ('000000' + cust.species.tint.toString(16)).slice(-6);
       t.tx = spot.x; t.tz = spot.z;
-      t.bob = Math.random() * 6.28;
       this.list.push(t);
-      CS.audio.newOrder();
+      CS.audio.doorbell();
       return t;
     },
 
@@ -146,6 +223,9 @@ window.CS = window.CS || {};
       return best;
     },
 
+    /* Served or walked out, they take the same route home: step sideways out
+       of the line, back down the exit lane, and out through the front door.
+       A happy one celebrates on the spot first; an unhappy one just goes. */
     complete: function (order, happy) {
       var i = this.list.indexOf(order);
       if (i >= 0) this.list.splice(i, 1);
@@ -153,14 +233,38 @@ window.CS = window.CS || {};
       var c = order.cust;
       c.happy = happy;
       c.t = 0;
-      c.exitX = c.group.position.x + (happy ? 5.5 : -5.5);
-      if (!happy) {
-        c.group.traverse(function (o) {
-          if (o.isMesh && o.material && o.material.color) { /* leave colours alone */ }
-        });
-      }
+      c.state = 'leave';
+      c.cheer = happy ? 0.6 : 0;
+      c.speed = happy ? WALK : HURRY;
+      c.path = [
+        { x: EXIT_X, z: c.group.position.z },
+        { x: EXIT_X, z: INSIDE_Z },
+        { x: CS.DOOR_X, z: THRESHOLD_Z },
+        { x: CS.DOOR_X, z: OUTSIDE_Z }
+      ];
       this.leaving.push(c);
       this.relayout();
+    },
+
+    /* --------------------------------------------------------------- tips
+       A happy customer who was served briskly drops a coin or two on the
+       counter. Purely cosmetic here -- game.js owns what they are worth. */
+    tipBurst: function (x, y, z, n) {
+      for (var i = 0; i < n; i++) {
+        var m = CS.models.coin();
+        m.position.set(x + (Math.random() - 0.5) * 0.5, y + 0.25, z + (Math.random() - 0.5) * 0.4);
+        m.rotation.set(Math.random() * 3, Math.random() * 3, Math.random() * 3);
+        scene.add(m);
+        this.coins.push({
+          m: m, t: 0,
+          vy: 2.6 + Math.random() * 1.1,
+          vx: (Math.random() - 0.5) * 0.9,
+          vz: (Math.random() - 0.5) * 0.7,
+          spin: 6 + Math.random() * 6,
+          rest: y + 0.06
+        });
+      }
+      CS.audio.coins();
     },
 
     relayout: function () {
@@ -185,31 +289,35 @@ window.CS = window.CS || {};
         }
       }
 
+      /* ---- everyone in the queue: walk in, shuffle up, wait, fidget ---- */
       for (var i = this.list.length - 1; i >= 0; i--) {
         var o = this.list[i];
         o.left -= dt;
+        var c = o.cust, g = c.group, moved = 0;
+        c.t += dt;
+
+        if (c.state === 'enter') {
+          // follow the doorway waypoints, then join the back of the line
+          var wp = c.path[0];
+          moved = stepToward(g, wp.x, wp.z, WALK, dt);
+          if (moved === 0) {
+            c.path.shift();
+            if (!c.path.length) c.state = 'queue';
+          }
+        } else {
+          moved = stepToward(g, o.tx, o.tz, WALK, dt);
+          if (moved === 0) faceCounter(g, dt);
+        }
+        animateCust(c, dt, moved);
 
         var frac = o.left / o.limit;
         if (frac < 0.3 && !o.beeped) { o.beeped = true; CS.audio.warn(); }
-        o.cust.parts.mark.visible = frac < 0.3;
-
-        // walk to place, idle bob
-        var g = o.cust.group;
-        g.position.x += (o.tx - g.position.x) * Math.min(1, dt * 4);
-        g.position.z += (o.tz - g.position.z) * Math.min(1, dt * 3);
-        var moving = Math.abs(o.tz - g.position.z) > 0.05;
-        o.bob += dt * (moving ? 9 : 2.2);
-        g.position.y = moving ? Math.abs(Math.sin(o.bob)) * 0.08 : Math.sin(o.bob) * 0.02;
-        var swing = moving ? Math.sin(o.bob) * 0.7 : 0;
-        o.cust.parts.legL.rotation.x = swing;
-        o.cust.parts.legR.rotation.x = -swing;
-        o.cust.parts.armL.rotation.x = -swing * 0.6;
-        o.cust.parts.armR.rotation.x = swing * 0.6;
+        c.parts.mark.visible = frac < 0.3;
         if (frac < 0.3) {
-          o.cust.parts.mark.rotation.y += dt * 4;
-          o.cust.parts.head.rotation.z = Math.sin(o.bob * 3) * 0.12;
+          c.parts.mark.rotation.y += dt * 4;
+          c.parts.head.rotation.z = Math.sin(c.bob * 5) * 0.14;   // tapping a foot
         } else {
-          o.cust.parts.head.rotation.z *= 0.9;
+          c.parts.head.rotation.z *= 0.9;
         }
 
         if (o.left <= 0) {
@@ -218,23 +326,54 @@ window.CS = window.CS || {};
         }
       }
 
-      // customers walking off
+      /* ---- customers on their way out ---- */
       for (var j = this.leaving.length - 1; j >= 0; j--) {
-        var c = this.leaving[j];
-        c.t += dt;
-        var gg = c.group;
-        if (c.happy && c.t < 0.55) {
-          gg.position.y = Math.abs(Math.sin(c.t * 11)) * 0.32;   // little celebration hop
-          gg.rotation.y += dt * 7;
+        var lc = this.leaving[j];
+        lc.t += dt;
+        var lg = lc.group;
+
+        if (lc.cheer > 0) {
+          // a happy hop on the spot before they set off
+          lc.cheer -= dt;
+          lg.position.y = Math.abs(Math.sin(lc.t * 12)) * 0.30;
+          lg.rotation.y += dt * 7;
+          lc.parts.armL.rotation.x = -1.9;
+          lc.parts.armR.rotation.x = -1.9;
+          if (lc.parts.species.tail === 'wag') lc.parts.tail.rotation.y = Math.sin(lc.t * 22) * 0.8;
         } else {
-          gg.rotation.y = CS.lerp(gg.rotation.y, c.happy ? Math.PI / 2 : -Math.PI / 2, dt * 6);
-          gg.position.x += (c.exitX - gg.position.x) * Math.min(1, dt * 1.6);
-          gg.position.z -= dt * 0.6;
-          gg.position.y = Math.abs(Math.sin(c.t * 9)) * 0.07;
-          c.parts.legL.rotation.x = Math.sin(c.t * 9) * 0.7;
-          c.parts.legR.rotation.x = -Math.sin(c.t * 9) * 0.7;
+          var wp2 = lc.path[0];
+          var m2 = wp2 ? stepToward(lg, wp2.x, wp2.z, lc.speed, dt) : 0;
+          if (wp2 && m2 === 0) lc.path.shift();
+          animateCust(lc, dt, m2);
+          if (!lc.happy) lc.parts.head.rotation.y = Math.sin(lc.t * 7) * 0.22;
         }
-        if (c.t > 3.2) { scene.remove(gg); this.leaving.splice(j, 1); }
+
+        // gone through the door, or stuck long enough that something is wrong
+        if (!lc.path.length || lc.t > 14) {
+          scene.remove(lg);
+          this.leaving.splice(j, 1);
+        }
+      }
+
+      /* ---- tip coins arcing onto the counter ---- */
+      for (var k = this.coins.length - 1; k >= 0; k--) {
+        var co = this.coins[k];
+        co.t += dt;
+        co.vy -= 11 * dt;
+        co.m.position.x += co.vx * dt;
+        co.m.position.z += co.vz * dt;
+        co.m.position.y += co.vy * dt;
+        co.m.rotation.y += co.spin * dt;
+        co.m.rotation.x += co.spin * 0.5 * dt;
+        if (co.m.position.y < co.rest) {       // land flat and settle
+          co.m.position.y = co.rest;
+          co.vy = 0; co.vx *= 0.3; co.vz *= 0.3; co.spin *= 0.6;
+          co.m.rotation.x = Math.PI / 2;
+        }
+        if (co.t > 1.9) {
+          co.m.scale.setScalar(Math.max(0.001, 1 - (co.t - 1.9) / 0.5));
+        }
+        if (co.t > 2.4) { scene.remove(co.m); this.coins.splice(k, 1); }
       }
     }
   };

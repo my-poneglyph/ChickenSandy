@@ -214,6 +214,52 @@ window.CS = window.CS || {};
     scene.add(m);
   }
 
+  /* The shop's front door: frame, two leaves propped open, a strip of porch
+     so arrivals are not walking on nothing, and a lamp outside. Customers
+     spawn out there in the dark and the wall hides them until they step
+     through, which is what sells them as having come in off the street. */
+  function doorway(scene, x, z, w, h) {
+    var post = 0.16;
+    // frame
+    [-1, 1].forEach(function (s) {
+      scene.add(CS.box(post, h, 0.34, { color: 0x6b4526 }, x + s * (w / 2 - post / 2), h / 2, z));
+    });
+    scene.add(CS.box(w + post, 0.20, 0.34, { color: 0x6b4526 }, x, h - 0.10, z));
+    scene.add(CS.box(w + post * 2.4, 0.16, 0.50, { color: 0x5a381c }, x, h + 0.10, z));
+
+    // two leaves, hinged on the posts and propped open into the room
+    [-1, 1].forEach(function (s) {
+      var hinge = new THREE.Group();
+      hinge.position.set(x + s * (w / 2 - post), 0, z + 0.06);
+      // ~66 deg: wide enough to walk through, shallow enough that the leaves
+      // still catch the light instead of vanishing edge-on into the doorway
+      hinge.rotation.y = s * 1.15;
+      scene.add(hinge);
+      var leafW = w / 2 - post * 0.5;
+      var leaf = CS.box(leafW, h - 0.22, 0.10, { color: 0xffffff, tex: 'counterWood' },
+        -s * leafW / 2, (h - 0.22) / 2, 0);
+      hinge.add(leaf);
+      hinge.add(CS.box(leafW * 0.8, 0.10, 0.12, { color: 0x6b4526 }, -s * leafW / 2, h * 0.62, 0.02));
+      hinge.add(CS.box(leafW * 0.8, 0.10, 0.12, { color: 0x6b4526 }, -s * leafW / 2, h * 0.28, 0.02));
+      hinge.add(CS.box(0.07, 0.07, 0.07, { color: 0xc8a24a }, -s * (leafW - 0.16), h * 0.45, 0.09));
+    });
+
+    // the little brass bell the door knocks on the way in
+    scene.add(CS.box(0.12, 0.14, 0.12, { color: 0xd8a83a }, x, h - 0.28, z + 0.22));
+
+    // porch: a slab of boards outside, and a dark backdrop so the doorway is
+    // an opening onto somewhere rather than a hole into the void
+    var porch = CS.box(w + 3.0, 0.08, 4.0, { color: 0xffffff, tex: 'diningFloor' },
+      x, -0.05, z - 2.2);
+    porch.receiveShadow = true;
+    scene.add(porch);
+    scene.add(CS.box(w + 4.4, 3.4, 0.4, { color: 0x24170d }, x, 1.7, z - 4.3));
+    scene.add(CS.box(0.4, 3.4, 4.4, { color: 0x24170d }, x - (w + 4.0) / 2, 1.7, z - 2.2));
+    scene.add(CS.box(0.4, 3.4, 4.4, { color: 0x24170d }, x + (w + 4.0) / 2, 1.7, z - 2.2));
+
+    lantern(scene, x - (w / 2 + 0.75), 2.15, z - 0.55);
+  }
+
   function lantern(scene, x, y, z) {
     var g = new THREE.Group();
     g.add(CS.box(0.08, 0.7, 0.08, { color: 0x2e2a26 }, 0, 0.62, 0));
@@ -411,16 +457,34 @@ window.CS = window.CS || {};
         }
       }
 
-      // ---- dining room back wall, so the queue is not standing in a void
+      /* ---- dining room back wall, with the front door cut into it ----
+         The wall is two segments and a lintel rather than one box, so there
+         is a real opening for customers to walk through. The gap lines up
+         with CS.DOOR_X, which is directly behind the queue, so an arrival
+         walks in and straight down the line without a detour. */
       var backZ = CS.OZ - 9.5;
-      var bw = CS.box(fw + 10, 3.6, 0.6, { color: 0xffffff, tex: 'wall' },
-        CS.OX + fw / 2, 1.8, backZ);
-      bw.receiveShadow = true;
-      scene.add(bw);
-      scene.add(CS.box(fw + 10, 0.3, 0.9, { color: 0x5a381c }, CS.OX + fw / 2, 3.7, backZ));
+      var wallW = fw + 10, wallCx = CS.OX + fw / 2;
+      var wallX0 = wallCx - wallW / 2, wallX1 = wallCx + wallW / 2;
+      var dx = CS.DOOR_X, dw = CS.DOOR_W, dh = 2.5;
+      var gap0 = dx - dw / 2, gap1 = dx + dw / 2;
+
+      [[wallX0, gap0], [gap1, wallX1]].forEach(function (seg) {
+        var w = seg[1] - seg[0];
+        if (w <= 0.01) return;
+        var m = CS.box(w, 3.6, 0.6, { color: 0xffffff, tex: 'wall' },
+          (seg[0] + seg[1]) / 2, 1.8, backZ);
+        m.receiveShadow = true;
+        scene.add(m);
+      });
+      // lintel over the opening, then the cornice runs unbroken above it all
+      scene.add(CS.box(dw, 3.6 - dh, 0.6, { color: 0xffffff, tex: 'wall' },
+        dx, dh + (3.6 - dh) / 2, backZ));
+      scene.add(CS.box(wallW, 0.3, 0.9, { color: 0x5a381c }, wallCx, 3.7, backZ));
+
+      doorway(scene, dx, backZ, dw, dh);
 
       var s1 = CS.models.signBoard(['Good Food', 'Happy', 'Chicken'], 4.4);
-      s1.position.set(CS.OX + fw * 0.26, 2.0, backZ + 0.35);
+      s1.position.set(CS.OX + fw * 0.08, 2.0, backZ + 0.35);
       scene.add(s1);
       var s2 = CS.models.signBoard(['Chicken', 'Sandwich', '= Happiness'], 4.4);
       s2.position.set(CS.OX + fw * 0.74, 2.0, backZ + 0.35);
@@ -441,7 +505,9 @@ window.CS = window.CS || {};
       lantern(scene, CS.OX + T * 12.0, 2.45, CS.OZ + T * 2.2);
       lantern(scene, CS.OX + T * 7.0, 2.45, CS.OZ + T * 6.6);
       lantern(scene, CS.OX + T * 3.2, 2.45, CS.OZ + T * 4.4);
-      lantern(scene, CS.OX + T * 4.5, 2.6, CS.OZ - 3.0);
+      // clear of CS.DOOR_X: these used to hang straight down the sight line
+      // between the queue and the front door
+      lantern(scene, CS.OX + T * 2.6, 2.6, CS.OZ - 3.0);
       lantern(scene, CS.OX + T * 10.5, 2.6, CS.OZ - 3.0);
 
       // ---- dining room dressing, visible over the serving counter

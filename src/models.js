@@ -218,45 +218,179 @@ window.CS = window.CS || {};
     return { group: g, parts: parts };
   };
 
-  /* -------------------------------------------------------- the customer */
-  CS.models.customer = function (shirt, seed) {
-    var g = new THREE.Group();
-    var parts = {};
-    var skin = [0xe0b48a, 0xc08a5e, 0x8d5f3c, 0xf0cba6][seed % 4];
+  /* -------------------------------------------------------- the customer
+     The queue is an assortment of small animals. Body, arms and legs are the
+     same chunky rig for every species -- which is what lets orders.js drive
+     one walk cycle for all of them -- and the species table in config.js
+     supplies the colours plus the ears, snout and tail bolted on top.
 
-    var hips = new THREE.Group(); hips.position.y = 0.34; g.add(hips);
+     `parts` is the contract with orders.js: legL, legR, armL, armR, head,
+     body, tail and mark. Keep those names if you add a species.             */
+  CS.models.customer = function (speciesIdx, seed) {
+    var C = CS.CRITTERS[speciesIdx % CS.CRITTERS.length];
+    var g = new THREE.Group();
+    var parts = { species: C };
+    var FUR = C.fur, BELLY = C.belly, SNOUT = C.snout;
+    var FUR_D = CS.shade(FUR, -26);
+
+    /* ---- legs: stubby, with a paw ---- */
+    var hips = new THREE.Group(); hips.position.y = 0.30; g.add(hips);
     ['legL', 'legR'].forEach(function (id, i) {
       var leg = new THREE.Group();
-      leg.position.set(i ? 0.12 : -0.12, 0, 0);
+      leg.position.set(i ? 0.13 : -0.13, 0, 0);
       hips.add(leg);
-      add(leg, CS.box(0.16, 0.34, 0.16, 0x3c3a52, 0, -0.17, 0));
+      add(leg, CS.box(0.17, 0.22, 0.17, FUR, 0, -0.11, 0));
+      add(leg, CS.box(0.19, 0.09, 0.23, FUR_D, 0, -0.245, 0.03));   // paw
       parts[id] = leg;
     });
 
-    var body = new THREE.Group(); body.position.y = 0.34; g.add(body); parts.body = body;
-    add(body, CS.box(0.46, 0.52, 0.30, shirt, 0, 0.26, 0));
-    add(body, CS.box(0.46, 0.10, 0.31, CS.shade(shirt, -40), 0, 0.06, 0));
-    parts.armL = new THREE.Group(); parts.armL.position.set(-0.30, 0.46, 0); body.add(parts.armL);
-    add(parts.armL, CS.box(0.13, 0.40, 0.15, shirt, 0, -0.18, 0));
-    add(parts.armL, CS.box(0.14, 0.12, 0.16, skin, 0, -0.42, 0));
-    parts.armR = new THREE.Group(); parts.armR.position.set(0.30, 0.46, 0); body.add(parts.armR);
-    add(parts.armR, CS.box(0.13, 0.40, 0.15, shirt, 0, -0.18, 0));
-    add(parts.armR, CS.box(0.14, 0.12, 0.16, skin, 0, -0.42, 0));
+    /* ---- body: a pear, widest at the belly ---- */
+    var body = new THREE.Group(); body.position.y = 0.30; g.add(body); parts.body = body;
+    slab(body, 0.44, 0.10, 0.34, FUR, 0.05, 0);
+    slab(body, 0.52, 0.13, 0.40, FUR, 0.16, 0.005);
+    slab(body, 0.50, 0.13, 0.38, FUR, 0.29, 0);
+    slab(body, 0.44, 0.11, 0.33, FUR, 0.40, -0.005);
+    // a paler front, which is most of what makes an animal read as an animal
+    add(body, CS.box(0.30, 0.30, 0.03, BELLY, 0, 0.20, 0.196));
+    if (C.patch) add(body, CS.box(0.14, 0.13, 0.03, FUR_D, -0.13, 0.32, 0.197));
 
-    var head = new THREE.Group(); head.position.set(0, 0.56, 0); body.add(head); parts.head = head;
-    add(head, CS.box(0.38, 0.38, 0.34, skin, 0, 0.19, 0));
-    add(head, CS.box(0.40, 0.12, 0.36, [0x3a2a1c, 0x6b4a2a, 0x2b2b2b, 0xa8712f][seed % 4], 0, 0.36, 0));
-    add(head, CS.box(0.08, 0.09, 0.02, 0x1a1512, -0.09, 0.22, 0.171));
-    add(head, CS.box(0.08, 0.09, 0.02, 0x1a1512, 0.09, 0.22, 0.171));
-    add(head, CS.box(0.10, 0.12, 0.09, CS.shade(skin, -18), 0, 0.13, 0.19));  // nose
+    /* ---- arms ---- */
+    [['armL', -1], ['armR', 1]].forEach(function (a) {
+      var arm = new THREE.Group();
+      arm.position.set(a[1] * 0.28, 0.38, 0);
+      body.add(arm);
+      add(arm, CS.box(0.12, 0.26, 0.14, FUR, 0, -0.13, 0));
+      add(arm, CS.box(0.14, 0.10, 0.16, FUR_D, 0, -0.29, 0.01));    // paw
+      parts[a[0]] = arm;
+    });
 
-    // impatience mark, shown when the ticket is nearly out of time
-    parts.mark = new THREE.Group(); parts.mark.position.set(0, 1.55, 0); parts.mark.visible = false; g.add(parts.mark);
+    /* ---- tail: on its own pivot, so it can wag ---- */
+    parts.tail = new THREE.Group();
+    parts.tail.position.set(0, 0.16, -0.20);
+    body.add(parts.tail);
+    if (C.tail === 'up' || C.tail === 'wag') {
+      add(parts.tail, CS.box(0.10, 0.10, 0.20, FUR, 0, 0.04, -0.09));
+      add(parts.tail, CS.box(0.10, 0.22, 0.10, FUR, 0, 0.19, -0.16));
+      add(parts.tail, CS.box(0.10, 0.12, 0.10, C.tipped ? 0xf6eadd : FUR, 0, 0.34, -0.16));
+      parts.tail.rotation.x = C.tail === 'wag' ? 0.25 : 0;
+    } else if (C.tail === 'bush') {
+      add(parts.tail, CS.box(0.20, 0.20, 0.24, FUR, 0, 0.02, -0.12));
+      add(parts.tail, CS.box(0.22, 0.24, 0.20, FUR, 0, 0.20, -0.22));
+      add(parts.tail, CS.box(0.18, 0.16, 0.16, 0xf6eadd, 0, 0.38, -0.28));
+    } else if (C.tail === 'puff') {
+      add(parts.tail, CS.box(0.18, 0.18, 0.16, 0xffffff, 0, 0.02, -0.08));
+    } else if (C.tail === 'curl') {
+      add(parts.tail, CS.box(0.08, 0.08, 0.13, FUR, 0, 0.06, -0.07));
+      add(parts.tail, CS.box(0.08, 0.13, 0.08, FUR, 0, 0.15, -0.12));
+      add(parts.tail, CS.box(0.08, 0.08, 0.12, FUR, 0, 0.21, -0.07));
+    }
+
+    /* ---- head ---- */
+    var head = new THREE.Group(); head.position.set(0, 0.50, 0.01); body.add(head);
+    parts.head = head;
+    slab(head, 0.34, 0.09, 0.31, FUR, 0.07, 0);
+    slab(head, 0.42, 0.16, 0.38, FUR, 0.18, 0.005);
+    slab(head, 0.36, 0.09, 0.33, FUR, 0.29, 0);
+
+    // ears. `eh` tracks how tall this species ends up, so the impatience mark
+    // floats clear of a bunny's ears as well as a frog's flat head.
+    var eh = 0.36;
+    if (C.ears === 'point') {
+      [-1, 1].forEach(function (s) {
+        add(head, CS.box(0.12, 0.13, 0.07, FUR, s * 0.13, 0.35, -0.01));
+        add(head, CS.box(0.07, 0.09, 0.05, C.stripes ? 0xf7cfae : FUR_D, s * 0.13, 0.42, 0.01));
+      });
+      eh = 0.48;
+    } else if (C.ears === 'tall') {
+      [-1, 1].forEach(function (s) {
+        var e = add(head, CS.box(0.11, 0.40, 0.09, FUR, s * 0.12, 0.52, -0.02));
+        e.rotation.z = s * 0.16;
+        var inner = add(head, CS.box(0.06, 0.30, 0.06, 0xf6c9d2, s * 0.13, 0.52, 0.02));
+        inner.rotation.z = s * 0.16;
+      });
+      eh = 0.76;
+    } else if (C.ears === 'round') {
+      var er = C.bigEars ? 0.20 : 0.15;
+      var ex = C.bigEars ? 0.20 : 0.16;
+      [-1, 1].forEach(function (s) {
+        add(head, CS.box(er, er, 0.07, FUR, s * ex, 0.34, -0.02));
+        add(head, CS.box(er * 0.6, er * 0.6, 0.05, BELLY, s * ex, 0.34, 0.02));
+      });
+      eh = 0.46;
+    } else if (C.ears === 'droop') {
+      [-1, 1].forEach(function (s) {
+        add(head, CS.box(0.10, 0.26, 0.13, FUR_D, s * 0.23, 0.18, -0.02));
+        add(head, CS.box(0.10, 0.09, 0.13, FUR_D, s * 0.23, 0.30, -0.02));
+      });
+    } else if (C.ears === 'flop') {
+      [-1, 1].forEach(function (s) {
+        var e = add(head, CS.box(0.15, 0.14, 0.06, FUR_D, s * 0.14, 0.33, 0.10));
+        e.rotation.x = 0.55;
+      });
+      eh = 0.42;
+    }
+
+    // eyes -- a frog's bulge off the top of the skull, everyone else's sit flat
+    parts.eyes = new THREE.Group(); head.add(parts.eyes);
+    if (C.bigEyes) {
+      [-1, 1].forEach(function (s) {
+        add(parts.eyes, CS.box(0.17, 0.16, 0.17, FUR, s * 0.14, 0.34, 0.02));
+        add(parts.eyes, CS.box(0.11, 0.11, 0.06, 0xffffff, s * 0.145, 0.35, 0.10));
+        add(parts.eyes, CS.box(0.07, 0.08, 0.04, 0x161210, s * 0.15, 0.35, 0.13));
+      });
+      eh = 0.46;
+    } else {
+      [-1, 1].forEach(function (s) {
+        add(parts.eyes, CS.box(0.08, 0.10, 0.02, 0xffffff, s * 0.10, 0.21, 0.191));
+        add(parts.eyes, CS.box(0.06, 0.08, 0.02, 0x161210, s * 0.105, 0.21, 0.201));
+        add(parts.eyes, CS.box(0.025, 0.03, 0.02, 0xffffff, s * 0.085, 0.235, 0.21));
+      });
+    }
+
+    // snout and nose
+    if (C.name === 'Piglet') {
+      add(head, CS.box(0.19, 0.15, 0.09, SNOUT, 0, 0.13, 0.215));
+      add(head, CS.box(0.04, 0.05, 0.03, C.nose, -0.045, 0.13, 0.262));
+      add(head, CS.box(0.04, 0.05, 0.03, C.nose, 0.045, 0.13, 0.262));
+    } else if (C.bigEyes) {
+      add(head, CS.box(0.26, 0.04, 0.03, CS.shade(FUR, -40), 0, 0.10, 0.195));   // wide grin
+    } else {
+      add(head, CS.box(0.17, 0.12, 0.11, SNOUT, 0, 0.12, 0.215));
+      add(head, CS.box(0.08, 0.06, 0.04, C.nose, 0, 0.16, 0.27));
+      add(head, CS.box(0.02, 0.04, 0.02, CS.shade(FUR, -45), 0, 0.09, 0.275));   // mouth
+    }
+    if (C.stripes) {
+      add(head, CS.box(0.06, 0.03, 0.10, FUR_D, -0.06, 0.305, -0.10));
+      add(head, CS.box(0.06, 0.03, 0.10, FUR_D, 0.06, 0.305, -0.10));
+    }
+
+    /* A cap on some of them, picked off the seed, so two Bunnies standing in
+       the same queue still read as two different customers. */
+    if (seed % 5 > 2 && C.ears !== 'tall') {
+      var cap = [0x6a4f9c, 0x3f8a6b, 0x4f7fc4, 0xc0563f][seed % 4];
+      add(head, CS.box(0.40, 0.08, 0.36, cap, 0, 0.33, 0));
+      add(head, CS.box(0.30, 0.10, 0.28, CS.shade(cap, 18), 0, 0.42, 0));
+      eh = Math.max(eh, 0.52);
+    }
+
+    // impatience mark, floating clear of whatever this species has on its head
+    parts.mark = new THREE.Group();
+    parts.mark.position.set(0, 0.30 + 0.50 + eh + 0.34, 0);
+    parts.mark.visible = false;
+    g.add(parts.mark);
     add(parts.mark, CS.box(0.10, 0.26, 0.10, CS.mat({ color: 0xff3b2e, basic: true }), 0, 0.16, 0));
     add(parts.mark, CS.box(0.10, 0.10, 0.10, CS.mat({ color: 0xff3b2e, basic: true }), 0, -0.04, 0));
 
     g.traverse(function (o) { if (o.isMesh) o.castShadow = true; });
-    return { group: g, parts: parts };
+    return { group: g, parts: parts, species: C };
+  };
+
+  /* A tip coin, tossed on the counter when a customer is happy. */
+  CS.models.coin = function () {
+    var g = new THREE.Group();
+    g.add(CS.box(0.16, 0.16, 0.04, CS.mat({ color: 0xf5c243 }), 0, 0, 0));
+    g.add(CS.box(0.09, 0.09, 0.055, CS.mat({ color: 0xffe89a }), 0, 0, 0));
+    return g;
   };
 
   /* ------------------------------------------------------------ the food */
