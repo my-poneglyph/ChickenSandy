@@ -109,43 +109,43 @@ window.CS = window.CS || {};
 
   CS.LEVELS = [
     { name: 'Opening Day', tag: 'Plain sandwiches. Find your feet.',
-      seconds: 120, rent: 12, maxOrders: 2,
+      seconds: 120, rent: 8, maxOrders: 2,
       spawn: [10.0, 8.5], limit: [80, 70],
       friesChance: 0, cupChance: 0, twoCupChance: 0, maxTop: 0, maxSauce: 0,
       unlocks: ['Plate', 'Bun', 'Fried chicken'] },
 
     { name: 'Fries Are Up', tag: 'A second fryer is lit.',
-      seconds: 140, rent: 20, maxOrders: 2,
+      seconds: 140, rent: 12, maxOrders: 2,
       spawn: [9.5, 8.0], limit: [78, 68],
       friesChance: 0.5, cupChance: 0, twoCupChance: 0, maxTop: 0, maxSauce: 0,
       unlocks: ['French fries'] },
 
     { name: 'Garden Fresh', tag: 'The topping trays open up.',
-      seconds: 150, rent: 28, maxOrders: 3,
+      seconds: 150, rent: 16, maxOrders: 3,
       spawn: [9.0, 7.4], limit: [76, 64],
       friesChance: 0.45, cupChance: 0, twoCupChance: 0, maxTop: 1, maxSauce: 0,
       unlocks: ['Lettuce', 'Tomato', 'Pickles'] },
 
     { name: 'Sauce Boss', tag: 'Squeeze bottles on the back wall.',
-      seconds: 160, rent: 37, maxOrders: 3,
+      seconds: 160, rent: 21, maxOrders: 3,
       spawn: [8.4, 6.9], limit: [74, 62],
       friesChance: 0.45, cupChance: 0, twoCupChance: 0, maxTop: 1, maxSauce: 1,
       unlocks: ['Mayo', 'BBQ sauce', 'Hot sauce'] },
 
     { name: 'Sides Please', tag: 'Cups of sauce to go.',
-      seconds: 170, rent: 46, maxOrders: 3,
+      seconds: 170, rent: 27, maxOrders: 3,
       spawn: [7.8, 6.3], limit: [72, 60],
       friesChance: 0.5, cupChance: 0.45, twoCupChance: 0.12, maxTop: 2, maxSauce: 1,
       unlocks: ['Sauce cups: BBQ, hot sauce, ketchup'] },
 
     { name: 'Lunch Rush', tag: 'Four tickets on the rail at once.',
-      seconds: 180, rent: 57, maxOrders: 4,
+      seconds: 180, rent: 34, maxOrders: 4,
       spawn: [6.8, 5.4], limit: [68, 55],
       friesChance: 0.55, cupChance: 0.5, twoCupChance: 0.2, maxTop: 2, maxSauce: 2,
       unlocks: ['A fourth ticket', 'Shorter tempers'] },
 
     { name: 'The Works', tag: 'Everything on everything.',
-      seconds: 190, rent: 68, maxOrders: 4,
+      seconds: 190, rent: 41, maxOrders: 4,
       spawn: [6.0, 4.6], limit: [64, 50],
       friesChance: 0.6, cupChance: 0.55, twoCupChance: 0.3, maxTop: 3, maxSauce: 3,
       unlocks: ['Fully loaded sandwiches'] }
@@ -169,7 +169,7 @@ window.CS = window.CS || {};
     l.day = day;
     l.name = 'Overtime ' + over;
     l.tag = 'No end in sight. Keep frying.';
-    l.rent = 68 + over * 11;
+    l.rent = 41 + over * 7;
     l.spawn = [Math.max(3.2, 6.0 - over * 0.45), Math.max(2.6, 4.6 - over * 0.40)];
     l.limit = [Math.max(44, 64 - over * 3), Math.max(34, 50 - over * 3)];
     l.unlocks = [];
