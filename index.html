@@ -188,10 +188,16 @@
   @keyframes toastout{to{transform:translateY(-22px);opacity:0}}
 
   /* ---------- screens ---------- */
+  /* Padding, not insets, because the card is a flex child and so it actually
+     moves -- unlike #hud, whose children are absolutely positioned. Running
+     fullscreen in Telegram this is what keeps the shop and the kitchen editor
+     out from under the floating close button. */
   #screen{
     position:fixed;inset:0;z-index:30;display:flex;align-items:center;justify-content:center;
     background:radial-gradient(ellipse at center,#3a2413ee 0%,#150c06f7 75%);
-    padding:20px;overflow:auto;
+    overflow:auto;
+    padding:calc(20px + var(--sat)) calc(20px + var(--sar))
+            calc(20px + var(--sab)) calc(20px + var(--sal));
   }
   #screen.hidden{display:none;}
   .card{
