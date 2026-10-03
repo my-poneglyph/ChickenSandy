@@ -178,7 +178,8 @@ window.CS = window.CS || {};
         var def = CS.STAFF_DEFS[h.kind];
         var out = {
           kind: h.kind, name: def.name, role: def.role, tint: def.tint,
-          wage: def.wage, speed: def.speed, act: def.act,
+          wageShare: def.wageShare, wageMin: def.wageMin, wageMax: def.wageMax,
+          speed: def.speed, act: def.act,
           jobs: def.jobs.slice(), training: h.training.slice()
         };
         (CS.TRAINING[h.kind] || []).forEach(function (t) {
@@ -192,8 +193,31 @@ window.CS = window.CS || {};
       });
     },
 
+    /* What the crew costs on a day that took `net`. A share of the takings,
+       so they cost what the shop can bear -- a quiet day pays the floor, a
+       busy one pays properly. */
+    wagesFor: function (net) {
+      var total = E.crew().reduce(function (n, c) {
+        var w = (net || 0) * c.wageShare;
+        if (w < c.wageMin) w = c.wageMin;
+        if (w > c.wageMax) w = c.wageMax;
+        return n + w;
+      }, 0);
+      return Math.round(total * 100) / 100;
+    },
+
+    /* The wage bill as it stands right now, for the HUD and the receipt. */
     wages: function () {
-      return E.crew().reduce(function (n, c) { return n + c.wage; }, 0);
+      return E.wagesFor(E.ledger ? Math.max(0, E.ledger.gross - E.ledger.waste) : 0);
+    },
+
+    /* The floor and the ceiling, for the shop to show before a day starts. */
+    wageRange: function () {
+      var crew = E.crew();
+      return {
+        min: Math.round(crew.reduce(function (n, c) { return n + c.wageMin; }, 0) * 100) / 100,
+        max: Math.round(crew.reduce(function (n, c) { return n + c.wageMax; }, 0) * 100) / 100
+      };
     },
 
     /* ------------------------------------------------------- the menu */
@@ -213,7 +237,7 @@ window.CS = window.CS || {};
     open: function (level) {
       E.ledger = {
         rent: level.rent,
-        wages: E.wages(),
+        wages: 0,         // a share of the takings, so only known at close
         lines: { sandwich: 0, topping: 0, sauce: 0, fries: 0, cup: 0 },
         revenue: { sandwich: 0, topping: 0, sauce: 0, fries: 0, cup: 0 },
         gross: 0, tips: 0, tipCount: 0, waste: 0, wasteCount: 0,
@@ -288,26 +312,45 @@ window.CS = window.CS || {};
       return L ? Math.max(0, L.gross - L.waste) : 0;
     },
 
-    /* Close the books. You have to clear rent and wages to trade another day;
-       a shift that does not is a retry and costs you nothing but the time. */
+    /* Close the books.
+
+       A shift used to be pass-or-nothing: miss the rent and the whole day's
+       takings evaporated. That is a trap -- the player who most needs an
+       upgrade is exactly the one who can never bank enough to buy one, so a
+       hard day becomes a permanently hard day.
+
+       Now the money is always yours. Whatever is left after rent and wages
+       goes in the wallet, and a shift that did not cover them simply banks
+       nothing; it never reaches into the wallet to take what is already
+       there. `passed` survives only to pick the wording and the stars. The
+       day does NOT advance here -- see `advance()`. */
     settle: function () {
       var L = E.ledger;
       if (!L) return null;
-      L.net = L.gross - L.waste;
-      L.outgoings = L.rent + L.wages;
+      L.net = Math.round((L.gross - L.waste) * 100) / 100;
+      L.wages = E.wagesFor(L.net);
+      L.outgoings = Math.round((L.rent + L.wages) * 100) / 100;
       L.profit = Math.round((L.net - L.outgoings) * 100) / 100;
       L.passed = L.profit >= 0;
-      if (L.passed) {
-        E.state.wallet = Math.round((E.state.wallet + L.profit) * 100) / 100;
-        E.state.day++;
-        E.state.career.days++;
-        E.state.career.served += L.served;
-        E.state.career.earned += L.net;
-        E.state.career.tips += L.tips;
-        E.state.career.best = Math.max(E.state.career.best, L.profit);
-        E.save();
-      }
+      L.banked = Math.max(0, L.profit);
+
+      E.state.wallet = Math.round((E.state.wallet + L.banked) * 100) / 100;
+      E.state.career.days++;
+      E.state.career.served += L.served;
+      E.state.career.earned += L.net;
+      E.state.career.tips += L.tips;
+      E.state.career.best = Math.max(E.state.career.best, L.profit);
+      E.save();
       return L;
+    },
+
+    /* Move to the next day. Split out from settle() so the result screen can
+       offer "carry on" and "run that day again" as a real choice: a replay
+       keeps the money you already banked and does not skip the day. */
+    advance: function () {
+      E.state.day++;
+      E.save();
+      return E.state.day;
     },
 
     stars: function (ledger) {

@@ -246,21 +246,30 @@ are tipped, not what you are paid.
 
 ### The days
 
-Each day has a length, a rent and a queue size. Clear the rent (and any wages) and
-you bank the profit and move on; fall short and you retry that day having lost
-nothing but the time. One to three stars depending on how far past your outgoings you
-land.
+Each day has a length, a rent and a queue size. One to three stars depending on how
+far past your outgoings you land.
+
+**You never lose money you have already earned.** Whatever is left after rent and
+wages goes in the wallet; a day that does not cover them simply banks nothing and
+never reaches into the wallet to take what is already there. At closing you choose:
+carry on to tomorrow, or run the same day again to bank a bit more first. Neither is
+a punishment, and the shop is never taken off you — `NEW SHOP` on the title screen is
+the only thing that starts over, and only when you ask for it.
+
+(This used to be pass-or-fail, and it was a trap: miss the rent and the whole day's
+takings evaporated, so the player who most needed an upgrade was exactly the one who
+could never bank enough to buy one.)
 
 | Day | Name | Length | Rent | Tickets | What's new |
 | --- | --- | --- | --- | --- | --- |
-| 1 | Opening Day | 2:00 | $18 | 2 | Plate, bun, fried chicken — nothing else |
-| 2 | Fries Are Up | 2:20 | $32 | 2 | French fries |
-| 3 | Garden Fresh | 2:30 | $46 | 3 | Lettuce, tomato, pickles |
-| 4 | Sauce Boss | 2:40 | $60 | 3 | Mayo, BBQ, hot sauce |
-| 5 | Sides Please | 2:50 | $74 | 3 | Sauce cups to go |
-| 6 | Lunch Rush | 3:00 | $90 | 4 | A fourth ticket, shorter tempers |
-| 7 | The Works | 3:10 | $108 | 4 | Fully loaded sandwiches |
-| 8+ | Overtime *n* | 3:10 | +$18/day | 4 | Endless: faster arrivals, less patience |
+| 1 | Opening Day | 2:00 | $12 | 2 | Plate, bun, fried chicken — nothing else |
+| 2 | Fries Are Up | 2:20 | $20 | 2 | French fries |
+| 3 | Garden Fresh | 2:30 | $28 | 3 | Lettuce, tomato, pickles |
+| 4 | Sauce Boss | 2:40 | $37 | 3 | Mayo, BBQ, hot sauce |
+| 5 | Sides Please | 2:50 | $46 | 3 | Sauce cups to go |
+| 6 | Lunch Rush | 3:00 | $57 | 4 | A fourth ticket, shorter tempers |
+| 7 | The Works | 3:10 | $68 | 4 | Fully loaded sandwiches |
+| 8+ | Overtime *n* | 3:10 | +$11/day | 4 | Endless: faster arrivals, less patience |
 
 Within a single day the spawn interval and customer patience interpolate from the
 day's `spawn[0]`/`limit[0]` to `spawn[1]`/`limit[1]`, and ticket complexity ramps
@@ -276,11 +285,11 @@ you is **throughput** (more customers through the door before closing) and **tip
 
 | | |
 | --- | --- |
-| Chicken sandwich | $4.50 |
-| Each topping | $0.40 |
-| Each sauce | $0.30 |
-| French fries | $1.80 |
-| Sauce cup | $0.75 |
+| Chicken sandwich | $5.50 |
+| Each topping | $0.50 |
+| Each sauce | $0.40 |
+| French fries | $2.20 |
+| Sauce cup | $1.00 |
 
 Money also goes *out*. Food you bin was bought with real money, so a burnt basket
 costs you the stock as well as the time, and a customer who walks out takes the prep
@@ -323,8 +332,13 @@ about to do.
 
 | | Hire | Wage | Does |
 | --- | --- | --- | --- |
-| **Spud** the fry cook | $150 | $8/day | Potato bin → fryer → prep counter |
-| **Dollop** the sauce hand | $120 | $6/day | Cup dispenser → ketchup → prep counter |
+| **Spud** the fry cook | $85 | 7% of takings, min $1.50 | Potato bin → fryer → prep counter |
+| **Dollop** the sauce hand | $65 | 5% of takings, min $1.00 | Cup dispenser → ketchup → prep counter |
+
+The wage is **a share of the day's takings**, not a flat fee. A flat wage punished
+exactly the days you could least afford it — a slow shift still owed the full amount.
+Now they earn their keep out of what they helped bring in: cheap while the shop is
+small, worth real money once it is busy, and never the reason a bad day gets worse.
 
 They never assemble a plate and never touch the serving window. Deciding what goes on
 the plate stays your job — they just keep you in stock, and you pick their output up

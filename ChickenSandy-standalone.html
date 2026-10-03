@@ -261,6 +261,7 @@
   .buyrow.hired{background:#4a3119;padding-left:8px;}
   .buyname{flex:1;font-size:11px;color:#ffd9a3;line-height:1.5;}
   .buyname span{display:block;font-size:9px;color:#c0a67f;}
+  .buyname em{display:block;font-size:9px;font-style:normal;color:#e8a05c;}
   .buy{
     flex:0 0 auto;min-width:92px;background:var(--green);border:3px solid #3f7a1e;
     color:#1d2a10;font:inherit;font-size:11px;padding:6px 10px;cursor:pointer;
@@ -867,43 +868,43 @@ window.CS = window.CS || {};
 
   CS.LEVELS = [
     { name: 'Opening Day', tag: 'Plain sandwiches. Find your feet.',
-      seconds: 120, rent: 18, maxOrders: 2,
+      seconds: 120, rent: 12, maxOrders: 2,
       spawn: [10.0, 8.5], limit: [80, 70],
       friesChance: 0, cupChance: 0, twoCupChance: 0, maxTop: 0, maxSauce: 0,
       unlocks: ['Plate', 'Bun', 'Fried chicken'] },
 
     { name: 'Fries Are Up', tag: 'A second fryer is lit.',
-      seconds: 140, rent: 32, maxOrders: 2,
+      seconds: 140, rent: 20, maxOrders: 2,
       spawn: [9.5, 8.0], limit: [78, 68],
       friesChance: 0.5, cupChance: 0, twoCupChance: 0, maxTop: 0, maxSauce: 0,
       unlocks: ['French fries'] },
 
     { name: 'Garden Fresh', tag: 'The topping trays open up.',
-      seconds: 150, rent: 46, maxOrders: 3,
+      seconds: 150, rent: 28, maxOrders: 3,
       spawn: [9.0, 7.4], limit: [76, 64],
       friesChance: 0.45, cupChance: 0, twoCupChance: 0, maxTop: 1, maxSauce: 0,
       unlocks: ['Lettuce', 'Tomato', 'Pickles'] },
 
     { name: 'Sauce Boss', tag: 'Squeeze bottles on the back wall.',
-      seconds: 160, rent: 60, maxOrders: 3,
+      seconds: 160, rent: 37, maxOrders: 3,
       spawn: [8.4, 6.9], limit: [74, 62],
       friesChance: 0.45, cupChance: 0, twoCupChance: 0, maxTop: 1, maxSauce: 1,
       unlocks: ['Mayo', 'BBQ sauce', 'Hot sauce'] },
 
     { name: 'Sides Please', tag: 'Cups of sauce to go.',
-      seconds: 170, rent: 74, maxOrders: 3,
+      seconds: 170, rent: 46, maxOrders: 3,
       spawn: [7.8, 6.3], limit: [72, 60],
       friesChance: 0.5, cupChance: 0.45, twoCupChance: 0.12, maxTop: 2, maxSauce: 1,
       unlocks: ['Sauce cups: BBQ, hot sauce, ketchup'] },
 
     { name: 'Lunch Rush', tag: 'Four tickets on the rail at once.',
-      seconds: 180, rent: 90, maxOrders: 4,
+      seconds: 180, rent: 57, maxOrders: 4,
       spawn: [6.8, 5.4], limit: [68, 55],
       friesChance: 0.55, cupChance: 0.5, twoCupChance: 0.2, maxTop: 2, maxSauce: 2,
       unlocks: ['A fourth ticket', 'Shorter tempers'] },
 
     { name: 'The Works', tag: 'Everything on everything.',
-      seconds: 190, rent: 108, maxOrders: 4,
+      seconds: 190, rent: 68, maxOrders: 4,
       spawn: [6.0, 4.6], limit: [64, 50],
       friesChance: 0.6, cupChance: 0.55, twoCupChance: 0.3, maxTop: 3, maxSauce: 3,
       unlocks: ['Fully loaded sandwiches'] }
@@ -927,7 +928,7 @@ window.CS = window.CS || {};
     l.day = day;
     l.name = 'Overtime ' + over;
     l.tag = 'No end in sight. Keep frying.';
-    l.rent = 108 + over * 18;
+    l.rent = 68 + over * 11;
     l.spawn = [Math.max(3.2, 6.0 - over * 0.45), Math.max(2.6, 4.6 - over * 0.40)];
     l.limit = [Math.max(44, 64 - over * 3), Math.max(34, 50 - over * 3)];
     l.unlocks = [];
@@ -935,7 +936,7 @@ window.CS = window.CS || {};
   };
 
   /* Star thresholds as multiples of the day's rent. */
-  CS.STARS = [1.0, 1.9, 3.0];
+  CS.STARS = [1.0, 2.0, 3.2];
 
   /* ---------------------------------------------------------- the money
      The till is the score. An item is worth what it says on the menu board,
@@ -943,23 +944,23 @@ window.CS = window.CS || {};
      buys you is throughput (more customers through the door in one shift) and
      tips, which is where the skill shows up. */
   CS.PRICES = {
-    sandwich: 4.50,    // chicken sandwich, plain
-    topping: 0.40,     // each
-    sauce: 0.30,       // each
-    fries: 1.80,
-    cup: 0.75
+    sandwich: 5.50,    // chicken sandwich, plain
+    topping: 0.50,     // each
+    sauce: 0.40,       // each
+    fries: 2.20,
+    cup: 1.00
   };
 
   /* Food that goes in the bin was bought with real money, so burning a basket
      costs you twice: the time, and the stock. This is what makes a better
      fryer worth paying for. */
   CS.FOOD_COST = {
-    rawChicken: 0.95, friedChicken: 0.95, burntChicken: 0.95,
-    rawFries: 0.50, cookedFries: 0.50, burntFries: 0.50,
-    cup: 0.08, plate: 0.00
+    rawChicken: 0.55, friedChicken: 0.55, burntChicken: 0.55,
+    rawFries: 0.30, cookedFries: 0.30, burntFries: 0.30,
+    cup: 0.05, plate: 0.00
   };
 
-  CS.WALKOUT_COST = 1.20;   // wasted prep when a customer gives up and leaves
+  CS.WALKOUT_COST = 0.60;   // wasted prep when a customer gives up and leaves
 
   CS.COMBO = { step: 0.25, max: 4 };
 
@@ -977,20 +978,25 @@ window.CS = window.CS || {};
   /* --------------------------------------------------------------- staff
      Each assistant runs one tight loop and ignores everything else, which is
      what makes them readable: you always know what the potato is going to do.
-     `wage` comes off the till every day they are on the payroll, so hiring is
-     a real decision and not just a button you press once.
+     `jobs` is what they will make. Training widens it.
 
-     `jobs` is what they will make. Training widens it. */
+     A flat daily wage punished exactly the days you could least afford it: a
+     slow shift still owed the full amount. So a wage is a *share of the day's
+     takings* instead, between `wageMin` and `wageMax`. They earn their keep
+     out of what they helped bring in -- cheap while the shop is small, worth
+     real money once it is busy, and never the reason a bad day gets worse. */
   CS.STAFF_DEFS = {
     potato: {
-      name: 'Spud', role: 'Fry Cook', hire: 150, wage: 8.00,
+      name: 'Spud', role: 'Fry Cook', hire: 85,
+      wageShare: 0.07, wageMin: 1.50, wageMax: 22.00,
       tint: 0xd8a860,
       blurb: 'Cuts, fries and plates chips. Will not touch anything else.',
       jobs: ['fries'],
       speed: 2.0, act: 0.55
     },
     tomato: {
-      name: 'Dollop', role: 'Sauce Hand', hire: 120, wage: 6.00,
+      name: 'Dollop', role: 'Sauce Hand', hire: 65,
+      wageShare: 0.05, wageMin: 1.00, wageMax: 16.00,
       tint: 0xd6402f,
       blurb: 'Fills sauce cups and leaves them on a prep counter.',
       jobs: ['cup:ketchup'],
@@ -1588,7 +1594,8 @@ window.CS = window.CS || {};
         var def = CS.STAFF_DEFS[h.kind];
         var out = {
           kind: h.kind, name: def.name, role: def.role, tint: def.tint,
-          wage: def.wage, speed: def.speed, act: def.act,
+          wageShare: def.wageShare, wageMin: def.wageMin, wageMax: def.wageMax,
+          speed: def.speed, act: def.act,
           jobs: def.jobs.slice(), training: h.training.slice()
         };
         (CS.TRAINING[h.kind] || []).forEach(function (t) {
@@ -1602,8 +1609,31 @@ window.CS = window.CS || {};
       });
     },
 
+    /* What the crew costs on a day that took `net`. A share of the takings,
+       so they cost what the shop can bear -- a quiet day pays the floor, a
+       busy one pays properly. */
+    wagesFor: function (net) {
+      var total = E.crew().reduce(function (n, c) {
+        var w = (net || 0) * c.wageShare;
+        if (w < c.wageMin) w = c.wageMin;
+        if (w > c.wageMax) w = c.wageMax;
+        return n + w;
+      }, 0);
+      return Math.round(total * 100) / 100;
+    },
+
+    /* The wage bill as it stands right now, for the HUD and the receipt. */
     wages: function () {
-      return E.crew().reduce(function (n, c) { return n + c.wage; }, 0);
+      return E.wagesFor(E.ledger ? Math.max(0, E.ledger.gross - E.ledger.waste) : 0);
+    },
+
+    /* The floor and the ceiling, for the shop to show before a day starts. */
+    wageRange: function () {
+      var crew = E.crew();
+      return {
+        min: Math.round(crew.reduce(function (n, c) { return n + c.wageMin; }, 0) * 100) / 100,
+        max: Math.round(crew.reduce(function (n, c) { return n + c.wageMax; }, 0) * 100) / 100
+      };
     },
 
     /* ------------------------------------------------------- the menu */
@@ -1623,7 +1653,7 @@ window.CS = window.CS || {};
     open: function (level) {
       E.ledger = {
         rent: level.rent,
-        wages: E.wages(),
+        wages: 0,         // a share of the takings, so only known at close
         lines: { sandwich: 0, topping: 0, sauce: 0, fries: 0, cup: 0 },
         revenue: { sandwich: 0, topping: 0, sauce: 0, fries: 0, cup: 0 },
         gross: 0, tips: 0, tipCount: 0, waste: 0, wasteCount: 0,
@@ -1698,26 +1728,45 @@ window.CS = window.CS || {};
       return L ? Math.max(0, L.gross - L.waste) : 0;
     },
 
-    /* Close the books. You have to clear rent and wages to trade another day;
-       a shift that does not is a retry and costs you nothing but the time. */
+    /* Close the books.
+
+       A shift used to be pass-or-nothing: miss the rent and the whole day's
+       takings evaporated. That is a trap -- the player who most needs an
+       upgrade is exactly the one who can never bank enough to buy one, so a
+       hard day becomes a permanently hard day.
+
+       Now the money is always yours. Whatever is left after rent and wages
+       goes in the wallet, and a shift that did not cover them simply banks
+       nothing; it never reaches into the wallet to take what is already
+       there. `passed` survives only to pick the wording and the stars. The
+       day does NOT advance here -- see `advance()`. */
     settle: function () {
       var L = E.ledger;
       if (!L) return null;
-      L.net = L.gross - L.waste;
-      L.outgoings = L.rent + L.wages;
+      L.net = Math.round((L.gross - L.waste) * 100) / 100;
+      L.wages = E.wagesFor(L.net);
+      L.outgoings = Math.round((L.rent + L.wages) * 100) / 100;
       L.profit = Math.round((L.net - L.outgoings) * 100) / 100;
       L.passed = L.profit >= 0;
-      if (L.passed) {
-        E.state.wallet = Math.round((E.state.wallet + L.profit) * 100) / 100;
-        E.state.day++;
-        E.state.career.days++;
-        E.state.career.served += L.served;
-        E.state.career.earned += L.net;
-        E.state.career.tips += L.tips;
-        E.state.career.best = Math.max(E.state.career.best, L.profit);
-        E.save();
-      }
+      L.banked = Math.max(0, L.profit);
+
+      E.state.wallet = Math.round((E.state.wallet + L.banked) * 100) / 100;
+      E.state.career.days++;
+      E.state.career.served += L.served;
+      E.state.career.earned += L.net;
+      E.state.career.tips += L.tips;
+      E.state.career.best = Math.max(E.state.career.best, L.profit);
+      E.save();
       return L;
+    },
+
+    /* Move to the next day. Split out from settle() so the result screen can
+       offer "carry on" and "run that day again" as a real choice: a replay
+       keeps the money you already banked and does not skip the day. */
+    advance: function () {
+      E.state.day++;
+      E.save();
+      return E.state.day;
     },
 
     stars: function (ledger) {
@@ -5099,7 +5148,9 @@ window.CS = window.CS || {};
         '<div class="col"><h3>THE SHIFT</h3><ul>' +
         '<li>Length: <b>' + mins + ':' + (secs < 10 ? '0' : '') + secs + '</b></li>' +
         '<li>Rent: <b>' + CS.money(lv.rent) + '</b></li>' +
-        (CS.econ.wages() > 0 ? '<li>Wages: <b>' + CS.money(CS.econ.wages()) + '</b></li>' : '') +
+        (CS.econ.crew().length
+          ? '<li>Wages: <b>' + CS.money(CS.econ.wageRange().min) + '+</b>, a share of takings</li>'
+          : '') +
         '<li>Tickets at once: <b>' + CS.orders.cap() + '</b></li>' +
         '</ul></div>' +
         '<div class="col"><h3>REMINDERS</h3><ul>' +
@@ -5148,23 +5199,32 @@ window.CS = window.CS || {};
         (L.wages > 0 ? line('wages', '-' + CS.money(L.wages)) : '') +
         '<div class="scoreline rule big-line"><span>PROFIT</span><span class="' +
           (L.passed ? 'tipval' : 'badval') + '">' + CS.money(L.profit) + '</span></div>' +
-        (L.passed ? line('in the wallet', CS.money(CS.econ.state.wallet)) : '');
+        line(L.passed ? 'banked' : 'banked (never less than nothing)',
+          CS.money(L.banked)) +
+        line('in the wallet', CS.money(CS.econ.state.wallet));
 
+      /* Both ways forward are always offered. Carrying on is the default even
+         after a bad day -- the shop is yours and nobody is taking it off you
+         -- but replaying the same day is there if you would rather bank a bit
+         more before the rent goes up again. */
       var c = this.showScreen(
-        '<h1>' + (L.passed ? 'DAY ' + lv.day + ' DONE' : 'IN THE RED') + '</h1>' +
+        '<h1>' + (L.passed ? 'DAY ' + lv.day + ' DONE' : 'A SLOW DAY') + '</h1>' +
         '<div class="rank" style="letter-spacing:8px">' + starRow + '</div>' +
         '<h2>' + (L.passed
           ? (stars === 3 ? 'The queue is singing your name.'
             : stars === 2 ? 'Solid shift. Barely a burnt nugget.'
               : 'Scraped through. The rent is rising.')
           : 'You took ' + CS.money(L.net) + ' and owed ' + CS.money(L.outgoings) +
-            '. Nothing lost but the day.') + '</h2>' +
+            '. The shop is still yours.') + '</h2>' +
         '<div class="receipt">' + body + '</div>' +
         '<div class="scoreline small"><span>' + L.served + ' served, ' +
           L.missed + ' walked out, ' + L.burnt + ' burnt</span></div>' +
-        '<button class="big" id="nextBtn">' +
-        (L.passed ? 'TO THE SHOP &#9656;' : 'TRY DAY ' + lv.day + ' AGAIN') + '</button>');
-      c.querySelector('#nextBtn').onclick = L.passed ? onNext : onRetry;
+        '<div class="krow">' +
+        '<button class="btn" id="retryBtn">RUN DAY ' + lv.day + ' AGAIN</button>' +
+        '<button class="big" id="nextBtn">DAY ' + (lv.day + 1) + ' &#9656;</button>' +
+        '</div>');
+      c.querySelector('#nextBtn').onclick = onNext;
+      c.querySelector('#retryBtn').onclick = onRetry;
       this.setHudVisible(false);
     },
 
@@ -5231,14 +5291,32 @@ window.CS = window.CS || {};
 
   var card = null, onOpen = null, onEdit = null;
 
+  /* The price is always on the button, whether or not you can afford it --
+     what something costs is how you decide what to save for, so hiding it
+     behind "Not enough money" made the whole shop unreadable until you were
+     already rich. The reason you cannot buy it goes under the name instead,
+     along with how much more you need. */
   function row(id, name, blurb, cost, state) {
     var dis = state.ok ? '' : ' disabled';
-    var note = state.ok ? CS.money(cost) : state.why;
+    var owned = !state.ok && (state.why === 'FITTED' || state.why === 'OPEN' ||
+      state.why === 'TRAINED' || state.why === 'Already fitted');
+    var label = owned ? state.why : CS.money(cost);
+
+    /* A prerequisite outranks the price: telling someone they need $123 more
+       for a thing they could not buy at any price is worse than saying
+       nothing. Money is only the blocker when it is the only blocker. */
+    var note = '';
+    if (!state.ok && !owned) {
+      var why = state.why === 'Not enough money'
+        ? CS.money(cost - CS.econ.state.wallet) + ' more needed'
+        : state.why;
+      note = '<em>' + why + '</em>';
+    }
     return '<div class="buyrow' + (state.ok ? '' : ' dim') + '">' +
       '<div class="buyname">' + name +
-      (blurb ? '<span>' + blurb + '</span>' : '') + '</div>' +
+      (blurb ? '<span>' + blurb + '</span>' : '') + note + '</div>' +
       '<button class="buy' + (state.ok ? '' : ' off') + '" data-buy="' + id + '"' + dis + '>' +
-      note + '</button></div>';
+      label + '</button></div>';
   }
 
   function gearHTML() {
@@ -5280,17 +5358,19 @@ window.CS = window.CS || {};
     Object.keys(CS.STAFF_DEFS).forEach(function (kind) {
       var def = CS.STAFF_DEFS[kind];
       var hired = CS.econ.hired(kind);
+      var pct = Math.round(def.wageShare * 100);
+      var terms = pct + '% of the day\'s takings, at least ' + CS.money(def.wageMin);
       if (!hired) {
         var can = CS.econ.state.wallet >= def.hire
           ? { ok: true } : { ok: false, why: 'Not enough money' };
         out += row('hire:' + kind, def.name + ' &#183; ' + def.role,
-          def.blurb + ' &#183; ' + CS.money(def.wage) + ' a day', def.hire, can);
+          def.blurb + ' &#183; ' + terms, def.hire, can);
         return;
       }
       var crew = CS.econ.crew().filter(function (c) { return c.kind === kind; })[0];
       out += '<div class="buyrow hired"><div class="buyname">' +
         def.name + ' &#183; ' + def.role +
-        '<span>on ' + CS.money(def.wage) + ' a day &#183; makes ' +
+        '<span>on ' + terms + ' &#183; makes ' +
         jobWords(crew.jobs) + '</span></div><button class="buy off" disabled>HIRED</button></div>';
       (CS.TRAINING[kind] || []).forEach(function (t) {
         var done = crew.training.indexOf(t.id) >= 0;
@@ -5311,12 +5391,16 @@ window.CS = window.CS || {};
   }
 
   function headerHTML() {
-    var w = CS.econ.state.wallet, wages = CS.econ.wages();
+    var w = CS.econ.state.wallet;
     var lv = CS.levelFor(CS.econ.state.day);
+    var crew = CS.econ.crew();
+    var wage = crew.length
+      ? CS.money(CS.econ.wageRange().min) + '+'
+      : CS.money(0);
     return '<div class="walletbar">' +
       '<div><span>WALLET</span><b>' + CS.money(w) + '</b></div>' +
       '<div><span>DAY ' + CS.econ.state.day + ' RENT</span><b>' + CS.money(lv.rent) + '</b></div>' +
-      '<div><span>WAGES</span><b>' + CS.money(wages) + '</b></div>' +
+      '<div><span>WAGES</span><b>' + wage + '</b></div>' +
       '</div>';
   }
 
@@ -6503,7 +6587,9 @@ window.CS = window.CS || {};
 
     var L = CS.econ.settle();
     CS.audio[L.passed ? 'fanfare' : 'over']();
-    CS.ui.showLevelResult(S.level, L, openShop, function () { showIntro(S.day); });
+    CS.ui.showLevelResult(S.level, L,
+      function () { CS.econ.advance(); openShop(); },   // on to tomorrow
+      function () { openShop(); });                     // run today again
   }
 
   /* ------------------------------------------------------------ the shop
@@ -6644,11 +6730,12 @@ window.CS = window.CS || {};
       CS.ui.renderTickets(CS.orders.list);
 
       S.time -= dt;
-      var L = CS.econ.ledger;
+      // wages are a share of the takings, so what the day owes moves with it
+      var took = CS.econ.takings();
       CS.ui.setClock(S.time);
-      CS.ui.setScore(CS.econ.takings());
+      CS.ui.setScore(took);
       CS.ui.setCombo(S.combo);
-      CS.ui.setTarget(CS.econ.takings(), L.rent + L.wages);
+      CS.ui.setTarget(took, CS.econ.ledger.rent + CS.econ.wagesFor(took));
       CS.ui.setFryers(fryerRows());
       CS.ui.setMoves(1 - P.dashCd / DASH_CD, P.grounded ? MAX_FLAPS : P.flaps, MAX_FLAPS, !P.grounded);
       if (S.time <= 0) endDay();
