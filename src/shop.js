@@ -9,32 +9,14 @@ window.CS = window.CS || {};
 
   var card = null, onOpen = null, onEdit = null;
 
-  /* The price is always on the button, whether or not you can afford it --
-     what something costs is how you decide what to save for, so hiding it
-     behind "Not enough money" made the whole shop unreadable until you were
-     already rich. The reason you cannot buy it goes under the name instead,
-     along with how much more you need. */
   function row(id, name, blurb, cost, state) {
     var dis = state.ok ? '' : ' disabled';
-    var owned = !state.ok && (state.why === 'FITTED' || state.why === 'OPEN' ||
-      state.why === 'TRAINED' || state.why === 'Already fitted');
-    var label = owned ? state.why : CS.money(cost);
-
-    /* A prerequisite outranks the price: telling someone they need $123 more
-       for a thing they could not buy at any price is worse than saying
-       nothing. Money is only the blocker when it is the only blocker. */
-    var note = '';
-    if (!state.ok && !owned) {
-      var why = state.why === 'Not enough money'
-        ? CS.money(cost - CS.econ.state.wallet) + ' more needed'
-        : state.why;
-      note = '<em>' + why + '</em>';
-    }
+    var note = state.ok ? CS.money(cost) : state.why;
     return '<div class="buyrow' + (state.ok ? '' : ' dim') + '">' +
       '<div class="buyname">' + name +
-      (blurb ? '<span>' + blurb + '</span>' : '') + note + '</div>' +
+      (blurb ? '<span>' + blurb + '</span>' : '') + '</div>' +
       '<button class="buy' + (state.ok ? '' : ' off') + '" data-buy="' + id + '"' + dis + '>' +
-      label + '</button></div>';
+      note + '</button></div>';
   }
 
   function gearHTML() {
@@ -76,19 +58,17 @@ window.CS = window.CS || {};
     Object.keys(CS.STAFF_DEFS).forEach(function (kind) {
       var def = CS.STAFF_DEFS[kind];
       var hired = CS.econ.hired(kind);
-      var pct = Math.round(def.wageShare * 100);
-      var terms = pct + '% of the day\'s takings, at least ' + CS.money(def.wageMin);
       if (!hired) {
         var can = CS.econ.state.wallet >= def.hire
           ? { ok: true } : { ok: false, why: 'Not enough money' };
         out += row('hire:' + kind, def.name + ' &#183; ' + def.role,
-          def.blurb + ' &#183; ' + terms, def.hire, can);
+          def.blurb + ' &#183; ' + CS.money(def.wage) + ' a day', def.hire, can);
         return;
       }
       var crew = CS.econ.crew().filter(function (c) { return c.kind === kind; })[0];
       out += '<div class="buyrow hired"><div class="buyname">' +
         def.name + ' &#183; ' + def.role +
-        '<span>on ' + terms + ' &#183; makes ' +
+        '<span>on ' + CS.money(def.wage) + ' a day &#183; makes ' +
         jobWords(crew.jobs) + '</span></div><button class="buy off" disabled>HIRED</button></div>';
       (CS.TRAINING[kind] || []).forEach(function (t) {
         var done = crew.training.indexOf(t.id) >= 0;
@@ -109,16 +89,12 @@ window.CS = window.CS || {};
   }
 
   function headerHTML() {
-    var w = CS.econ.state.wallet;
+    var w = CS.econ.state.wallet, wages = CS.econ.wages();
     var lv = CS.levelFor(CS.econ.state.day);
-    var crew = CS.econ.crew();
-    var wage = crew.length
-      ? CS.money(CS.econ.wageRange().min) + '+'
-      : CS.money(0);
     return '<div class="walletbar">' +
       '<div><span>WALLET</span><b>' + CS.money(w) + '</b></div>' +
       '<div><span>DAY ' + CS.econ.state.day + ' RENT</span><b>' + CS.money(lv.rent) + '</b></div>' +
-      '<div><span>WAGES</span><b>' + wage + '</b></div>' +
+      '<div><span>WAGES</span><b>' + CS.money(wages) + '</b></div>' +
       '</div>';
   }
 

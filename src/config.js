@@ -109,43 +109,43 @@ window.CS = window.CS || {};
 
   CS.LEVELS = [
     { name: 'Opening Day', tag: 'Plain sandwiches. Find your feet.',
-      seconds: 120, rent: 12, maxOrders: 2,
+      seconds: 120, rent: 18, maxOrders: 2,
       spawn: [10.0, 8.5], limit: [80, 70],
       friesChance: 0, cupChance: 0, twoCupChance: 0, maxTop: 0, maxSauce: 0,
       unlocks: ['Plate', 'Bun', 'Fried chicken'] },
 
     { name: 'Fries Are Up', tag: 'A second fryer is lit.',
-      seconds: 140, rent: 20, maxOrders: 2,
+      seconds: 140, rent: 32, maxOrders: 2,
       spawn: [9.5, 8.0], limit: [78, 68],
       friesChance: 0.5, cupChance: 0, twoCupChance: 0, maxTop: 0, maxSauce: 0,
       unlocks: ['French fries'] },
 
     { name: 'Garden Fresh', tag: 'The topping trays open up.',
-      seconds: 150, rent: 28, maxOrders: 3,
+      seconds: 150, rent: 46, maxOrders: 3,
       spawn: [9.0, 7.4], limit: [76, 64],
       friesChance: 0.45, cupChance: 0, twoCupChance: 0, maxTop: 1, maxSauce: 0,
       unlocks: ['Lettuce', 'Tomato', 'Pickles'] },
 
     { name: 'Sauce Boss', tag: 'Squeeze bottles on the back wall.',
-      seconds: 160, rent: 37, maxOrders: 3,
+      seconds: 160, rent: 60, maxOrders: 3,
       spawn: [8.4, 6.9], limit: [74, 62],
       friesChance: 0.45, cupChance: 0, twoCupChance: 0, maxTop: 1, maxSauce: 1,
       unlocks: ['Mayo', 'BBQ sauce', 'Hot sauce'] },
 
     { name: 'Sides Please', tag: 'Cups of sauce to go.',
-      seconds: 170, rent: 46, maxOrders: 3,
+      seconds: 170, rent: 74, maxOrders: 3,
       spawn: [7.8, 6.3], limit: [72, 60],
       friesChance: 0.5, cupChance: 0.45, twoCupChance: 0.12, maxTop: 2, maxSauce: 1,
       unlocks: ['Sauce cups: BBQ, hot sauce, ketchup'] },
 
     { name: 'Lunch Rush', tag: 'Four tickets on the rail at once.',
-      seconds: 180, rent: 57, maxOrders: 4,
+      seconds: 180, rent: 90, maxOrders: 4,
       spawn: [6.8, 5.4], limit: [68, 55],
       friesChance: 0.55, cupChance: 0.5, twoCupChance: 0.2, maxTop: 2, maxSauce: 2,
       unlocks: ['A fourth ticket', 'Shorter tempers'] },
 
     { name: 'The Works', tag: 'Everything on everything.',
-      seconds: 190, rent: 68, maxOrders: 4,
+      seconds: 190, rent: 108, maxOrders: 4,
       spawn: [6.0, 4.6], limit: [64, 50],
       friesChance: 0.6, cupChance: 0.55, twoCupChance: 0.3, maxTop: 3, maxSauce: 3,
       unlocks: ['Fully loaded sandwiches'] }
@@ -169,7 +169,7 @@ window.CS = window.CS || {};
     l.day = day;
     l.name = 'Overtime ' + over;
     l.tag = 'No end in sight. Keep frying.';
-    l.rent = 68 + over * 11;
+    l.rent = 108 + over * 18;
     l.spawn = [Math.max(3.2, 6.0 - over * 0.45), Math.max(2.6, 4.6 - over * 0.40)];
     l.limit = [Math.max(44, 64 - over * 3), Math.max(34, 50 - over * 3)];
     l.unlocks = [];
@@ -177,7 +177,7 @@ window.CS = window.CS || {};
   };
 
   /* Star thresholds as multiples of the day's rent. */
-  CS.STARS = [1.0, 2.0, 3.2];
+  CS.STARS = [1.0, 1.9, 3.0];
 
   /* ---------------------------------------------------------- the money
      The till is the score. An item is worth what it says on the menu board,
@@ -185,23 +185,23 @@ window.CS = window.CS || {};
      buys you is throughput (more customers through the door in one shift) and
      tips, which is where the skill shows up. */
   CS.PRICES = {
-    sandwich: 5.50,    // chicken sandwich, plain
-    topping: 0.50,     // each
-    sauce: 0.40,       // each
-    fries: 2.20,
-    cup: 1.00
+    sandwich: 4.50,    // chicken sandwich, plain
+    topping: 0.40,     // each
+    sauce: 0.30,       // each
+    fries: 1.80,
+    cup: 0.75
   };
 
   /* Food that goes in the bin was bought with real money, so burning a basket
      costs you twice: the time, and the stock. This is what makes a better
      fryer worth paying for. */
   CS.FOOD_COST = {
-    rawChicken: 0.55, friedChicken: 0.55, burntChicken: 0.55,
-    rawFries: 0.30, cookedFries: 0.30, burntFries: 0.30,
-    cup: 0.05, plate: 0.00
+    rawChicken: 0.95, friedChicken: 0.95, burntChicken: 0.95,
+    rawFries: 0.50, cookedFries: 0.50, burntFries: 0.50,
+    cup: 0.08, plate: 0.00
   };
 
-  CS.WALKOUT_COST = 0.60;   // wasted prep when a customer gives up and leaves
+  CS.WALKOUT_COST = 1.20;   // wasted prep when a customer gives up and leaves
 
   CS.COMBO = { step: 0.25, max: 4 };
 
@@ -219,25 +219,20 @@ window.CS = window.CS || {};
   /* --------------------------------------------------------------- staff
      Each assistant runs one tight loop and ignores everything else, which is
      what makes them readable: you always know what the potato is going to do.
-     `jobs` is what they will make. Training widens it.
+     `wage` comes off the till every day they are on the payroll, so hiring is
+     a real decision and not just a button you press once.
 
-     A flat daily wage punished exactly the days you could least afford it: a
-     slow shift still owed the full amount. So a wage is a *share of the day's
-     takings* instead, between `wageMin` and `wageMax`. They earn their keep
-     out of what they helped bring in -- cheap while the shop is small, worth
-     real money once it is busy, and never the reason a bad day gets worse. */
+     `jobs` is what they will make. Training widens it. */
   CS.STAFF_DEFS = {
     potato: {
-      name: 'Spud', role: 'Fry Cook', hire: 85,
-      wageShare: 0.07, wageMin: 1.50, wageMax: 22.00,
+      name: 'Spud', role: 'Fry Cook', hire: 150, wage: 8.00,
       tint: 0xd8a860,
       blurb: 'Cuts, fries and plates chips. Will not touch anything else.',
       jobs: ['fries'],
       speed: 2.0, act: 0.55
     },
     tomato: {
-      name: 'Dollop', role: 'Sauce Hand', hire: 65,
-      wageShare: 0.05, wageMin: 1.00, wageMax: 16.00,
+      name: 'Dollop', role: 'Sauce Hand', hire: 120, wage: 6.00,
       tint: 0xd6402f,
       blurb: 'Fills sauce cups and leaves them on a prep counter.',
       jobs: ['cup:ketchup'],

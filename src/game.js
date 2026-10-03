@@ -742,9 +742,7 @@ window.CS = window.CS || {};
 
     var L = CS.econ.settle();
     CS.audio[L.passed ? 'fanfare' : 'over']();
-    CS.ui.showLevelResult(S.level, L,
-      function () { CS.econ.advance(); openShop(); },   // on to tomorrow
-      function () { openShop(); });                     // run today again
+    CS.ui.showLevelResult(S.level, L, openShop, function () { showIntro(S.day); });
   }
 
   /* ------------------------------------------------------------ the shop
@@ -885,12 +883,11 @@ window.CS = window.CS || {};
       CS.ui.renderTickets(CS.orders.list);
 
       S.time -= dt;
-      // wages are a share of the takings, so what the day owes moves with it
-      var took = CS.econ.takings();
+      var L = CS.econ.ledger;
       CS.ui.setClock(S.time);
-      CS.ui.setScore(took);
+      CS.ui.setScore(CS.econ.takings());
       CS.ui.setCombo(S.combo);
-      CS.ui.setTarget(took, CS.econ.ledger.rent + CS.econ.wagesFor(took));
+      CS.ui.setTarget(CS.econ.takings(), L.rent + L.wages);
       CS.ui.setFryers(fryerRows());
       CS.ui.setMoves(1 - P.dashCd / DASH_CD, P.grounded ? MAX_FLAPS : P.flaps, MAX_FLAPS, !P.grounded);
       if (S.time <= 0) endDay();
