@@ -214,6 +214,117 @@
   }
   .big:hover{background:#d4483a;}
   .big:active{transform:translateY(3px);box-shadow:inset 0 3px 0 #e05a45;}
+  .big.off,.big:disabled{background:#4a3722;border-color:#2a1d10;color:#8e7a5f;
+    box-shadow:inset 0 3px 0 #5e4830;cursor:not-allowed;}
+  .big.off:active,.big:disabled:active{transform:none;}
+
+  /* ---------- the receipt ---------- */
+  .receipt{max-width:420px;margin:14px auto 0;text-align:left;}
+  .scoreline.rule{border:none;border-top:3px solid #2e1c0f;margin-top:6px;padding-top:8px;}
+  .scoreline.big-line{font-size:17px;color:var(--gold);}
+  .scoreline.small{border:none;font-size:10px;color:#c0a67f;justify-content:center;}
+  .badval{color:#e8705c;}
+
+  /* ---------- the shop ---------- */
+  .card.wide{width:min(860px,96vw);}
+  .walletbar{
+    display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin:6px 0 12px;
+  }
+  .walletbar div{
+    background:#3f2715;border:3px solid #241608;padding:6px 14px;min-width:116px;
+  }
+  .walletbar span{display:block;font-size:8px;color:#c0a67f;letter-spacing:1px;}
+  .walletbar b{font-size:16px;color:var(--gold);}
+  .shopscroll{max-height:46vh;overflow-y:auto;text-align:left;padding-right:4px;}
+  .shopscroll h3{
+    font-size:11px;color:var(--gold);letter-spacing:1px;margin:14px 0 6px;
+    border-bottom:2px solid #2e1c0f;padding-bottom:4px;
+  }
+  .buyrow{
+    display:flex;align-items:center;gap:10px;padding:5px 0;
+    border-bottom:2px solid #4a3119;
+  }
+  .buyrow.dim{opacity:.55;}
+  .buyrow.hired{background:#4a3119;padding-left:8px;}
+  .buyname{flex:1;font-size:11px;color:#ffd9a3;line-height:1.5;}
+  .buyname span{display:block;font-size:9px;color:#c0a67f;}
+  .buy{
+    flex:0 0 auto;min-width:92px;background:var(--green);border:3px solid #3f7a1e;
+    color:#1d2a10;font:inherit;font-size:11px;padding:6px 10px;cursor:pointer;
+    box-shadow:inset 0 2px 0 #9ddc68;
+  }
+  .buy:hover{background:#7fd044;}
+  .buy:active{transform:translateY(2px);box-shadow:none;}
+  .buy.off{background:#4a3722;border-color:#2a1d10;color:#8e7a5f;
+    box-shadow:none;cursor:not-allowed;}
+  .buy.off:active{transform:none;}
+
+  /* ---------- the kitchen editor ---------- */
+  .trayrow{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin:4px 0 10px;}
+  .tray{
+    background:var(--wood);border:3px solid var(--wood-dk);color:#2c1c10;
+    font:inherit;font-size:10px;padding:5px 9px;cursor:pointer;
+    box-shadow:inset 0 2px 0 #c08a4a;
+  }
+  .tray.on{background:var(--gold);box-shadow:inset 0 2px 0 #ffd9a3,0 0 0 3px #ffd46488;}
+  .tray b{color:#5c3a16;}
+  /* The cells are square and there are 19 x 13 of them, so the grid is 1.46
+     times as wide as it is tall. Cap the width by the viewport HEIGHT as well
+     as the card, or on a short window the kitchen runs off the bottom and you
+     are laying out a floor you cannot see. */
+  .kgrid{
+    display:grid;gap:1px;background:#241608;border:3px solid #241608;
+    margin:0 auto;width:min(100%, calc(42vh * 1.462));
+  }
+  .kgrid i{
+    aspect-ratio:1;display:flex;align-items:center;justify-content:center;
+    font-style:normal;font-size:7px;letter-spacing:0;color:#2c1c10;
+    background:#6b4524;overflow:hidden;
+  }
+  .kgrid .void{background:#140c06;}
+  .kgrid .wall{background:#3a2413;}
+  .kgrid .floor{background:#8a5a2b;}
+  .kgrid .spawn{box-shadow:inset 0 0 0 2px #f0a63c99;}
+  .kgrid .st{color:#1d1309;font-size:6px;}
+  .kgrid .fryer{background:#2e2a26;color:#ffb45c;}
+  .kgrid .serve{background:#c9a65f;}
+  .kgrid .bin{background:#55504a;color:#d8d2c8;}
+  .kgrid .prep{background:#c8a877;}
+  .kgrid .crate{background:#8d5f32;color:#f0dcb8;}
+  .kgrid .stack{background:#e4d7bb;}
+  .kgrid .top-let{background:#6fbf3a;}
+  .kgrid .top-tom{background:#d6402f;color:#fff;}
+  .kgrid .top-pic{background:#93ad36;}
+  .kgrid .sau-may{background:#f6edd3;}
+  .kgrid .sau-bbq{background:#7d3417;color:#f0dcb8;}
+  .kgrid .sau-hot{background:#e0431f;color:#fff;}
+  .kgrid .sau-ket{background:#c01f14;color:#fff;}
+  .kgrid .lift{cursor:pointer;}
+  .kgrid .lift:hover{box-shadow:inset 0 0 0 2px #ffd464;}
+  .kgrid .ok{cursor:pointer;box-shadow:inset 0 0 0 2px #6fbf3a;}
+  .kgrid .ok:hover{background:#6fbf3a;}
+  .kgrid .no{opacity:.4;}
+  .khint{font-size:9px;color:#c0a67f;margin-top:8px;}
+  .kok{font-size:10px;color:#9fd36a;margin-top:8px;min-height:14px;}
+  .kbad{font-size:10px;color:#ffb0a0;margin-top:8px;min-height:14px;}
+  .krow{display:flex;gap:8px;justify-content:center;align-items:center;
+    flex-wrap:wrap;margin-top:12px;}
+  .krow .big{margin-top:0;}
+
+  /* On a phone the reason a thing cannot be bought ("Needs Vented Baskets
+     first") is longer than the name beside it, so cap the button or it eats
+     the row and the name wraps a word per line. */
+  @media (max-width:560px){
+    .card.wide{padding:16px 12px 18px;}
+    .walletbar div{min-width:96px;padding:5px 10px;}
+    .walletbar b{font-size:14px;}
+    .shopscroll{max-height:52vh;}
+    .buy{min-width:0;max-width:44%;font-size:9px;padding:6px 6px;}
+    .buyname{font-size:10px;}
+    .buyname span{font-size:8px;}
+    .kgrid{width:100%;}
+    .kgrid i{font-size:5px;}
+  }
   .scoreline{display:flex;justify-content:space-between;font-size:13px;padding:5px 2px;border-bottom:2px dashed #8a6b3c66;}
   .scoreline span:last-child{color:var(--gold);}
   .rank{font-size:40px;color:var(--gold);text-shadow:3px 3px 0 #2e1c0f;margin:10px 0 2px;}
@@ -394,9 +505,9 @@
     </div>
     <div class="panel stat" id="clockwrap"><div class="k">Shift</div><div class="v" id="clock">2:00</div></div>
     <div class="panel stat" id="scorewrap">
-      <div class="k">Score</div><div class="v gold" id="score">0</div>
+      <div class="k">Till</div><div class="v gold" id="score">$0.00</div>
       <div class="tgt" id="tgtBar"><i></i></div>
-      <div id="tgtLabel">target 400</div>
+      <div id="tgtLabel">rent $18.00</div>
     </div>
     <div class="panel stat"><div class="k">Combo</div><div class="v" id="combo">x1</div></div>
   </div>
@@ -602,20 +713,31 @@ window.CS = window.CS || {};
      F  fryer         S  serve window  X  trash
      K  raw chicken   T  potato bin    P  plate stack   B  bun crate
      L  lettuce       O  tomato        I  pickles       U  cup dispenser
-     M  mayo          Q  bbq           H  hot sauce     Y  ketchup           */
-  CS.MAP = [
-    '###SSS####MQHY#',
-    '#.............#',
-    'F.............L',
-    '#.............O',
-    'F.....CCC.....I',
-    '#.....CCC.....#',
-    'F.............U',
-    '#.............#',
-    '#....PP.BB....#',
-    '#.............#',
-    '##KK#TT###XX###'
+     M  mayo          Q  bbq           H  hot sauce     Y  ketchup
+     ~  locked        -- floor you have not bought yet
+
+     The grid is always CS.MAP_W x CS.MAP_H, whatever you own. Land you have
+     not bought is '~': solid, and drawn as nothing at all, so the world origin
+     and therefore every world-space constant below stays put when a wing
+     opens up. CS.BASE_MAP is the shop you start with; CS.MAP is the live grid
+     that layout.js rewrites as you expand and rearrange, and that world.js
+     builds from. */
+  CS.BASE_MAP = [
+    '###SSS####MQHY#~~~~',
+    '#.............#~~~~',
+    'F.............L~~~~',
+    '#.............O~~~~',
+    'F.....CCC.....I~~~~',
+    '#.....CCC.....#~~~~',
+    'F.............U~~~~',
+    '#.............#~~~~',
+    '#....PP.BB....#~~~~',
+    '#.............#~~~~',
+    '##KK#TT###XX###~~~~',
+    '~~~~~~~~~~~~~~~~~~~',
+    '~~~~~~~~~~~~~~~~~~~'
   ];
+  CS.MAP = CS.BASE_MAP.slice();
 
   CS.SPAWN = { col: 7, row: 7 };          // where the chef starts
   CS.SERVE_COL = 4;                       // queue lines up north of this column
@@ -687,43 +809,43 @@ window.CS = window.CS || {};
 
   CS.LEVELS = [
     { name: 'Opening Day', tag: 'Plain sandwiches. Find your feet.',
-      seconds: 120, target: 400, maxOrders: 2,
+      seconds: 120, rent: 18, maxOrders: 2,
       spawn: [10.0, 8.5], limit: [80, 70],
       friesChance: 0, cupChance: 0, twoCupChance: 0, maxTop: 0, maxSauce: 0,
       unlocks: ['Plate', 'Bun', 'Fried chicken'] },
 
     { name: 'Fries Are Up', tag: 'A second fryer is lit.',
-      seconds: 140, target: 750, maxOrders: 2,
+      seconds: 140, rent: 32, maxOrders: 2,
       spawn: [9.5, 8.0], limit: [78, 68],
       friesChance: 0.5, cupChance: 0, twoCupChance: 0, maxTop: 0, maxSauce: 0,
       unlocks: ['French fries'] },
 
     { name: 'Garden Fresh', tag: 'The topping trays open up.',
-      seconds: 150, target: 1050, maxOrders: 3,
+      seconds: 150, rent: 46, maxOrders: 3,
       spawn: [9.0, 7.4], limit: [76, 64],
       friesChance: 0.45, cupChance: 0, twoCupChance: 0, maxTop: 1, maxSauce: 0,
       unlocks: ['Lettuce', 'Tomato', 'Pickles'] },
 
     { name: 'Sauce Boss', tag: 'Squeeze bottles on the back wall.',
-      seconds: 160, target: 1350, maxOrders: 3,
+      seconds: 160, rent: 60, maxOrders: 3,
       spawn: [8.4, 6.9], limit: [74, 62],
       friesChance: 0.45, cupChance: 0, twoCupChance: 0, maxTop: 1, maxSauce: 1,
       unlocks: ['Mayo', 'BBQ sauce', 'Hot sauce'] },
 
     { name: 'Sides Please', tag: 'Cups of sauce to go.',
-      seconds: 170, target: 1650, maxOrders: 3,
+      seconds: 170, rent: 74, maxOrders: 3,
       spawn: [7.8, 6.3], limit: [72, 60],
       friesChance: 0.5, cupChance: 0.45, twoCupChance: 0.12, maxTop: 2, maxSauce: 1,
       unlocks: ['Sauce cups: BBQ, hot sauce, ketchup'] },
 
     { name: 'Lunch Rush', tag: 'Four tickets on the rail at once.',
-      seconds: 180, target: 2050, maxOrders: 4,
+      seconds: 180, rent: 90, maxOrders: 4,
       spawn: [6.8, 5.4], limit: [68, 55],
       friesChance: 0.55, cupChance: 0.5, twoCupChance: 0.2, maxTop: 2, maxSauce: 2,
       unlocks: ['A fourth ticket', 'Shorter tempers'] },
 
     { name: 'The Works', tag: 'Everything on everything.',
-      seconds: 190, target: 2500, maxOrders: 4,
+      seconds: 190, rent: 108, maxOrders: 4,
       spawn: [6.0, 4.6], limit: [64, 50],
       friesChance: 0.6, cupChance: 0.55, twoCupChance: 0.3, maxTop: 3, maxSauce: 3,
       unlocks: ['Fully loaded sandwiches'] }
@@ -747,33 +869,139 @@ window.CS = window.CS || {};
     l.day = day;
     l.name = 'Overtime ' + over;
     l.tag = 'No end in sight. Keep frying.';
-    l.target = 2500 + over * 520;
+    l.rent = 108 + over * 18;
     l.spawn = [Math.max(3.2, 6.0 - over * 0.45), Math.max(2.6, 4.6 - over * 0.40)];
     l.limit = [Math.max(44, 64 - over * 3), Math.max(34, 50 - over * 3)];
     l.unlocks = [];
     return l;
   };
 
-  /* Star thresholds as multiples of the day's target. */
-  CS.STARS = [1.0, 1.35, 1.75];
+  /* Star thresholds as multiples of the day's rent. */
+  CS.STARS = [1.0, 1.9, 3.0];
 
-  CS.SCORE = {
-    sandwich: 60, extra: 12, fries: 30, cup: 16,
-    speedBonus: 0.6,     // up to +60% of base for a fast serve
-    comboStep: 0.25, comboMax: 4,
-    missPenalty: 40,
+  /* ---------------------------------------------------------- the money
+     The till is the score. An item is worth what it says on the menu board,
+     every time -- being fast does not make a sandwich cost more. What speed
+     buys you is throughput (more customers through the door in one shift) and
+     tips, which is where the skill shows up. */
+  CS.PRICES = {
+    sandwich: 4.50,    // chicken sandwich, plain
+    topping: 0.40,     // each
+    sauce: 0.30,       // each
+    fries: 1.80,
+    cup: 0.75
+  };
 
-    /* Tips. A customer served with `minLeft` or less of their patience
-       remaining never tips; above that both the chance and the size scale
-       with how early you were, so the payoff is for staying ahead of the
-       queue rather than for luck. */
-    tip: {
-      minLeft: 0.45,     // fraction of patience that must still be on the clock
-      chance: 0.85,      // odds at a perfect serve, tapering to 0 at minLeft
-      share: 0.30,       // tip as a fraction of the order's base reward
-      bigTip: 30         // at or above this, they drop three coins, not one
+  /* Food that goes in the bin was bought with real money, so burning a basket
+     costs you twice: the time, and the stock. This is what makes a better
+     fryer worth paying for. */
+  CS.FOOD_COST = {
+    rawChicken: 0.95, friedChicken: 0.95, burntChicken: 0.95,
+    rawFries: 0.50, cookedFries: 0.50, burntFries: 0.50,
+    cup: 0.08, plate: 0.00
+  };
+
+  CS.WALKOUT_COST = 1.20;   // wasted prep when a customer gives up and leaves
+
+  CS.COMBO = { step: 0.25, max: 4 };
+
+  /* Tips. A customer served with `minLeft` or less of their patience still on
+     the clock never tips; above that both the chance and the size scale with
+     how early you were, so tipping rewards a shop that stays ahead of its
+     queue rather than a lucky one. The combo rides on the tip, not the price. */
+  CS.TIP = {
+    minLeft: 0.45,
+    chance: 0.85,
+    share: 0.30,       // tip as a fraction of the order's menu price
+    bigTip: 2.50       // at or above this they drop three coins, not one
+  };
+
+  /* --------------------------------------------------------------- staff
+     Each assistant runs one tight loop and ignores everything else, which is
+     what makes them readable: you always know what the potato is going to do.
+     `wage` comes off the till every day they are on the payroll, so hiring is
+     a real decision and not just a button you press once.
+
+     `jobs` is what they will make. Training widens it. */
+  CS.STAFF_DEFS = {
+    potato: {
+      name: 'Spud', role: 'Fry Cook', hire: 150, wage: 8.00,
+      tint: 0xd8a860,
+      blurb: 'Cuts, fries and plates chips. Will not touch anything else.',
+      jobs: ['fries'],
+      speed: 2.0, act: 0.55
+    },
+    tomato: {
+      name: 'Dollop', role: 'Sauce Hand', hire: 120, wage: 6.00,
+      tint: 0xd6402f,
+      blurb: 'Fills sauce cups and leaves them on a prep counter.',
+      jobs: ['cup:ketchup'],
+      speed: 2.2, act: 0.45
     }
   };
+
+  /* Per-hire training. `adds` extends the job list, `mult` scales a stat. */
+  CS.TRAINING = {
+    potato: [
+      { id: 'potato-chicken', name: 'Chicken Ticket', cost: 110,
+        blurb: 'Spud learns the chicken fryer too.', adds: ['chicken'] },
+      { id: 'potato-boots',   name: 'Non-Slip Boots', cost: 70,
+        blurb: '+40% walking speed.', mult: { speed: 1.4 } },
+      { id: 'potato-hands',   name: 'Asbestos Mitts', cost: 95,
+        blurb: 'Works a station 35% faster.', mult: { act: 0.65 } }
+    ],
+    tomato: [
+      { id: 'tomato-sauces', name: 'The Full Range', cost: 90,
+        blurb: 'Dollop learns BBQ and hot sauce cups.',
+        adds: ['cup:bbq', 'cup:hot'] },
+      { id: 'tomato-boots',  name: 'Non-Slip Boots', cost: 70,
+        blurb: '+40% walking speed.', mult: { speed: 1.4 } },
+      { id: 'tomato-hands',  name: 'Quick Thumbs', cost: 95,
+        blurb: 'Works a station 35% faster.', mult: { act: 0.65 } }
+    ]
+  };
+
+  /* ------------------------------------------------------------ upgrades
+     Three kinds, and the kind decides what buying one actually does:
+       gear   -- an instant, permanent modifier (see CS.econ.mod)
+       part   -- adds a station to your stock, which you then place yourself
+       land   -- unlocks a region of '~' into floor                        */
+  CS.UPGRADES = [
+    { id: 'basket',  kind: 'gear', name: 'Vented Baskets',  cost: 70,
+      blurb: 'Everything fries 15% faster.', mod: { fryCook: 0.85 } },
+    { id: 'basket2', kind: 'gear', name: 'Twin Burners',    cost: 165, needs: 'basket',
+      blurb: 'Another 15% off the fryer clock.', mod: { fryCook: 0.85 } },
+    { id: 'thermo',  kind: 'gear', name: 'Thermostat',      cost: 90,
+      blurb: 'Half again as long before a basket burns.', mod: { fryGrace: 1.5 } },
+    { id: 'bench',   kind: 'gear', name: 'Waiting Bench',   cost: 110,
+      blurb: 'Customers wait 12% longer before walking out.', mod: { patience: 1.12 } },
+    { id: 'tray',    kind: 'gear', name: 'Deep Trays',      cost: 60,
+      blurb: 'Fit a fourth sauce cup on a plate.', mod: { cups: 4 } },
+    { id: 'sign',    kind: 'gear', name: 'Roadside Sign',   cost: 180,
+      blurb: 'One more customer in the queue at a time.', mod: { orders: 1 } },
+
+    { id: 'fryer',   kind: 'part', name: 'Fryer',           cost: 85,  ch: 'F', wall: true },
+    { id: 'counter', kind: 'part', name: 'Prep Counter',    cost: 25,  ch: 'C' },
+    { id: 'plates',  kind: 'part', name: 'Plate Stack',     cost: 30,  ch: 'P' },
+    { id: 'buns',    kind: 'part', name: 'Bun Crate',       cost: 30,  ch: 'B' },
+    { id: 'cups',    kind: 'part', name: 'Cup Dispenser',   cost: 35,  ch: 'U', wall: true },
+    { id: 'bin',     kind: 'part', name: 'Trash Can',       cost: 20,  ch: 'X' },
+    { id: 'chicken', kind: 'part', name: 'Chicken Crate',   cost: 45,  ch: 'K', wall: true },
+    { id: 'spuds',   kind: 'part', name: 'Potato Bin',      cost: 45,  ch: 'T', wall: true },
+    { id: 'ketchup', kind: 'part', name: 'Ketchup Bottle',  cost: 40,  ch: 'Y', wall: true },
+    { id: 'bbq',     kind: 'part', name: 'BBQ Bottle',      cost: 40,  ch: 'Q', wall: true },
+    { id: 'hot',     kind: 'part', name: 'Hot Sauce',       cost: 40,  ch: 'H', wall: true },
+    { id: 'mayo',    kind: 'part', name: 'Mayo Bottle',     cost: 40,  ch: 'M', wall: true },
+    { id: 'lettuce', kind: 'part', name: 'Lettuce Tray',    cost: 40,  ch: 'L', wall: true },
+    { id: 'maters',  kind: 'part', name: 'Tomato Tray',     cost: 40,  ch: 'O', wall: true },
+    { id: 'pickles', kind: 'part', name: 'Pickle Tray',     cost: 40,  ch: 'I', wall: true },
+    { id: 'window',  kind: 'part', name: 'Serving Window',  cost: 200, ch: 'S', wall: 'north' },
+
+    { id: 'backroom', kind: 'land', name: 'The Back Room', cost: 240,
+      blurb: 'Two more rows behind the kitchen.', region: 'south' },
+    { id: 'eastwing', kind: 'land', name: 'The East Wing', cost: 300,
+      blurb: 'Four more columns of floor.', region: 'east' }
+  ];
 
   /* ---------------------------------------------------------------- utils */
   CS.MAP_W = CS.MAP[0].length;
@@ -828,7 +1056,640 @@ window.CS = window.CS || {};
      orders.js walks customers through it, so the two must agree. */
   CS.DOOR_X = CS.OX + (CS.SERVE_COL + 0.5) * CS.TILE;   // straight behind the queue
   CS.DOOR_W = 2.8;
-  CS.MAX_ORDERS_CAP = 4;       // widest the queue ever gets, across all days
+  CS.MAX_ORDERS_CAP = 5;       // widest the queue ever gets, Roadside Sign included
+})(window.CS);
+
+</script>
+<script>
+/* ---- src/layout.js ---- */
+/* The kitchen you own: a live, editable grid.
+
+   config.js ships CS.BASE_MAP, the shop you start with. Everything after that
+   -- a fryer you bought and dropped on the west wall, the back room opening
+   up -- is a change to CS.MAP, which this module owns and which world.js
+   rebuilds from between days.
+
+   The grid is always the same CS.MAP_W x CS.MAP_H, however much of it you
+   have paid for. Land you do not own yet is '~', drawn as nothing; that keeps
+   CS.OX/CS.OZ and every world-space constant derived from them constant, so
+   buying a wing never moves the shop out from under the camera.           */
+window.CS = window.CS || {};
+(function (CS) {
+  'use strict';
+
+  /* Which of the two expansions touch which edge. The base kitchen is the
+     rectangle you start inside; each region pushes one edge outward. */
+  var REGIONS = {
+    south: { edge: 'row', to: 12 },
+    east:  { edge: 'col', to: 18 }
+  };
+  var BASE = { c0: 0, c1: 14, r0: 0, r1: 10 };
+
+  var WALL_STATIONS = 'FSKTLOIUMQHY';   // must sit on a boundary wall
+  var FLOOR_STATIONS = 'CPB';           // must sit on open floor
+  var ANY_STATIONS = 'X';               // a bin is happy either way, and the
+                                        // starting kitchen has its two set
+                                        // into the south wall
+
+  function rowsToArr(map) { return map.map(function (r) { return r.split(''); }); }
+  function arrToRows(g) { return g.map(function (r) { return r.join(''); }); }
+
+  var L = CS.layout = {
+    owned: [],                 // region ids bought so far
+    bounds: { c0: 0, c1: 14, r0: 0, r1: 10 },
+
+    isWallChar:  function (ch) { return WALL_STATIONS.indexOf(ch) >= 0; },
+    isFloorChar: function (ch) { return FLOOR_STATIONS.indexOf(ch) >= 0; },
+    isAnyChar:   function (ch) { return ANY_STATIONS.indexOf(ch) >= 0; },
+    isStation:   function (ch) { return !!CS.STATION_DEFS[ch]; },
+
+    /* ------------------------------------------------------------ bounds */
+    computeBounds: function (owned) {
+      var b = { c0: BASE.c0, c1: BASE.c1, r0: BASE.r0, r1: BASE.r1 };
+      owned.forEach(function (id) {
+        var r = REGIONS[id];
+        if (!r) return;
+        if (r.edge === 'row') b.r1 = Math.max(b.r1, r.to);
+        if (r.edge === 'col') b.c1 = Math.max(b.c1, r.to);
+      });
+      return b;
+    },
+
+    inBounds: function (col, row) {
+      var b = L.bounds;
+      return col >= b.c0 && col <= b.c1 && row >= b.r0 && row <= b.r1;
+    },
+
+    /* A tile on the rectangle's edge: where wall-mounted kit can live. */
+    isBorder: function (col, row) {
+      var b = L.bounds;
+      if (!L.inBounds(col, row)) return false;
+      return col === b.c0 || col === b.c1 || row === b.r0 || row === b.r1;
+    },
+
+    /* ------------------------------------------------------------ rebuild
+       Redraw the whole grid from a list of stations. The border ring is wall,
+       the inside is floor, everything outside the rectangle is '~'. Stations
+       are then stamped back on top. Doing it this way (rather than patching
+       tiles in place) means an expansion cannot leave a stray wall behind in
+       the middle of the room. */
+    rebuild: function (placed) {
+      var b = L.bounds;
+      var g = [];
+      for (var r = 0; r < CS.MAP_H; r++) {
+        var row = [];
+        for (var c = 0; c < CS.MAP_W; c++) {
+          if (c < b.c0 || c > b.c1 || r < b.r0 || r > b.r1) row.push('~');
+          else if (L.isBorder(c, r)) row.push('#');
+          else row.push('.');
+        }
+        g.push(row);
+      }
+      placed.forEach(function (p) {
+        if (p.col < 0 || p.col >= CS.MAP_W || p.row < 0 || p.row >= CS.MAP_H) return;
+        if (!L.inBounds(p.col, p.row)) return;
+        g[p.row][p.col] = p.ch;
+      });
+      CS.MAP = arrToRows(g);
+      L.refreshDerived();
+      return CS.MAP;
+    },
+
+    /* Everything downstream that is computed from where things are. The serve
+       window drives the queue and the front door, so if you move it the
+       customers move with it. */
+    refreshDerived: function () {
+      var cols = [];
+      for (var r = 0; r <= L.bounds.r1; r++) {
+        for (var c = 0; c <= L.bounds.c1; c++) {
+          if (CS.charAt(c, r) === 'S') cols.push(c);
+        }
+      }
+      if (cols.length) {
+        cols.sort(function (a, z) { return a - z; });
+        CS.SERVE_COL = cols[Math.floor(cols.length / 2)];
+      }
+      CS.DOOR_X = CS.OX + (CS.SERVE_COL + 0.5) * CS.TILE;
+    },
+
+    /* Every station currently on the grid, as {col,row,ch}. */
+    stations: function () {
+      var out = [];
+      for (var r = 0; r < CS.MAP_H; r++) {
+        for (var c = 0; c < CS.MAP_W; c++) {
+          var ch = CS.charAt(c, r);
+          if (L.isStation(ch)) out.push({ col: c, row: r, ch: ch });
+        }
+      }
+      return out;
+    },
+
+    /* ------------------------------------------------------------- expand
+       Buying a wing moves one wall outward. Anything mounted on the wall that
+       just became interior floor slides out to the new wall in the same lane,
+       so a fryer you had on the east wall is still a fryer on the east wall
+       rather than an obstacle stranded in the middle of the kitchen. */
+    unlock: function (region) {
+      if (L.owned.indexOf(region) >= 0) return false;
+      var def = REGIONS[region];
+      if (!def) return false;
+
+      var old = L.bounds;
+      var oldEdge = def.edge === 'row' ? old.r1 : old.c1;
+      var placed = L.stations();
+
+      L.owned.push(region);
+      L.bounds = L.computeBounds(L.owned);
+      var nu = def.edge === 'row' ? L.bounds.r1 : L.bounds.c1;
+
+      placed.forEach(function (p) {
+        var on = def.edge === 'row' ? p.row : p.col;
+        if (on !== oldEdge) return;
+        // floor kit stays put -- the wall it was beside is just floor now,
+        // which is a perfectly good place for a prep counter to stand
+        if (!L.isWallChar(p.ch) && !L.isAnyChar(p.ch)) return;
+        if (def.edge === 'row') p.row = nu; else p.col = nu;
+      });
+
+      L.rebuild(placed);
+      return true;
+    },
+
+    /* --------------------------------------------------------- placement */
+    tileFree: function (col, row) {
+      var ch = CS.charAt(col, row);
+      return ch === '.' || ch === '#';
+    },
+
+    /* Can `ch` go at (col,row)? Returns {ok, why}. The editor shows `why`
+       straight back to the player, so each one is written to be read. */
+    canPlace: function (col, row, ch) {
+      if (!L.inBounds(col, row)) return { ok: false, why: 'You do not own that land' };
+      var cur = CS.charAt(col, row);
+      if (L.isStation(cur)) return { ok: false, why: 'Something is already there' };
+
+      if (L.isAnyChar(ch)) {
+        if (L.isBorder(col, row)) return { ok: true };
+        if (col === CS.SPAWN.col && row === CS.SPAWN.row) {
+          return { ok: false, why: 'You stand there at opening time' };
+        }
+        return { ok: true };
+      }
+      if (L.isWallChar(ch)) {
+        if (!L.isBorder(col, row)) return { ok: false, why: 'That has to go against a wall' };
+        if (ch === 'S' && row !== L.bounds.r0) {
+          return { ok: false, why: 'The window has to face the dining room' };
+        }
+        return { ok: true };
+      }
+      if (L.isFloorChar(ch)) {
+        if (L.isBorder(col, row)) return { ok: false, why: 'That needs floor, not a wall' };
+        if (col === CS.SPAWN.col && row === CS.SPAWN.row) {
+          return { ok: false, why: 'You stand there at opening time' };
+        }
+        return { ok: true };
+      }
+      return { ok: false, why: '' };
+    },
+
+    /* ------------------------------------------------------------ reachability
+       A kitchen you cannot walk around is not a kitchen. Flood the floor from
+       the spawn tile and insist that every other floor tile is in the flood,
+       and that every station has at least one flooded tile beside it -- a
+       fryer walled in behind a row of counters is unusable, so the editor
+       refuses to leave you in that state. */
+    reachable: function () {
+      var seen = {}, q = [], key = function (c, r) { return c + ',' + r; };
+      var start = CS.SPAWN;
+      if (CS.charAt(start.col, start.row) !== '.') return seen;
+      seen[key(start.col, start.row)] = true;
+      q.push([start.col, start.row]);
+      var D = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+      while (q.length) {
+        var n = q.shift();
+        for (var i = 0; i < 4; i++) {
+          var c = n[0] + D[i][0], r = n[1] + D[i][1], k = key(c, r);
+          if (seen[k]) continue;
+          if (CS.charAt(c, r) !== '.') continue;
+          seen[k] = true;
+          q.push([c, r]);
+        }
+      }
+      return seen;
+    },
+
+    validate: function () {
+      var seen = L.reachable(), k;
+      var orphanFloor = 0, orphanSt = [];
+      for (var r = 0; r < CS.MAP_H; r++) {
+        for (var c = 0; c < CS.MAP_W; c++) {
+          var ch = CS.charAt(c, r);
+          if (ch === '.' && !seen[c + ',' + r]) orphanFloor++;
+          if (L.isStation(ch)) {
+            var touch = false;
+            [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(function (d) {
+              if (seen[(c + d[0]) + ',' + (r + d[1])]) touch = true;
+            });
+            if (!touch) orphanSt.push(CS.STATION_DEFS[ch].name);
+          }
+        }
+      }
+      if (orphanFloor) {
+        return { ok: false, why: orphanFloor + ' tile' + (orphanFloor > 1 ? 's are' : ' is') +
+          ' walled off from the rest of the kitchen' };
+      }
+      if (orphanSt.length) {
+        return { ok: false, why: 'You cannot reach the ' + orphanSt[0] };
+      }
+      var need = [['S', 'serving window'], ['P', 'plate stack'], ['X', 'trash']];
+      for (var i = 0; i < need.length; i++) {
+        if (!L.count(need[i][0])) return { ok: false, why: 'A kitchen needs a ' + need[i][1] };
+      }
+      return { ok: true };
+    },
+
+    count: function (ch) {
+      var n = 0;
+      for (var r = 0; r < CS.MAP_H; r++) {
+        for (var c = 0; c < CS.MAP_W; c++) if (CS.charAt(c, r) === ch) n++;
+      }
+      return n;
+    },
+
+    /* ------------------------------------------------------- save / load */
+    reset: function () {
+      L.owned = [];
+      L.bounds = L.computeBounds(L.owned);
+      CS.MAP = CS.BASE_MAP.slice();
+      L.refreshDerived();
+    },
+
+    serialize: function () { return { owned: L.owned.slice(), grid: CS.MAP.slice() }; },
+
+    load: function (data) {
+      if (!data || !data.grid || data.grid.length !== CS.MAP_H) { L.reset(); return false; }
+      for (var i = 0; i < data.grid.length; i++) {
+        if (typeof data.grid[i] !== 'string' || data.grid[i].length !== CS.MAP_W) {
+          L.reset(); return false;
+        }
+      }
+      L.owned = (data.owned || []).filter(function (r) { return !!REGIONS[r]; });
+      L.bounds = L.computeBounds(L.owned);
+      CS.MAP = data.grid.slice();
+      L.refreshDerived();
+      // a save from an older build, or one hand-edited into a corner, should
+      // not strand the player in an unplayable shop
+      if (!L.validate().ok) { L.reset(); return false; }
+      return true;
+    }
+  };
+
+  L.bounds = L.computeBounds(L.owned);
+})(window.CS);
+
+</script>
+<script>
+/* ---- src/economy.js ---- */
+/* The till, the wallet and the save file.
+
+   Money replaced score, so this is the scoreboard now. One day is one trading
+   session: CS.econ.open() clears the ledger, the kitchen rings up sales and
+   waste into it as they happen, and CS.econ.settle() takes rent and wages off
+   the top and moves what is left into the wallet.
+
+   Everything you have bought also lives here, because every one of those
+   purchases is a number some other module needs to ask about: CS.econ.mod()
+   is the single place that answers "how fast do fryers cook in this shop?". */
+window.CS = window.CS || {};
+(function (CS) {
+  'use strict';
+
+  var KEY = 'chickenSandy.shop.v1';
+
+  /* Defaults for every modifier a purchase can move. `how` says what buying a
+     second one of something does: 'mul' stacks multiplicatively (two 15% cuts
+     to the fryer clock compound), 'add' sums, 'max' takes the best. */
+  var MODS = {
+    fryCook:  { base: 1, how: 'mul' },
+    fryGrace: { base: 1, how: 'mul' },
+    patience: { base: 1, how: 'mul' },
+    cups:     { base: 3, how: 'max' },
+    orders:   { base: 0, how: 'add' }
+  };
+
+  function blank() {
+    return {
+      v: 1,
+      wallet: 0,
+      day: 1,
+      owned: [],        // upgrade ids bought (gear + land)
+      stock: {},        // partId -> how many bought but not yet placed
+      staff: [],        // [{ kind, training: [id, ...] }]
+      layout: null,     // CS.layout.serialize()
+      career: { days: 0, served: 0, earned: 0, tips: 0, best: 0 }
+    };
+  }
+
+  function upgrade(id) {
+    for (var i = 0; i < CS.UPGRADES.length; i++) {
+      if (CS.UPGRADES[i].id === id) return CS.UPGRADES[i];
+    }
+    return null;
+  }
+
+  var E = CS.econ = {
+    state: blank(),
+    ledger: null,
+
+    upgrade: upgrade,
+
+    /* ---------------------------------------------------------- the save */
+    load: function () {
+      var raw = null;
+      try { raw = localStorage.getItem(KEY); } catch (e) { raw = null; }
+      if (!raw) { E.reset(); return false; }
+      var d = null;
+      try { d = JSON.parse(raw); } catch (e) { d = null; }
+      if (!d || d.v !== 1) { E.reset(); return false; }
+
+      var s = blank();
+      s.wallet = typeof d.wallet === 'number' && isFinite(d.wallet) ? Math.max(0, d.wallet) : 0;
+      s.day = Math.max(1, parseInt(d.day, 10) || 1);
+      s.owned = (d.owned || []).filter(upgrade);
+      s.stock = d.stock && typeof d.stock === 'object' ? d.stock : {};
+      s.staff = (d.staff || []).filter(function (h) { return h && CS.STAFF_DEFS[h.kind]; })
+        .map(function (h) { return { kind: h.kind, training: (h.training || []).slice() }; });
+      if (d.career) for (var k in s.career) {
+        if (typeof d.career[k] === 'number') s.career[k] = d.career[k];
+      }
+      E.state = s;
+
+      // The layout has the last word on whether a save is usable: if it will
+      // not load cleanly, layout.js falls back to the starting kitchen and we
+      // keep the wallet rather than throwing the whole save away.
+      CS.layout.load(d.layout);
+      E.state.layout = CS.layout.serialize();
+      return true;
+    },
+
+    save: function () {
+      E.state.layout = CS.layout.serialize();
+      try { localStorage.setItem(KEY, JSON.stringify(E.state)); } catch (e) { /* full or private */ }
+    },
+
+    reset: function () {
+      E.state = blank();
+      CS.layout.reset();
+      E.state.layout = CS.layout.serialize();
+      try { localStorage.removeItem(KEY); } catch (e) {}
+    },
+
+    /* ------------------------------------------------------- modifiers */
+    mod: function (key) {
+      var def = MODS[key];
+      if (!def) return 0;
+      var v = def.base;
+      E.state.owned.forEach(function (id) {
+        var u = upgrade(id);
+        if (!u || !u.mod || u.mod[key] === undefined) return;
+        var m = u.mod[key];
+        if (def.how === 'mul') v *= m;
+        else if (def.how === 'add') v += m;
+        else v = Math.max(v, m);
+      });
+      return v;
+    },
+
+    has: function (id) { return E.state.owned.indexOf(id) >= 0; },
+
+    /* Can this be bought right now? Covers money, prerequisites and the
+       one-of-each rule that gear and land obey but parts do not. */
+    canBuy: function (u) {
+      if (!u) return { ok: false, why: '' };
+      if (u.kind !== 'part' && E.has(u.id)) return { ok: false, why: 'Already fitted' };
+      if (u.needs && !E.has(u.needs)) {
+        var n = upgrade(u.needs);
+        return { ok: false, why: 'Needs ' + (n ? n.name : u.needs) + ' first' };
+      }
+      if (E.state.wallet < u.cost) return { ok: false, why: 'Not enough money' };
+      return { ok: true };
+    },
+
+    buy: function (id) {
+      var u = upgrade(id);
+      var can = E.canBuy(u);
+      if (!can.ok) return can;
+      E.state.wallet = Math.round((E.state.wallet - u.cost) * 100) / 100;
+      if (u.kind === 'part') {
+        E.state.stock[u.id] = (E.state.stock[u.id] || 0) + 1;
+      } else if (u.kind === 'land') {
+        E.state.owned.push(u.id);
+        CS.layout.unlock(u.region);
+      } else {
+        E.state.owned.push(u.id);
+      }
+      E.save();
+      return { ok: true };
+    },
+
+    /* -------------------------------------------------------------- staff */
+    hire: function (kind) {
+      var def = CS.STAFF_DEFS[kind];
+      if (!def) return { ok: false, why: '' };
+      if (E.hired(kind)) return { ok: false, why: 'Already on the payroll' };
+      if (E.state.wallet < def.hire) return { ok: false, why: 'Not enough money' };
+      E.state.wallet = Math.round((E.state.wallet - def.hire) * 100) / 100;
+      E.state.staff.push({ kind: kind, training: [] });
+      E.save();
+      return { ok: true };
+    },
+
+    hired: function (kind) {
+      return E.state.staff.some(function (h) { return h.kind === kind; });
+    },
+
+    train: function (kind, id) {
+      var hand = E.state.staff.filter(function (h) { return h.kind === kind; })[0];
+      if (!hand) return { ok: false, why: 'Nobody to train' };
+      var list = CS.TRAINING[kind] || [], t = null;
+      for (var i = 0; i < list.length; i++) if (list[i].id === id) t = list[i];
+      if (!t) return { ok: false, why: '' };
+      if (hand.training.indexOf(id) >= 0) return { ok: false, why: 'Already trained' };
+      if (E.state.wallet < t.cost) return { ok: false, why: 'Not enough money' };
+      E.state.wallet = Math.round((E.state.wallet - t.cost) * 100) / 100;
+      hand.training.push(id);
+      E.save();
+      return { ok: true };
+    },
+
+    /* A hire's live stats, with their training folded in. staff.js reads this
+       rather than CS.STAFF_DEFS directly, so a trained hand is quicker and
+       knows more jobs without the AI having to care which is which. */
+    crew: function () {
+      return E.state.staff.map(function (h) {
+        var def = CS.STAFF_DEFS[h.kind];
+        var out = {
+          kind: h.kind, name: def.name, role: def.role, tint: def.tint,
+          wage: def.wage, speed: def.speed, act: def.act,
+          jobs: def.jobs.slice(), training: h.training.slice()
+        };
+        (CS.TRAINING[h.kind] || []).forEach(function (t) {
+          if (h.training.indexOf(t.id) < 0) return;
+          if (t.adds) t.adds.forEach(function (j) {
+            if (out.jobs.indexOf(j) < 0) out.jobs.push(j);
+          });
+          if (t.mult) for (var k in t.mult) out[k] *= t.mult[k];
+        });
+        return out;
+      });
+    },
+
+    wages: function () {
+      return E.crew().reduce(function (n, c) { return n + c.wage; }, 0);
+    },
+
+    /* ------------------------------------------------------- the menu */
+    priceOf: function (order) {
+      var P = CS.PRICES, n = 0;
+      if (order.sandwich) {
+        n += P.sandwich;
+        n += order.sandwich.toppings.length * P.topping;
+        n += order.sandwich.sauces.length * P.sauce;
+      }
+      if (order.fries) n += P.fries;
+      n += order.cups.length * P.cup;
+      return Math.round(n * 100) / 100;
+    },
+
+    /* --------------------------------------------------------- the day */
+    open: function (level) {
+      E.ledger = {
+        rent: level.rent,
+        wages: E.wages(),
+        lines: { sandwich: 0, topping: 0, sauce: 0, fries: 0, cup: 0 },
+        revenue: { sandwich: 0, topping: 0, sauce: 0, fries: 0, cup: 0 },
+        gross: 0, tips: 0, tipCount: 0, waste: 0, wasteCount: 0,
+        served: 0, missed: 0, burnt: 0
+      };
+      return E.ledger;
+    },
+
+    /* Ring an order into the till, broken down by line so the end-of-day
+       receipt can show where the money actually came from. */
+    sale: function (order) {
+      var L = E.ledger, P = CS.PRICES;
+      if (!L) return 0;
+      var total = 0;
+      if (order.sandwich) {
+        L.lines.sandwich++; L.revenue.sandwich += P.sandwich; total += P.sandwich;
+        var nt = order.sandwich.toppings.length, ns = order.sandwich.sauces.length;
+        L.lines.topping += nt; L.revenue.topping += nt * P.topping; total += nt * P.topping;
+        L.lines.sauce += ns;   L.revenue.sauce += ns * P.sauce;     total += ns * P.sauce;
+      }
+      if (order.fries) { L.lines.fries++; L.revenue.fries += P.fries; total += P.fries; }
+      if (order.cups.length) {
+        L.lines.cup += order.cups.length;
+        L.revenue.cup += order.cups.length * P.cup;
+        total += order.cups.length * P.cup;
+      }
+      L.gross += total;
+      L.served++;
+      return Math.round(total * 100) / 100;
+    },
+
+    tip: function (n) {
+      if (!E.ledger) return;
+      E.ledger.tips += n;
+      E.ledger.gross += n;
+      E.ledger.tipCount++;
+    },
+
+    /* What this item cost you to have made. A plate is worth the sum of what
+       is stacked on it, so binning a finished order hurts the way it should. */
+    costOf: function (item) {
+      if (!item) return 0;
+      var c = CS.FOOD_COST[item.k] || 0;
+      if (item.k === 'plate') {
+        // a bun with no chicken on it is a fraction of a wasted sandwich
+        if (item.sandwich) c += CS.FOOD_COST.friedChicken * (item.sandwich.chicken ? 1 : 0.3);
+        if (item.fries) c += CS.FOOD_COST.cookedFries;
+        c += item.cups.length * CS.FOOD_COST.cup;
+      }
+      return Math.round(c * 100) / 100;
+    },
+
+    /* Stock that went in the bin, or was still sitting out at closing time.
+       Comes straight off the day's takings. */
+    waste: function (item) {
+      var c = E.costOf(item);
+      if (!E.ledger || c <= 0) return 0;
+      E.ledger.waste += c;
+      E.ledger.wasteCount++;
+      return c;
+    },
+
+    walkout: function () {
+      if (!E.ledger) return 0;
+      E.ledger.waste += CS.WALKOUT_COST;
+      E.ledger.missed++;
+      return CS.WALKOUT_COST;
+    },
+
+    takings: function () {
+      var L = E.ledger;
+      return L ? Math.max(0, L.gross - L.waste) : 0;
+    },
+
+    /* Close the books. You have to clear rent and wages to trade another day;
+       a shift that does not is a retry and costs you nothing but the time. */
+    settle: function () {
+      var L = E.ledger;
+      if (!L) return null;
+      L.net = L.gross - L.waste;
+      L.outgoings = L.rent + L.wages;
+      L.profit = Math.round((L.net - L.outgoings) * 100) / 100;
+      L.passed = L.profit >= 0;
+      if (L.passed) {
+        E.state.wallet = Math.round((E.state.wallet + L.profit) * 100) / 100;
+        E.state.day++;
+        E.state.career.days++;
+        E.state.career.served += L.served;
+        E.state.career.earned += L.net;
+        E.state.career.tips += L.tips;
+        E.state.career.best = Math.max(E.state.career.best, L.profit);
+        E.save();
+      }
+      return L;
+    },
+
+    stars: function (ledger) {
+      if (!ledger || !ledger.passed) return 0;
+      var ratio = ledger.net / Math.max(1, ledger.outgoings);
+      var n = 0;
+      CS.STARS.forEach(function (th) { if (ratio >= th) n++; });
+      return n;
+    }
+  };
+
+  /* The fryer clock, after whatever you have bolted to the fryers. Everything
+     that starts a basket goes through here rather than reading CS.COOK, so a
+     Vented Basket speeds up the staff's baskets as well as yours. */
+  CS.cookDef = function (k) {
+    var base = CS.COOK[k];
+    if (!base) return null;
+    return {
+      done: base.done, burnt: base.burnt, label: base.label,
+      cook: base.cook * E.mod('fryCook'),
+      grace: base.grace * E.mod('fryGrace')
+    };
+  };
+
+  /* "$4.50" everywhere, so prices never render as 4.5000000001. */
+  CS.money = function (n) {
+    var neg = n < 0;
+    var s = '$' + Math.abs(n).toFixed(2);
+    return neg ? '-' + s : s;
+  };
 })(window.CS);
 
 </script>
@@ -2091,6 +2952,91 @@ window.CS = window.CS || {};
     return m;
   };
 
+  /* ------------------------------------------------------------ the staff
+     Your hires are the ingredients themselves, grown legs and an apron. They
+     are built on the same chunky two-block body as a customer so they read at
+     a glance from the overview camera, but squatter, and each one keeps the
+     silhouette of what it does: a tomato is round with a leafy crown, a
+     potato is a lumpy oval. `hold` is an empty slot their cargo gets parented
+     to, so whatever they are carrying rides in front of them. */
+  CS.models.assistant = function (kind) {
+    var g = new THREE.Group();
+    var parts = { kind: kind };
+
+    var spud = kind === 'potato';
+    var skin = spud ? { color: 0xc99a5c } : { color: 0xd6402f };
+    var dark = spud ? { color: 0xa87a42 } : { color: 0xa82b1f };
+    var apron = { color: 0xf7e9cd };
+
+    var body = new THREE.Group();
+    body.position.y = 0.52;
+    g.add(body);
+    parts.body = body;
+
+    if (spud) {
+      add(body, CS.box(0.52, 0.46, 0.44, skin, 0, 0, 0));
+      add(body, CS.box(0.42, 0.14, 0.38, skin, 0.04, 0.26, 0));     // knobbly crown
+      add(body, CS.box(0.14, 0.09, 0.09, dark, -0.21, 0.08, 0.16)); // eyes of the spud
+      add(body, CS.box(0.10, 0.08, 0.08, dark, 0.20, -0.09, 0.14));
+    } else {
+      add(body, CS.box(0.54, 0.48, 0.50, skin, 0, 0, 0));
+      add(body, CS.box(0.44, 0.10, 0.44, dark, 0, 0.26, 0));
+      // a little green crown of leaves, splayed out
+      [[-0.14, -0.10], [0.15, -0.09], [-0.09, 0.15], [0.12, 0.14]].forEach(function (p) {
+        add(body, CS.box(0.17, 0.07, 0.17, { color: 0x4e9b2f }, p[0], 0.33, p[1]));
+      });
+      add(body, CS.box(0.07, 0.12, 0.07, { color: 0x3d7a24 }, 0, 0.40, 0));
+    }
+
+    // apron bib, so they read as staff and not as loose produce
+    add(body, CS.box(0.34, 0.26, 0.03, apron, 0, -0.08, spud ? 0.23 : 0.26));
+    add(body, CS.box(0.30, 0.04, 0.03, { color: 0xc0392b }, 0, 0.07, spud ? 0.235 : 0.265));
+
+    // face
+    var fz = spud ? 0.225 : 0.255;
+    add(body, CS.box(0.09, 0.11, 0.03, { color: 0x1d1309 }, -0.12, 0.09, fz));
+    add(body, CS.box(0.09, 0.11, 0.03, { color: 0x1d1309 }, 0.12, 0.09, fz));
+    add(body, CS.box(0.05, 0.05, 0.03, { color: 0xffffff }, -0.10, 0.12, fz + 0.01));
+    add(body, CS.box(0.05, 0.05, 0.03, { color: 0xffffff }, 0.14, 0.12, fz + 0.01));
+
+    // stubby arms and legs, pivoting at the shoulder/hip like the customers
+    var LIMB = { color: spud ? 0xa87a42 : 0xa82b1f };
+    var BOOT = { color: 0x3d2a18 };
+    [-1, 1].forEach(function (s, i) {
+      var arm = new THREE.Group();
+      arm.position.set(s * 0.31, 0.04, 0);
+      add(arm, CS.box(0.12, 0.26, 0.12, LIMB, 0, -0.13, 0));
+      body.add(arm);
+      parts[i ? 'armR' : 'armL'] = arm;
+
+      var leg = new THREE.Group();
+      leg.position.set(s * 0.14, -0.24, 0);
+      add(leg, CS.box(0.14, 0.20, 0.14, LIMB, 0, -0.10, 0));
+      add(leg, CS.box(0.17, 0.08, 0.21, BOOT, 0, -0.23, 0.03));
+      body.add(leg);
+      parts[i ? 'legR' : 'legL'] = leg;
+    });
+
+    // where their cargo rides
+    var hold = new THREE.Object3D();
+    hold.position.set(0, 0.62, 0.34);
+    g.add(hold);
+    parts.hold = hold;
+
+    // "..." over the head while they have nothing to do, so an idle hire is
+    // visibly idle rather than looking broken
+    parts.mark = new THREE.Group();
+    parts.mark.position.set(0, 1.32, 0);
+    parts.mark.visible = false;
+    g.add(parts.mark);
+    [-0.14, 0, 0.14].forEach(function (x) {
+      add(parts.mark, CS.box(0.09, 0.09, 0.09,
+        CS.mat({ color: 0xf0d79a, basic: true }), x, 0, 0));
+    });
+
+    return { group: g, parts: parts };
+  };
+
   /* Outlined square that marks the station you are pointing at. */
   CS.models.highlight = function () {
     var c = document.createElement('canvas'); c.width = c.height = 16;
@@ -2317,10 +3263,10 @@ window.CS = window.CS || {};
     var phone = CS.platform.mobile;
     var m = CS.models.label(LABELS[ch], LABEL_ACCENT[ch], phone ? 2.85 : 2.08);
     var ox = (runW - 1) * T / 2, oz = (runH - 1) * T / 2;
-    if (st.row === 0) oz += T * 0.42;
-    else if (st.row === CS.MAP_H - 1) oz -= T * 0.42;
-    if (st.col === 0) ox += T * 0.42;
-    else if (st.col === CS.MAP_W - 1) ox -= T * 0.42;
+    if (st.row === CS.layout.bounds.r0) oz += T * 0.42;
+    else if (st.row === CS.layout.bounds.r1) oz -= T * 0.42;
+    if (st.col === CS.layout.bounds.c0) ox += T * 0.42;
+    else if (st.col === CS.layout.bounds.c1) ox -= T * 0.42;
 
     m.position.set(st.x + ox, st.topY + (phone ? 0.98 : 0.8), st.z + oz);
     m.rotation.x = -(Math.PI / 2 - (phone ? CS.CAM_PITCH_MOBILE : CS.CAM_PITCH));
@@ -2483,11 +3429,23 @@ window.CS = window.CS || {};
   }
 
   CS.world = {
-    build: function (scene, opts) {
+    /* Everything goes into one root group rather than straight onto the
+       scene, so the whole shop can be thrown away and rebuilt when you move a
+       fryer or buy a wing. The helpers below all just call `.add()`, so
+       handing them the root instead of the scene is enough. */
+    build: function (parent, opts) {
       opts = opts || {};
       var lowSpec = !!opts.lowSpec;
       var stations = [];
       var solids = [];
+      var scene = new THREE.Group();
+      parent.add(scene);
+
+      /* The floor you actually own. Everything outside it is '~': solid, and
+         drawn as nothing, so the room ends at the wall rather than trailing
+         off into unbought tiles. */
+      var B = CS.layout.bounds;
+      var bw = (B.c1 - B.c0 + 1), bh = (B.r1 - B.r0 + 1);
       // Collision heights per tile. Walls are effectively infinite so the chef
       // can never flutter out of the shop; stations use their real top surface
       // so a well-timed hop can put you on the counter.
@@ -2498,13 +3456,14 @@ window.CS = window.CS || {};
       }
 
       // ---- kitchen floor
-      var fw = CS.MAP_W * T, fh = CS.MAP_H * T;
+      var fw = bw * T, fh = bh * T;
+      var fx = CS.OX + (B.c0 * T) + fw / 2, fz = CS.OZ + (B.r0 * T) + fh / 2;
       var floor = new THREE.Mesh(new THREE.PlaneGeometry(fw, fh),
         CS.mat({ color: 0xffffff, tex: 'floor' }));
       floor.material = floor.material.clone();
-      floor.material.map = CS.texRepeat('floor', CS.MAP_W / 2, CS.MAP_H / 2);
+      floor.material.map = CS.texRepeat('floor', bw / 2, bh / 2);
       floor.rotation.x = -Math.PI / 2;
-      floor.position.set(CS.OX + fw / 2, 0, CS.OZ + fh / 2);
+      floor.position.set(fx, 0, fz);
       floor.receiveShadow = true;
       scene.add(floor);
 
@@ -2514,7 +3473,7 @@ window.CS = window.CS || {};
       dine.material = dine.material.clone();
       dine.material.map = CS.texRepeat('diningFloor', (fw + 10) / 4, 10 / 4);
       dine.rotation.x = -Math.PI / 2;
-      dine.position.set(CS.OX + fw / 2, -0.02, CS.OZ - 5);
+      dine.position.set(fx, -0.02, CS.OZ - 5);
       dine.receiveShadow = true;
       scene.add(dine);
 
@@ -2526,14 +3485,17 @@ window.CS = window.CS || {};
           var p = CS.tileToWorld(col, row);
           solids.push({ col: col, row: row, x: p.x, z: p.z });
 
+          // land you do not own: solid, but there is nothing there to draw
+          if (ch === '~') { heights[row][col] = 99; continue; }
+
           if (ch === '#') {
             heights[row][col] = 99;
-            var south = (row === CS.MAP_H - 1);
+            var south = (row === B.r1);
             var h = south ? CS.LOW_WALL_H : CS.WALL_H;
             var w = CS.box(T, h, T, { color: 0xffffff, tex: 'wall' }, p.x, h / 2, p.z);
             w.receiveShadow = true;
             scene.add(w);
-            if (!south && row === 0) {
+            if (!south && row === B.r0) {
               // a chunkier cornice on the far wall to frame the scene
               scene.add(CS.box(T, 0.22, T * 0.4, { color: 0x5a381c }, p.x, h + 0.11, p.z + T * 0.3));
             }
@@ -2553,9 +3515,9 @@ window.CS = window.CS || {};
           heights[row][col] = st.topY;
 
           // stations on a wall face inward
-          if (row === 0) g.rotation.y = Math.PI;
-          else if (col === 0) g.rotation.y = Math.PI / 2;
-          else if (col === CS.MAP_W - 1) g.rotation.y = -Math.PI / 2;
+          if (row === B.r0) g.rotation.y = Math.PI;
+          else if (col === B.c0) g.rotation.y = Math.PI / 2;
+          else if (col === B.c1) g.rotation.y = -Math.PI / 2;
 
           // fryers sit forward of the wall, so their item slot follows them out
           var ry = g.rotation.y;
@@ -2576,7 +3538,7 @@ window.CS = window.CS || {};
          with CS.DOOR_X, which is directly behind the queue, so an arrival
          walks in and straight down the line without a detour. */
       var backZ = CS.OZ - 9.5;
-      var wallW = fw + 10, wallCx = CS.OX + fw / 2;
+      var wallW = fw + 10, wallCx = fx;
       var wallX0 = wallCx - wallW / 2, wallX1 = wallCx + wallW / 2;
       var dx = CS.DOOR_X, dw = CS.DOOR_W, dh = 2.5;
       var gap0 = dx - dw / 2, gap1 = dx + dw / 2;
@@ -2597,10 +3559,10 @@ window.CS = window.CS || {};
       doorway(scene, dx, backZ, dw, dh);
 
       var s1 = CS.models.signBoard(['Good Food', 'Happy', 'Chicken'], 4.4);
-      s1.position.set(CS.OX + fw * 0.08, 2.0, backZ + 0.35);
+      s1.position.set(fx - fw * 0.42, 2.0, backZ + 0.35);
       scene.add(s1);
       var s2 = CS.models.signBoard(['Chicken', 'Sandwich', '= Happiness'], 4.4);
-      s2.position.set(CS.OX + fw * 0.74, 2.0, backZ + 0.35);
+      s2.position.set(fx + fw * 0.24, 2.0, backZ + 0.35);
       scene.add(s2);
 
       // ---- decor on the north wall (the face the camera always sees)
@@ -2628,7 +3590,7 @@ window.CS = window.CS || {};
       barrel(scene, CS.OX + 2.9, CS.OZ - 8.2, 0.82);
       chest(scene, CS.OX + fw - 2.2, CS.OZ - 7.8, -0.25);
       barrel(scene, CS.OX + fw - 4.0, CS.OZ - 8.1, 0.9);
-      shelf(scene, CS.OX + fw * 0.5, 2.55, backZ + 0.32, 3.4);
+      shelf(scene, fx, 2.55, backZ + 0.32, 3.4);
 
       // ---- lighting
       scene.add(new THREE.AmbientLight(0xffdcae, 0.50));
@@ -2658,13 +3620,24 @@ window.CS = window.CS || {};
       // one fewer light on phones; the dining room reads fine without it
       if (!lowSpec) {
         var warm3 = new THREE.PointLight(0xffb45c, 0.48, 18, 2);
-        warm3.position.set(CS.OX + fw / 2, 3.2, CS.OZ - 4);
+        warm3.position.set(fx, 3.2, CS.OZ - 4);
         scene.add(warm3);
       }
 
       scene.fog = new THREE.Fog(0x3a2413, 46, 86);
 
-      return { stations: stations, solids: solids, floor: floor, heights: heights };
+      return { root: scene, stations: stations, solids: solids, floor: floor, heights: heights };
+    },
+
+    /* Throw the shop away and build it again from the current CS.MAP. Called
+       between days, after the editor or a wing purchase has moved the walls.
+       Geometry and materials are shared out of the caches in models.js, so
+       what actually has to go is the flame list -- otherwise tick() keeps
+       animating hearths that are no longer in the scene. */
+    rebuild: function (parent, old, opts) {
+      if (old && old.root) parent.remove(old.root);
+      flames.length = 0;
+      return CS.world.build(parent, opts);
     },
 
     /* Flicker the hearth. Called every frame from the main loop. */
@@ -2794,7 +3767,7 @@ window.CS = window.CS || {};
     }
     if (item.k === 'cup') {
       if (!item.sauce) return { ok: false, why: 'Fill the cup first' };
-      if (plate.cups.length >= 3) return { ok: false, why: 'No room for more cups' };
+      if (plate.cups.length >= CS.econ.mod('cups')) return { ok: false, why: 'No room for more cups' };
       return { ok: true, what: 'cup' };
     }
     if (CS.isBurnt(item)) return { ok: false, why: 'That is burnt — bin it' };
@@ -2902,7 +3875,7 @@ window.CS = window.CS || {};
         if (!held) return blocked('Drop in chicken or potatoes');
         if (!CS.COOK[held.k]) return blocked('That does not go in the fryer');
         return action('Fry the ' + CS.ITEMS[held.k].label, function () {
-          var def = CS.COOK[held.k];
+          var def = CS.cookDef(held.k);
           G.setStationItem(st, held);
           st.cook = { t: 0, def: def, stage: 'cooking', warned: false };
           G.setHeld(null);
@@ -2956,7 +3929,11 @@ window.CS = window.CS || {};
       /* --------------------------------------------------------- trash */
       case 'trash': {
         if (!held) return blocked('Nothing to bin');
-        return action('Bin the ' + CS.itemShort(held), function () {
+        // what you bin, you bought: the cost comes off the day's takings
+        var loss = CS.econ.ledger ? CS.econ.costOf(held) : 0;
+        return action('Bin the ' + CS.itemShort(held) +
+          (loss > 0 ? ' (-' + CS.money(loss) + ')' : ''), function () {
+          CS.econ.waste(held);
           G.setHeld(null);
           CS.audio.trash();
           G.puff(st, 0x6a5f55, 8);
@@ -3105,28 +4082,31 @@ window.CS = window.CS || {};
       var cups = [];
       for (var i = 0; i < nCups; i++) cups.push(CS.pick(CS.CUP_SAUCES));
 
-      var S = CS.SCORE;
-      var reward = 0, extra = 0;
-      if (sandwich) {
-        reward += S.sandwich;
-        extra = sandwich.toppings.length + sandwich.sauces.length;
-        reward += extra * S.extra;
-      }
-      if (wantsFries) reward += S.fries;
-      reward += cups.length * S.cup;
+      var extra = sandwich ? sandwich.toppings.length + sandwich.sauces.length : 0;
 
-      var limit = CS.lerp(lv.limit[0], lv.limit[1], progress)
-        + extra * 5.0 + (wantsFries ? 9 : 0) + cups.length * 5.0;
+      /* Patience. A fussier order buys more time, and a Waiting Bench buys
+         more again -- which is the whole reason to pay for one. */
+      var limit = (CS.lerp(lv.limit[0], lv.limit[1], progress)
+        + extra * 5.0 + (wantsFries ? 9 : 0) + cups.length * 5.0)
+        * CS.econ.mod('patience');
 
-      return {
+      var t = {
         id: nextId++,
         sandwich: sandwich,
         fries: wantsFries,
         cups: cups,
         limit: limit,
-        left: limit,
-        reward: Math.round(reward)
+        left: limit
       };
+      t.price = CS.econ.priceOf(t);
+      return t;
+    },
+
+    /* How long the queue may get: the day's own limit, plus anything the
+       Roadside Sign bought you. */
+    cap: function () {
+      return Math.min(CS.MAX_ORDERS_CAP,
+        this.level.maxOrders + CS.econ.mod('orders'));
     },
 
     /* Pick a species nobody in the queue is currently wearing, so the ticket
@@ -3140,7 +4120,7 @@ window.CS = window.CS || {};
     },
 
     spawn: function (progress) {
-      if (this.list.length >= this.level.maxOrders) return null;
+      if (this.list.length >= this.cap()) return null;
       var t = this.makeTicket(progress);
       var idx = this.list.length;
       var seed = ri(1000);
@@ -3253,7 +4233,7 @@ window.CS = window.CS || {};
 
       this.spawnTimer -= dt;
       if (this.spawnTimer <= 0) {
-        if (this.list.length < lv.maxOrders) {
+        if (this.list.length < this.cap()) {
           this.spawn(progress);
           this.spawnTimer = CS.lerp(lv.spawn[0], lv.spawn[1], progress) * (0.85 + Math.random() * 0.3);
         } else {
@@ -3353,6 +4333,443 @@ window.CS = window.CS || {};
 
 </script>
 <script>
+/* ---- src/staff.js ---- */
+/* The hired help.
+
+   Every assistant runs one tight loop and refuses to do anything else, which
+   is the whole point: you should always be able to glance at the potato and
+   know what it is about to do. A hand picks a job only when the ticket rail
+   actually calls for one, walks the kitchen with a breadth-first path, works
+   a station for a beat, and leaves the result on a prep counter for you to
+   build into a plate.
+
+   They never touch the serving window and never assemble a plate. Deciding
+   what goes on the plate stays your job -- they just keep you in stock.    */
+window.CS = window.CS || {};
+(function (CS) {
+  'use strict';
+
+  var scene = null;
+  var hands = [];
+  var T = CS.TILE;
+
+  /* -------------------------------------------------------------- paths
+     BFS over open floor. Stations are solid, so the goal is never the
+     station tile itself but any floor tile touching it; `goals` is that set.
+     The kitchen is a few hundred tiles at most, so a fresh flood per request
+     is cheaper than keeping a graph in sync with an editable layout. */
+  var DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+
+  function walkable(col, row) { return CS.charAt(col, row) === '.'; }
+
+  function adjacentTiles(st) {
+    var out = [];
+    for (var i = 0; i < 4; i++) {
+      var c = st.col + DIRS[i][0], r = st.row + DIRS[i][1];
+      if (walkable(c, r)) out.push({ col: c, row: r });
+    }
+    return out;
+  }
+
+  function findPath(fromC, fromR, goals) {
+    if (!goals.length) return null;
+    var want = {};
+    goals.forEach(function (g) { want[g.col + ',' + g.row] = true; });
+    if (want[fromC + ',' + fromR]) return [];
+
+    var prev = {}, seen = {}, q = [[fromC, fromR]];
+    seen[fromC + ',' + fromR] = true;
+    var hit = null;
+    while (q.length && !hit) {
+      var n = q.shift();
+      for (var i = 0; i < 4; i++) {
+        var c = n[0] + DIRS[i][0], r = n[1] + DIRS[i][1], k = c + ',' + r;
+        if (seen[k] || !walkable(c, r)) continue;
+        seen[k] = true;
+        prev[k] = n;
+        if (want[k]) { hit = [c, r]; break; }
+        q.push([c, r]);
+      }
+    }
+    if (!hit) return null;
+    var path = [], cur = hit;
+    while (cur) {
+      path.unshift({ col: cur[0], row: cur[1] });
+      cur = prev[cur[0] + ',' + cur[1]];
+    }
+    path.shift();     // drop the tile we are already standing on
+    return path;
+  }
+
+  /* ------------------------------------------------------- the job board
+     Demand is read straight off the live tickets and netted against what is
+     already in the pipeline, so two hands never cook the same portion of
+     fries and nobody fills a counter with cups nobody ordered. */
+  function wanted(job) {
+    var n = 0;
+    CS.orders.list.forEach(function (o) {
+      if (o.done) return;
+      if (job === 'fries') { if (o.fries) n++; return; }
+      if (job === 'chicken') { if (o.sandwich) n++; return; }
+      var sauce = job.slice(4);
+      o.cups.forEach(function (c) { if (c === sauce) n++; });
+    });
+    return n;
+  }
+
+  /* What a finished unit of `job` looks like sitting on a counter. */
+  function isOutput(job, item) {
+    if (!item) return false;
+    if (job === 'fries') return item.k === 'cookedFries' || item.k === 'rawFries';
+    if (job === 'chicken') return item.k === 'friedChicken' || item.k === 'rawChicken';
+    return item.k === 'cup' && item.sauce === job.slice(4);
+  }
+
+  function inPipeline(job, stations) {
+    var n = 0;
+    stations.forEach(function (st) { if (isOutput(job, st.item)) n++; });
+    hands.forEach(function (h) { if (h.job === job) n++; });
+    return n;
+  }
+
+  /* ---------------------------------------------------------- stations */
+  function pickStation(stations, test) {
+    var best = null, bestD = Infinity, hand = pickStation.hand;
+    stations.forEach(function (st) {
+      if (!test(st)) return;
+      if (!adjacentTiles(st).length) return;      // walled in: unusable
+      var d = hand ? Math.abs(st.col - hand.col) + Math.abs(st.row - hand.row) : 0;
+      if (d < bestD) { bestD = d; best = st; }
+    });
+    return best;
+  }
+
+  function freeCounter(stations, hand) {
+    pickStation.hand = hand;
+    return pickStation(stations, function (st) { return st.type === 'counter' && !st.item; });
+  }
+  function crateGiving(give) {
+    return function (stations, hand) {
+      pickStation.hand = hand;
+      return pickStation(stations, function (st) {
+        return st.type === 'crate' && st.def.gives === give;
+      });
+    };
+  }
+  function freeFryer(stations, hand) {
+    pickStation.hand = hand;
+    return pickStation(stations, function (st) {
+      return st.type === 'fryer' && !st.item && !st.cook;
+    });
+  }
+  function sauceBottle(ing) {
+    return function (stations, hand) {
+      pickStation.hand = hand;
+      return pickStation(stations, function (st) {
+        return st.type === 'sauce' && st.def.ing === ing;
+      });
+    };
+  }
+  function cupStack(stations, hand) {
+    pickStation.hand = hand;
+    return pickStation(stations, function (st) { return st.type === 'cups'; });
+  }
+
+  /* ------------------------------------------------------------- tasks
+     A task is: where to stand, whether to keep waiting once you are there,
+     and what to do when you finally act. A job is a list of them. */
+  function fryJob(raw) {
+    return [
+      { at: crateGiving(raw),
+        act: function (h) { h.carry = { k: raw }; } },
+      { at: freeFryer,
+        act: function (h, st) {
+          var def = CS.cookDef(h.carry.k);
+          CS.game.setStationItem(st, h.carry);
+          st.cook = { t: 0, def: def, stage: 'cooking' };
+          h.carry = null;
+          h.myFryer = st;
+          CS.audio.drop();
+        } },
+      { at: function (s, h) { return h.myFryer; },
+        // stand over the basket until it is actually cooked, then lift it out
+        // the moment it dings -- which is the whole value of the hire
+        wait: function (h, st) { return !!(st.cook && st.cook.stage === 'cooking'); },
+        act: function (h, st) {
+          h.carry = st.item;
+          CS.game.setStationItem(st, null);
+          st.cook = null;
+          h.myFryer = null;
+          CS.audio.pick();
+        } },
+      { at: function (s, h) {
+          // a burnt basket goes straight in the bin, not onto a prep counter
+          if (h.carry && CS.isBurnt(h.carry)) {
+            pickStation.hand = h;
+            return pickStation(s, function (st) { return st.type === 'trash'; });
+          }
+          return freeCounter(s, h);
+        },
+        act: function (h, st) {
+          if (st.type === 'trash') {
+            CS.econ.waste(h.carry);
+            CS.audio.trash();
+          } else {
+            CS.game.setStationItem(st, h.carry);
+            CS.audio.place();
+          }
+          h.carry = null;
+        } }
+    ];
+  }
+
+  function cupJob(sauce) {
+    return [
+      { at: cupStack, act: function (h) { h.carry = CS.newCup(); } },
+      { at: sauceBottle(sauce),
+        act: function (h) { h.carry.sauce = sauce; CS.audio.sauce(); } },
+      { at: freeCounter,
+        act: function (h, st) {
+          CS.game.setStationItem(st, h.carry);
+          h.carry = null;
+          CS.audio.place();
+        } }
+    ];
+  }
+
+  function tasksFor(job) {
+    if (job === 'fries') return fryJob('rawFries');
+    if (job === 'chicken') return fryJob('rawChicken');
+    return cupJob(job.slice(4));
+  }
+
+  /* ---------------------------------------------------------- movement */
+  function tileCentre(col, row) { return CS.tileToWorld(col, row); }
+
+  function stepToward(h, tx, tz, dt) {
+    var dx = tx - h.x, dz = tz - h.z;
+    var d = Math.hypot(dx, dz);
+    if (d < 0.04) return 0;
+    var m = Math.min(d, h.speed * dt);
+    h.x += dx / d * m;
+    h.z += dz / d * m;
+    var want = Math.atan2(dx, dz);
+    var diff = ((want - h.group.rotation.y + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
+    h.group.rotation.y += diff * Math.min(1, dt * 9);
+    return m;
+  }
+
+  function animate(h, dt, moved) {
+    var p = h.parts;
+    h.walk += moved * 5.2;
+    h.bob += dt * 2.2;
+    h.gait += ((moved > 0.0008 ? 1 : 0) - h.gait) * Math.min(1, dt * 11);
+    var sw = Math.sin(h.walk) * 0.75 * h.gait;
+    p.legL.rotation.x = sw;
+    p.legR.rotation.x = -sw;
+    p.armL.rotation.x = -sw * 0.6;
+    p.armR.rotation.x = sw * 0.6;
+    // working at a station: both arms busy in front
+    if (h.state === 'work') {
+      var k = Math.sin(h.timer * 18) * 0.3;
+      p.armL.rotation.x = -1.1 + k;
+      p.armR.rotation.x = -1.1 - k;
+    }
+    h.group.position.y = Math.abs(Math.sin(h.walk)) * 0.05 * h.gait
+      + Math.sin(h.bob) * 0.014 * (1 - h.gait);
+    if (p.mark) p.mark.visible = h.state === 'idle';
+  }
+
+  /* Whatever they are carrying rides in the hold slot in front of them. */
+  function showCarry(h) {
+    if (h.carryMesh) { h.parts.hold.remove(h.carryMesh); h.carryMesh = null; }
+    if (!h.carry) return;
+    var m = CS.models.item(h.carry);
+    m.scale.setScalar(0.8);
+    h.parts.hold.add(m);
+    h.carryMesh = m;
+  }
+
+  /* ------------------------------------------------------------- update */
+  function abort(h) {
+    h.job = null; h.tasks = null; h.ti = 0; h.dest = null; h.path = null;
+    h.myFryer = null;
+    h.state = 'idle';
+  }
+
+  function chooseJob(h, stations) {
+    // never take the last free counter: the player needs somewhere to work
+    var free = 0;
+    stations.forEach(function (st) { if (st.type === 'counter' && !st.item) free++; });
+    if (free < 2) return;
+
+    var best = null, bestGap = 0;
+    h.jobs.forEach(function (job) {
+      var gap = wanted(job) - inPipeline(job, stations);
+      if (gap > bestGap) { bestGap = gap; best = job; }
+    });
+    if (!best) return;
+    h.job = best;
+    h.tasks = tasksFor(best);
+    h.ti = 0;
+    h.dest = null;
+    h.state = 'walk';
+  }
+
+  function updateHand(h, dt, stations) {
+    if (!h.job) {
+      h.idleFor += dt;
+      if (h.idleFor > 0.35) { h.idleFor = 0; chooseJob(h, stations); }
+      if (!h.job) {
+        // drift back to a home tile so idle hands are not stood in a doorway
+        var hm = tileCentre(h.home.col, h.home.row);
+        var m0 = stepToward(h, hm.x, hm.z, dt);
+        h.state = m0 > 0 ? 'walk' : 'idle';
+        return m0;
+      }
+    }
+
+    var task = h.tasks[h.ti];
+    if (!task) { abort(h); return 0; }
+
+    if (!h.dest) {
+      var st = task.at(stations, h);
+      if (!st) {
+        // nothing suitable exists right now; put down whatever we are holding
+        // so the hand is not frozen carrying a cup forever
+        h.stuck += dt;
+        if (h.stuck > 2.5) {
+          if (h.carry) {
+            var drop = freeCounter(stations, h);
+            if (drop) { CS.game.setStationItem(drop, h.carry); h.carry = null; showCarry(h); }
+            else { CS.econ.waste(h.carry); h.carry = null; showCarry(h); }
+          }
+          abort(h); h.stuck = 0;
+        }
+        return 0;
+      }
+      h.stuck = 0;
+      var path = findPath(h.col, h.row, adjacentTiles(st));
+      if (!path) { abort(h); return 0; }
+      h.dest = st;
+      h.path = path;
+      h.state = 'walk';
+    }
+
+    // ---- walk the path
+    if (h.path && h.path.length) {
+      var step = h.path[0];
+      var p = tileCentre(step.col, step.row);
+      var moved = stepToward(h, p.x, p.z, dt);
+      if (moved === 0) {
+        h.col = step.col; h.row = step.row;
+        h.path.shift();
+      }
+      return moved;
+    }
+
+    // ---- arrived: face the station, then work it
+    var d = h.dest;
+    var want = Math.atan2(d.x - h.x, d.z - h.z);
+    var diff = ((want - h.group.rotation.y + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
+    h.group.rotation.y += diff * Math.min(1, dt * 9);
+
+    if (task.wait && task.wait(h, d)) { h.state = 'idle'; h.timer = 0; return 0; }
+
+    h.state = 'work';
+    h.timer += dt;
+    if (h.timer < h.act) return 0;
+    h.timer = 0;
+
+    task.act(h, d);
+    showCarry(h);
+    h.ti++;
+    h.dest = null;
+    h.path = null;
+    if (h.ti >= h.tasks.length) abort(h);
+    return 0;
+  }
+
+  /* ------------------------------------------------------------- module */
+  CS.staff = {
+    hands: hands,
+
+    init: function (sc) { scene = sc; },
+
+    /* Rebuild the crew from the payroll. Called at the start of every day, so
+       a hire made in the shop is on the floor the moment the shift opens. */
+    spawn: function () {
+      CS.staff.clear();
+      var crew = CS.econ.crew();
+      crew.forEach(function (c, i) {
+        var m = CS.models.assistant(c.kind);
+        var home = homeTile(i);
+        var p = tileCentre(home.col, home.row);
+        var h = {
+          kind: c.kind, name: c.name, jobs: c.jobs.slice(),
+          speed: c.speed, act: c.act,
+          group: m.group, parts: m.parts,
+          col: home.col, row: home.row, x: p.x, z: p.z,
+          home: home,
+          job: null, tasks: null, ti: 0, dest: null, path: null,
+          carry: null, carryMesh: null, myFryer: null,
+          state: 'idle', timer: 0, idleFor: 0, stuck: 0,
+          walk: 0, bob: Math.random() * 6.28, gait: 0
+        };
+        h.group.position.set(p.x, 0, p.z);
+        h.group.scale.setScalar(1.15);
+        scene.add(h.group);
+        hands.push(h);
+      });
+    },
+
+    clear: function () {
+      hands.forEach(function (h) { scene.remove(h.group); });
+      hands.length = 0;
+    },
+
+    /* Drop everything mid-shift (the day ended, or the kitchen was rebuilt
+       under them and their path now runs through a wall). */
+    reset: function () {
+      hands.forEach(function (h) {
+        h.carry = null; showCarry(h);
+        abort(h);
+        var p = tileCentre(h.home.col, h.home.row);
+        h.col = h.home.col; h.row = h.home.row;
+        h.x = p.x; h.z = p.z;
+        h.group.position.set(p.x, 0, p.z);
+      });
+    },
+
+    update: function (dt, stations) {
+      for (var i = 0; i < hands.length; i++) {
+        var h = hands[i];
+        var moved = updateHand(h, dt, stations);
+        h.group.position.x = h.x;
+        h.group.position.z = h.z;
+        animate(h, dt, moved);
+      }
+    }
+  };
+
+  /* Idle hands stand just inside the kitchen, spread out along the back so
+     they are never blocking the chef's run between the fryers and the window. */
+  function homeTile(i) {
+    var b = CS.layout.bounds;
+    var row = Math.max(b.r0 + 1, b.r1 - 2);
+    var col = CS.clamp(b.c0 + 2 + i * 2, b.c0 + 1, b.c1 - 1);
+    for (var tries = 0; tries < 24; tries++) {
+      if (walkable(col, row)) return { col: col, row: row };
+      col++;
+      if (col >= b.c1) { col = b.c0 + 1; row--; }
+      if (row <= b.r0) break;
+    }
+    return { col: CS.SPAWN.col, row: CS.SPAWN.row };
+  }
+})(window.CS);
+
+</script>
+<script>
 /* ---- src/ui.js ---- */
 /* All DOM work: ticket rail, held-item card, hint line, toasts and screens. */
 window.CS = window.CS || {};
@@ -3398,16 +4815,18 @@ window.CS = window.CS || {};
     setLevel: function (lv) {
       el.day.textContent = lv.day;
       el.dayName.textContent = lv.name;
-      el.tgtLabel.textContent = 'target ' + lv.target;
+      el.tgtLabel.textContent = 'rent ' + CS.money(lv.rent);
     },
 
-    setTarget: function (score, target) {
-      var f = CS.clamp(score / target, 0, 1);
+    /* The till bar fills as the day's takings close on what the day costs --
+       rent plus wages. Full means you are trading at a profit. */
+    setTarget: function (took, owed) {
+      var f = CS.clamp(took / Math.max(0.01, owed), 0, 1);
       el.tgtBar.firstElementChild.style.width = (f * 100).toFixed(1) + '%';
-      el.tgtBar.className = 'tgt' + (score >= target ? ' done' : '');
-      el.tgtLabel.textContent = score >= target
-        ? 'target met!'
-        : 'target ' + target;
+      el.tgtBar.className = 'tgt' + (took >= owed ? ' done' : '');
+      el.tgtLabel.textContent = took >= owed
+        ? 'in profit'
+        : 'owes ' + CS.money(owed - took);
     },
 
     setMoves: function (dashReady, flaps, maxFlaps, airborne) {
@@ -3451,7 +4870,7 @@ window.CS = window.CS || {};
       el.clock.textContent = m + ':' + (s < 10 ? '0' : '') + s;
       el.clock.className = 'v' + (sec <= 30 ? ' hot' : '');
     },
-    setScore: function (n) { el.score.textContent = Math.round(n); },
+    setScore: function (n) { el.score.textContent = CS.money(n); },
     setCombo: function (c) {
       el.combo.textContent = 'x' + (Math.round(c * 100) / 100);
       el.combo.className = 'v' + (c > 1.01 ? ' gold' : '');
@@ -3543,8 +4962,8 @@ window.CS = window.CS || {};
     setCamLabel: function (n) { el.btnCam.textContent = 'VIEW: ' + n.toUpperCase(); },
 
     /* ------------------------------------------------------------ screens */
-    showScreen: function (html) {
-      el.screen.innerHTML = '<div class="card">' + html + '</div>';
+    showScreen: function (html, extra) {
+      el.screen.innerHTML = '<div class="card' + (extra ? ' ' + extra : '') + '">' + html + '</div>';
       el.screen.classList.remove('hidden');
       return el.screen.querySelector('.card');
     },
@@ -3585,15 +5004,24 @@ window.CS = window.CS || {};
         '</div>';
     },
 
-    showStart: function (onStart, bestDay) {
+    /* `saved` is the shop on disk, if there is one, so the front page can
+       offer to carry on rather than silently resuming or silently wiping. */
+    showStart: function (onStart, onFresh, saved) {
       var c = this.showScreen(
         '<h1>CHICKEN SANDY</h1>' +
         '<h2>&#9829; GOOD FOOD &#183; HAPPY CHICKEN &#9829;</h2>' +
         '<p>You are the chef. You are also a chicken. Try not to think about the menu.</p>' +
-        (bestDay > 1 ? '<p style="color:var(--gold)">Best run so far: Day ' + bestDay + '</p>' : '') +
+        (saved
+          ? '<p style="color:var(--gold)">Your shop is on Day ' + saved.day +
+            ' with ' + CS.money(saved.wallet) + ' in the till.</p>'
+          : '') +
         this.howToHTML() +
-        '<button class="big" id="startBtn">START DAY 1</button>');
+        '<button class="big" id="startBtn">' +
+          (saved ? 'CARRY ON &#9656;' : 'START DAY 1') + '</button>' +
+        (saved ? '<button class="btn" id="freshBtn" style="margin-left:10px">NEW SHOP</button>' : ''));
       c.querySelector('#startBtn').onclick = onStart;
+      var f = c.querySelector('#freshBtn');
+      if (f) f.onclick = onFresh;
       this.setHudVisible(false);
     },
 
@@ -3612,8 +5040,9 @@ window.CS = window.CS || {};
         '<div class="cols">' + unlocks +
         '<div class="col"><h3>THE SHIFT</h3><ul>' +
         '<li>Length: <b>' + mins + ':' + (secs < 10 ? '0' : '') + secs + '</b></li>' +
-        '<li>Target: <b>' + lv.target + '</b> points</li>' +
-        '<li>Tickets at once: <b>' + lv.maxOrders + '</b></li>' +
+        '<li>Rent: <b>' + CS.money(lv.rent) + '</b></li>' +
+        (CS.econ.wages() > 0 ? '<li>Wages: <b>' + CS.money(CS.econ.wages()) + '</b></li>' : '') +
+        '<li>Tickets at once: <b>' + CS.orders.cap() + '</b></li>' +
         '</ul></div>' +
         '<div class="col"><h3>REMINDERS</h3><ul>' +
         (CS.platform && CS.platform.coarse
@@ -3629,37 +5058,55 @@ window.CS = window.CS || {};
       this.setHudVisible(false);
     },
 
-    showLevelResult: function (lv, s, passed, total, onNext, onRetry) {
-      var stars = 0;
-      for (var i = 0; i < CS.STARS.length; i++) {
-        if (s.score >= lv.target * CS.STARS[i]) stars = i + 1;
-      }
+    /* End of trading: the day's receipt. Sales are itemised because where the
+       money came from is the thing that tells you what to buy next -- a day
+       carried by sauce cups wants a Dollop, not another fryer. */
+    showLevelResult: function (lv, L, onNext, onRetry) {
+      var stars = CS.econ.stars(L);
       var starRow = '';
       for (var j = 0; j < 3; j++) {
         starRow += '<span style="color:' + (j < stars ? 'var(--gold)' : '#5a4630') + '">&#9733;</span>';
       }
+
+      function line(label, n, cls) {
+        return '<div class="scoreline"><span>' + label + '</span><span' +
+          (cls ? ' class="' + cls + '"' : '') + '>' + n + '</span></div>';
+      }
+      function sale(label, count, money) {
+        if (!count) return '';
+        return line(count + ' &#215; ' + label, CS.money(money));
+      }
+
+      var body =
+        sale('sandwich', L.lines.sandwich, L.revenue.sandwich) +
+        sale('topping', L.lines.topping, L.revenue.topping) +
+        sale('sauce', L.lines.sauce, L.revenue.sauce) +
+        sale('fries', L.lines.fries, L.revenue.fries) +
+        sale('sauce cup', L.lines.cup, L.revenue.cup) +
+        (L.tipCount ? line('tips (' + L.tipCount + ')', CS.money(L.tips), 'tipval') : '') +
+        (L.waste > 0 ? line('waste &amp; walkouts', '-' + CS.money(L.waste), 'badval') : '') +
+        '<div class="scoreline rule"><span>TAKINGS</span><span>' + CS.money(L.net) + '</span></div>' +
+        line('rent', '-' + CS.money(L.rent)) +
+        (L.wages > 0 ? line('wages', '-' + CS.money(L.wages)) : '') +
+        '<div class="scoreline rule big-line"><span>PROFIT</span><span class="' +
+          (L.passed ? 'tipval' : 'badval') + '">' + CS.money(L.profit) + '</span></div>' +
+        (L.passed ? line('in the wallet', CS.money(CS.econ.state.wallet)) : '');
+
       var c = this.showScreen(
-        '<h1>' + (passed ? 'DAY ' + lv.day + ' DONE' : 'CLOSING TIME') + '</h1>' +
+        '<h1>' + (L.passed ? 'DAY ' + lv.day + ' DONE' : 'IN THE RED') + '</h1>' +
         '<div class="rank" style="letter-spacing:8px">' + starRow + '</div>' +
-        '<h2>' + (passed
+        '<h2>' + (L.passed
           ? (stars === 3 ? 'The queue is singing your name.'
             : stars === 2 ? 'Solid shift. Barely a burnt nugget.'
-              : 'Scraped through. The bar is rising.')
-          : 'You needed ' + lv.target + ' to keep the lights on.') + '</h2>' +
-        '<div style="max-width:420px;margin:14px auto 0">' +
-        '<div class="scoreline"><span>Orders served</span><span>' + s.served + '</span></div>' +
-        '<div class="scoreline"><span>Walked out</span><span>' + s.missed + '</span></div>' +
-        '<div class="scoreline"><span>Best combo</span><span>x' + (Math.round(s.bestCombo * 100) / 100) + '</span></div>' +
-        '<div class="scoreline"><span>Things burnt</span><span>' + s.burnt + '</span></div>' +
-        (s.tipCount
-          ? '<div class="scoreline"><span>Tips (' + s.tipCount + ')</span><span class="tipval">+' + s.tips + '</span></div>'
-          : '') +
-        '<div class="scoreline"><span>Target</span><span>' + lv.target + '</span></div>' +
-        '<div class="scoreline" style="border:none;font-size:17px;padding-top:10px"><span>TODAY</span><span>' + Math.round(s.score) + '</span></div>' +
-        (passed ? '<div class="scoreline" style="border:none;font-size:12px;padding-top:0"><span>Career total</span><span>' + Math.round(total) + '</span></div>' : '') +
-        '</div>' +
-        '<button class="big" id="nextBtn">' + (passed ? 'DAY ' + (lv.day + 1) + ' &#9656;' : 'TRY DAY ' + lv.day + ' AGAIN') + '</button>');
-      c.querySelector('#nextBtn').onclick = passed ? onNext : onRetry;
+              : 'Scraped through. The rent is rising.')
+          : 'You took ' + CS.money(L.net) + ' and owed ' + CS.money(L.outgoings) +
+            '. Nothing lost but the day.') + '</h2>' +
+        '<div class="receipt">' + body + '</div>' +
+        '<div class="scoreline small"><span>' + L.served + ' served, ' +
+          L.missed + ' walked out, ' + L.burnt + ' burnt</span></div>' +
+        '<button class="big" id="nextBtn">' +
+        (L.passed ? 'TO THE SHOP &#9656;' : 'TRY DAY ' + lv.day + ' AGAIN') + '</button>');
+      c.querySelector('#nextBtn').onclick = L.passed ? onNext : onRetry;
       this.setHudVisible(false);
     },
 
@@ -3689,16 +5136,445 @@ window.CS = window.CS || {};
       sync();
     },
 
-    showQuit: function (day, total, onAgain) {
+    /* Ending a run does not wipe the shop -- it just shuts the doors. The
+       save is still there, so CARRY ON picks it straight back up. */
+    showQuit: function (onAgain, onWipe) {
+      var st = CS.econ.state, cr = st.career;
       var c = this.showScreen(
         '<h1>SHOP CLOSED</h1>' +
-        '<h2>You made it to Day ' + day + '</h2>' +
-        '<div style="max-width:420px;margin:14px auto 0">' +
-        '<div class="scoreline" style="border:none;font-size:17px"><span>CAREER TOTAL</span><span>' + Math.round(total) + '</span></div>' +
+        '<h2>Day ' + st.day + ' &#183; ' + CS.money(st.wallet) + ' in the till</h2>' +
+        '<div class="receipt">' +
+        '<div class="scoreline"><span>Days traded</span><span>' + cr.days + '</span></div>' +
+        '<div class="scoreline"><span>Orders served</span><span>' + cr.served + '</span></div>' +
+        '<div class="scoreline"><span>Tips taken</span><span class="tipval">' + CS.money(cr.tips) + '</span></div>' +
+        '<div class="scoreline"><span>Best day</span><span>' + CS.money(cr.best) + '</span></div>' +
+        '<div class="scoreline rule"><span>LIFETIME TAKINGS</span><span>' + CS.money(cr.earned) + '</span></div>' +
         '</div>' +
-        '<button class="big" id="againBtn">BACK TO DAY 1</button>');
+        '<button class="big" id="againBtn">BACK TO THE SHOP</button>' +
+        '<button class="btn" id="wipeBtn" style="margin-left:10px">START A NEW SHOP</button>');
       c.querySelector('#againBtn').onclick = onAgain;
+      c.querySelector('#wipeBtn').onclick = onWipe;
       this.setHudVisible(false);
+    }
+  };
+})(window.CS);
+
+</script>
+<script>
+/* ---- src/shop.js ---- */
+/* The shop screen: where yesterday's profit turns into tomorrow's kitchen.
+
+   Sits between days, so nothing here ever runs while a shift is live. Gear is
+   fitted the moment you buy it; parts drop into the tray and you place them
+   yourself in the editor; land opens a wing and moves the wall out.         */
+window.CS = window.CS || {};
+(function (CS) {
+  'use strict';
+
+  var card = null, onOpen = null, onEdit = null;
+
+  function row(id, name, blurb, cost, state) {
+    var dis = state.ok ? '' : ' disabled';
+    var note = state.ok ? CS.money(cost) : state.why;
+    return '<div class="buyrow' + (state.ok ? '' : ' dim') + '">' +
+      '<div class="buyname">' + name +
+      (blurb ? '<span>' + blurb + '</span>' : '') + '</div>' +
+      '<button class="buy' + (state.ok ? '' : ' off') + '" data-buy="' + id + '"' + dis + '>' +
+      note + '</button></div>';
+  }
+
+  function gearHTML() {
+    var out = '';
+    CS.UPGRADES.forEach(function (u) {
+      if (u.kind !== 'gear') return;
+      var owned = CS.econ.has(u.id);
+      out += row(u.id, u.name, u.blurb, u.cost,
+        owned ? { ok: false, why: 'FITTED' } : CS.econ.canBuy(u));
+    });
+    return out;
+  }
+
+  function partsHTML() {
+    var out = '', stock = CS.econ.state.stock;
+    CS.UPGRADES.forEach(function (u) {
+      if (u.kind !== 'part') return;
+      var n = stock[u.id] || 0;
+      var where = u.wall ? 'goes against a wall' : 'stands on the floor';
+      out += row(u.id, u.name + (n ? ' <b>(' + n + ' in the tray)</b>' : ''),
+        where, u.cost, CS.econ.canBuy(u));
+    });
+    return out;
+  }
+
+  function landHTML() {
+    var out = '';
+    CS.UPGRADES.forEach(function (u) {
+      if (u.kind !== 'land') return;
+      var owned = CS.econ.has(u.id);
+      out += row(u.id, u.name, u.blurb, u.cost,
+        owned ? { ok: false, why: 'OPEN' } : CS.econ.canBuy(u));
+    });
+    return out;
+  }
+
+  function staffHTML() {
+    var out = '';
+    Object.keys(CS.STAFF_DEFS).forEach(function (kind) {
+      var def = CS.STAFF_DEFS[kind];
+      var hired = CS.econ.hired(kind);
+      if (!hired) {
+        var can = CS.econ.state.wallet >= def.hire
+          ? { ok: true } : { ok: false, why: 'Not enough money' };
+        out += row('hire:' + kind, def.name + ' &#183; ' + def.role,
+          def.blurb + ' &#183; ' + CS.money(def.wage) + ' a day', def.hire, can);
+        return;
+      }
+      var crew = CS.econ.crew().filter(function (c) { return c.kind === kind; })[0];
+      out += '<div class="buyrow hired"><div class="buyname">' +
+        def.name + ' &#183; ' + def.role +
+        '<span>on ' + CS.money(def.wage) + ' a day &#183; makes ' +
+        jobWords(crew.jobs) + '</span></div><button class="buy off" disabled>HIRED</button></div>';
+      (CS.TRAINING[kind] || []).forEach(function (t) {
+        var done = crew.training.indexOf(t.id) >= 0;
+        var can = done ? { ok: false, why: 'TRAINED' }
+          : (CS.econ.state.wallet >= t.cost ? { ok: true } : { ok: false, why: 'Not enough money' });
+        out += row('train:' + kind + ':' + t.id, '&#8627; ' + t.name, t.blurb, t.cost, can);
+      });
+    });
+    return out;
+  }
+
+  function jobWords(jobs) {
+    return jobs.map(function (j) {
+      if (j === 'fries') return 'fries';
+      if (j === 'chicken') return 'fried chicken';
+      return CS.ING[j.slice(4)].label.toLowerCase() + ' cups';
+    }).join(', ');
+  }
+
+  function headerHTML() {
+    var w = CS.econ.state.wallet, wages = CS.econ.wages();
+    var lv = CS.levelFor(CS.econ.state.day);
+    return '<div class="walletbar">' +
+      '<div><span>WALLET</span><b>' + CS.money(w) + '</b></div>' +
+      '<div><span>DAY ' + CS.econ.state.day + ' RENT</span><b>' + CS.money(lv.rent) + '</b></div>' +
+      '<div><span>WAGES</span><b>' + CS.money(wages) + '</b></div>' +
+      '</div>';
+  }
+
+  function render() {
+    if (!card) return;
+    card.querySelector('#sHead').innerHTML = headerHTML();
+    card.querySelector('#sGear').innerHTML = gearHTML();
+    card.querySelector('#sParts').innerHTML = partsHTML();
+    card.querySelector('#sLand').innerHTML = landHTML();
+    card.querySelector('#sStaff').innerHTML = staffHTML();
+    bind();
+  }
+
+  function bind() {
+    var bs = card.querySelectorAll('[data-buy]');
+    for (var i = 0; i < bs.length; i++) {
+      bs[i].onclick = function () { buy(this.getAttribute('data-buy')); };
+    }
+  }
+
+  function buy(key) {
+    var res;
+    if (key.indexOf('hire:') === 0) res = CS.econ.hire(key.slice(5));
+    else if (key.indexOf('train:') === 0) {
+      var bits = key.split(':');
+      res = CS.econ.train(bits[1], bits[2]);
+    } else res = CS.econ.buy(key);
+
+    if (res && res.ok) { CS.audio.cash(); CS.ui.toast('Bought!', 'good'); }
+    else { CS.audio.error(); if (res && res.why) CS.ui.toast(res.why, 'bad'); }
+    render();
+  }
+
+  CS.shop = {
+    /* `open` starts the shift, `edit` hands over to the kitchen editor and
+       comes back here afterwards. */
+    show: function (openDay, editKitchen) {
+      onOpen = openDay; onEdit = editKitchen;
+      card = CS.ui.showScreen(
+        '<h1>THE SHOP</h1>' +
+        '<div id="sHead"></div>' +
+        '<div class="shopscroll">' +
+        '<h3>Equipment</h3><div id="sGear"></div>' +
+        '<h3>Kit &#183; buy it, then place it in the kitchen</h3><div id="sParts"></div>' +
+        '<h3>The Building</h3><div id="sLand"></div>' +
+        '<h3>Staff</h3><div id="sStaff"></div>' +
+        '</div>' +
+        '<div class="krow">' +
+        '<button class="btn" id="sEdit">KITCHEN</button>' +
+        '<button class="big" id="sOpen">OPEN UP &#9656;</button>' +
+        '</div>', 'wide');
+
+      card.querySelector('#sOpen').onclick = function () { card = null; onOpen(); };
+      card.querySelector('#sEdit').onclick = function () { card = null; onEdit(); };
+      render();
+      CS.ui.setHudVisible(false);
+    }
+  };
+})(window.CS);
+
+</script>
+<script>
+/* ---- src/editor.js ---- */
+/* The kitchen editor: rearrange the shop between shifts.
+
+   A flat DOM grid rather than dragging things around in 3D, because the thing
+   you actually need while laying out a kitchen is to see the whole floor at
+   once and know instantly which tiles are legal -- and because tapping a tile
+   works the same on a phone as it does with a mouse.
+
+   Anything you lift off the floor goes into the tray at the top, alongside
+   whatever you have bought and not yet placed. Nothing is written to the save
+   until you hit DONE, and DONE stays locked while the layout is unplayable
+   (see CS.layout.validate), so you cannot wall yourself away from the fryers
+   and then have to start a new shop.                                       */
+window.CS = window.CS || {};
+(function (CS) {
+  'use strict';
+
+  /* How each tile reads in the grid. Short labels: at 19 columns on a phone a
+     cell is about 18px, which is two characters and no more. */
+  var GLYPH = {
+    '#': { t: '',    c: 'wall' },
+    '~': { t: '',    c: 'void' },
+    '.': { t: '',    c: 'floor' },
+    'F': { t: 'FRY', c: 'st fryer' },
+    'S': { t: 'WIN', c: 'st serve' },
+    'X': { t: 'BIN', c: 'st bin' },
+    'C': { t: 'PRP', c: 'st prep' },
+    'K': { t: 'CHK', c: 'st crate' },
+    'T': { t: 'SPD', c: 'st crate' },
+    'P': { t: 'PLT', c: 'st stack' },
+    'B': { t: 'BUN', c: 'st stack' },
+    'L': { t: 'LET', c: 'st top-let' },
+    'O': { t: 'TOM', c: 'st top-tom' },
+    'I': { t: 'PIC', c: 'st top-pic' },
+    'M': { t: 'MAY', c: 'st sau-may' },
+    'Q': { t: 'BBQ', c: 'st sau-bbq' },
+    'H': { t: 'HOT', c: 'st sau-hot' },
+    'Y': { t: 'KET', c: 'st sau-ket' }
+  };
+
+  function charToPart(ch) {
+    for (var i = 0; i < CS.UPGRADES.length; i++) {
+      var u = CS.UPGRADES[i];
+      if (u.kind === 'part' && u.ch === ch) return u;
+    }
+    return null;
+  }
+
+  var snapshot = null;   // grid + stock as they were when the editor opened
+  var placed = [];       // live list of {col,row,ch}
+  var stock = {};        // partId -> count sitting in the tray
+  var sel = null;        // {ch, id} currently in hand, or null
+  var card = null;
+  var onClose = null;
+
+  function stockTotal() {
+    var n = 0;
+    for (var k in stock) n += stock[k];
+    return n;
+  }
+
+  function apply() { CS.layout.rebuild(placed); }
+
+  function addStock(id, n) { stock[id] = (stock[id] || 0) + n; }
+
+  /* ----------------------------------------------------------- rendering */
+  function gridHTML() {
+    var b = CS.layout.bounds, h = '';
+    for (var r = 0; r < CS.MAP_H; r++) {
+      for (var c = 0; c < CS.MAP_W; c++) {
+        var ch = CS.charAt(c, r);
+        var g = GLYPH[ch] || GLYPH['.'];
+        var cls = 'cell ' + g.c;
+        if (sel) {
+          var can = CS.layout.canPlace(c, r, sel.ch);
+          cls += can.ok ? ' ok' : ' no';
+        } else if (CS.layout.isStation(ch)) {
+          cls += ' lift';
+        }
+        if (c === CS.SPAWN.col && r === CS.SPAWN.row) cls += ' spawn';
+        if (!CS.layout.inBounds(c, r)) cls += ' locked';
+        h += '<i class="' + cls + '" data-c="' + c + '" data-r="' + r + '">' + g.t + '</i>';
+      }
+    }
+    return '<div class="kgrid" style="grid-template-columns:repeat(' + CS.MAP_W + ',1fr)">'
+      + h + '</div>'
+      + '<div class="khint">' + (b.c1 - b.c0 + 1) + ' x ' + (b.r1 - b.r0 + 1)
+      + ' &#183; buy a wing in the shop to grow the floor</div>';
+  }
+
+  function trayHTML() {
+    var items = [];
+    for (var id in stock) {
+      if (!stock[id]) continue;
+      var u = CS.econ.upgrade(id);
+      if (!u) continue;
+      var on = sel && sel.id === id;
+      items.push('<button class="tray' + (on ? ' on' : '') + '" data-id="' + id + '">' +
+        u.name + ' <b>x' + stock[id] + '</b></button>');
+    }
+    if (!items.length) {
+      items.push('<span class="khint" style="margin:0">' +
+        'Tap anything in the kitchen to pick it up and move it.</span>');
+    }
+    return '<div class="trayrow">' + items.join('') + '</div>';
+  }
+
+  function statusHTML() {
+    var v = CS.layout.validate();
+    if (!v.ok) return '<div class="kbad">&#9888; ' + v.why + '</div>';
+    if (sel) {
+      var u = CS.econ.upgrade(sel.id);
+      return '<div class="kok">Holding ' + (u ? u.name : sel.ch) +
+        ' &#183; tap a green tile to set it down</div>';
+    }
+    return '<div class="kok">Looking good. Tap a station to move it.</div>';
+  }
+
+  function render() {
+    if (!card) return;
+    card.querySelector('#kTray').innerHTML = trayHTML();
+    card.querySelector('#kGrid').innerHTML = gridHTML();
+    card.querySelector('#kStatus').innerHTML = statusHTML();
+    var ok = CS.layout.validate().ok;
+    var done = card.querySelector('#kDone');
+    done.disabled = !ok;
+    done.classList.toggle('off', !ok);
+    bindCells();
+  }
+
+  /* ------------------------------------------------------- interaction */
+  function selectStock(id) {
+    if (sel) returnToTray();
+    if (!stock[id]) return;
+    var u = CS.econ.upgrade(id);
+    stock[id]--;
+    if (!stock[id]) delete stock[id];
+    sel = { id: id, ch: u.ch };
+    render();
+  }
+
+  function returnToTray() {
+    if (!sel) return;
+    addStock(sel.id, 1);
+    sel = null;
+  }
+
+  function tapCell(c, r) {
+    if (sel) {
+      var can = CS.layout.canPlace(c, r, sel.ch);
+      if (!can.ok) {
+        if (can.why) flash(can.why);
+        return;
+      }
+      placed.push({ col: c, row: r, ch: sel.ch });
+      sel = null;
+      apply();
+      CS.audio.place();
+      render();
+      return;
+    }
+    // nothing in hand: lift whatever is on this tile
+    var ch = CS.charAt(c, r);
+    if (!CS.layout.isStation(ch)) return;
+    var part = charToPart(ch);
+    if (!part) { flash('That is built in'); return; }
+    for (var i = 0; i < placed.length; i++) {
+      if (placed[i].col === c && placed[i].row === r) { placed.splice(i, 1); break; }
+    }
+    sel = { id: part.id, ch: ch };
+    apply();
+    CS.audio.pick();
+    render();
+  }
+
+  var flashT = null;
+  function flash(msg) {
+    var s = card && card.querySelector('#kStatus');
+    if (!s) return;
+    s.innerHTML = '<div class="kbad">' + msg + '</div>';
+    CS.audio.error();
+    clearTimeout(flashT);
+    flashT = setTimeout(function () {
+      if (card) card.querySelector('#kStatus').innerHTML = statusHTML();
+    }, 1400);
+  }
+
+  function bindCells() {
+    var cells = card.querySelectorAll('.cell');
+    for (var i = 0; i < cells.length; i++) {
+      cells[i].onclick = function () {
+        tapCell(parseInt(this.getAttribute('data-c'), 10),
+          parseInt(this.getAttribute('data-r'), 10));
+      };
+    }
+    var trays = card.querySelectorAll('.tray');
+    for (var j = 0; j < trays.length; j++) {
+      trays[j].onclick = function () { selectStock(this.getAttribute('data-id')); };
+    }
+  }
+
+  /* -------------------------------------------------------------- module */
+  CS.editor = {
+    open: function (done) {
+      onClose = done;
+      snapshot = { grid: CS.MAP.slice(), stock: JSON.parse(JSON.stringify(CS.econ.state.stock)) };
+      placed = CS.layout.stations();
+      stock = JSON.parse(JSON.stringify(CS.econ.state.stock));
+      sel = null;
+
+      card = CS.ui.showScreen(
+        '<h1>THE KITCHEN</h1>' +
+        '<div id="kTray"></div>' +
+        '<div id="kGrid"></div>' +
+        '<div id="kStatus"></div>' +
+        '<div class="krow">' +
+        '<button class="btn" id="kReset">START OVER</button>' +
+        '<button class="btn" id="kCancel">CANCEL</button>' +
+        '<button class="big" id="kDone">DONE</button>' +
+        '</div>', 'wide');
+
+      card.querySelector('#kDone').onclick = function () {
+        if (!CS.layout.validate().ok) return;
+        if (sel) returnToTray();
+        CS.econ.state.stock = stock;
+        CS.econ.save();
+        CS.ui.hideScreen();
+        card = null;
+        if (onClose) onClose(true);
+      };
+      card.querySelector('#kCancel').onclick = function () {
+        CS.MAP = snapshot.grid.slice();
+        CS.layout.refreshDerived();
+        CS.econ.state.stock = snapshot.stock;
+        CS.ui.hideScreen();
+        card = null;
+        if (onClose) onClose(false);
+      };
+      card.querySelector('#kReset').onclick = function () {
+        // back to the kitchen you started the session with, with everything
+        // you have ever bought sitting in the tray
+        if (sel) returnToTray();
+        var all = CS.layout.stations();
+        placed = [];
+        stock = JSON.parse(JSON.stringify(CS.econ.state.stock));
+        all.forEach(function (p) {
+          var u = charToPart(p.ch);
+          if (u) addStock(u.id, 1);
+        });
+        apply();
+        render();
+      };
+
+      render();
     }
   };
 })(window.CS);
@@ -3899,12 +5775,10 @@ window.CS = window.CS || {};
   var camDist = 36, fitDist = 36, camYaw = 0;
 
   var S = {
-    phase: 'menu',          // menu | intro | play | pause | over
-    day: 1, level: null, total: 0,
+    phase: 'menu',          // menu | shop | editor | intro | play | pause | over
+    day: 1, level: null,
     time: 120,
-    score: 0, combo: 1, bestCombo: 1,
-    served: 0, missed: 0, burnt: 0,
-    tips: 0, tipCount: 0,
+    combo: 1, bestCombo: 1,
     held: null, target: null
   };
 
@@ -4145,7 +6019,7 @@ window.CS = window.CS || {};
 
   function setHeld(item) { S.held = item; refreshHeld(); }
 
-  /* --------------------------------------------------------------- score */
+  /* ---------------------------------------------------------- the till */
   function serve(plate) {
     var o = CS.orders.findMatch(plate);
     if (!o) {
@@ -4153,17 +6027,17 @@ window.CS = window.CS || {};
       CS.ui.toast('That is not on any ticket!', 'bad');
       return;
     }
+    /* The menu price is the menu price -- being quick does not make a
+       sandwich cost more. What speed earns you is the tip, and the room to
+       serve the next customer before they give up. */
+    var took = CS.econ.sale(o);
     var left = o.left / o.limit;
-    var speed = 1 + CS.SCORE.speedBonus * left;
-    var gain = Math.round(o.reward * speed * S.combo);
-    S.score += gain;
-    S.served++;
-    S.combo = Math.min(CS.SCORE.comboMax, S.combo + CS.SCORE.comboStep);
+    S.combo = Math.min(CS.COMBO.max, S.combo + CS.COMBO.step);
     S.bestCombo = Math.max(S.bestCombo, S.combo);
     setHeld(null);
     CS.orders.complete(o, true);
     CS.audio.cash();
-    CS.ui.toast('+' + gain + '   ORDER #' + String(o.id).padStart(2, '0') + ' UP!', 'good');
+    CS.ui.toast(CS.money(took) + '   ORDER #' + String(o.id).padStart(2, '0') + ' UP!', 'good');
 
     var sv = stations.filter(function (s) { return s.type === 'serve'; })[0];
     if (sv) CS.fx.burst(sv.x, sv.topY + 0.5, sv.z, 16, { color: 0xffd464, life: 0.8, vy: 2.2 });
@@ -4173,26 +6047,25 @@ window.CS = window.CS || {};
        Below TIP.minLeft nobody tips, and the chance and the size both climb
        with how much of their patience was still on the clock -- so tipping is
        the reward for a shop that keeps ahead of its queue, not a lottery. */
-    var T = CS.SCORE.tip;
+    var T = CS.TIP;
     if (left > T.minLeft && Math.random() < (left - T.minLeft) / (1 - T.minLeft) * T.chance) {
-      var tip = Math.max(1, Math.round(o.reward * T.share * left * S.combo));
+      var tip = Math.round(o.price * T.share * left * S.combo * 100) / 100;
+      if (tip < 0.05) tip = 0.05;
       var nCoins = tip >= T.bigTip ? 3 : (tip >= T.bigTip / 2 ? 2 : 1);
-      S.score += tip;
-      S.tips += tip;
-      S.tipCount++;
+      CS.econ.tip(tip);
       if (sv) CS.orders.tipBurst(sv.x, sv.topY, sv.z, nCoins);
       setTimeout(function () {
-        CS.ui.toast('+' + tip + '   ' + o.critter.name.toUpperCase() + ' LEFT A TIP', 'tip');
+        CS.ui.toast(CS.money(tip) + '   ' + o.critter.name.toUpperCase() + ' LEFT A TIP', 'tip');
       }, 260);
     }
   }
 
   function onExpire(o) {
-    S.score = Math.max(0, S.score - CS.SCORE.missPenalty);
+    var lost = CS.econ.walkout();
     S.combo = 1;
-    S.missed++;
     CS.audio.fail();
-    CS.ui.toast('Order #' + String(o.id).padStart(2, '0') + ' walked out!', 'bad');
+    CS.ui.toast('Order #' + String(o.id).padStart(2, '0') + ' walked out! -' +
+      CS.money(lost), 'bad');
   }
 
   function puff(st, color, n) {
@@ -4235,7 +6108,7 @@ window.CS = window.CS || {};
         if (c.t >= d.cook + d.grace) {
           c.stage = 'burnt';
           setStationItem(st, { k: d.burnt });
-          S.burnt++;
+          CS.econ.ledger.burnt++;
           CS.audio.burn();
           CS.ui.toast('Something is burning!', 'bad');
         } else if (Math.random() < dt * 5) {
@@ -4496,9 +6369,7 @@ window.CS = window.CS || {};
   function reset() {
     S.level = S.level || CS.levelFor(S.day);
     S.time = S.level.seconds;
-    S.score = 0; S.combo = 1; S.bestCombo = 1;
-    S.served = 0; S.missed = 0; S.burnt = 0;
-    S.tips = 0; S.tipCount = 0;
+    S.combo = 1; S.bestCombo = 1;
     S.target = null;
     setHeld(null);
     stations.forEach(function (st) {
@@ -4506,25 +6377,31 @@ window.CS = window.CS || {};
       st.cook = null;
       if (st.bar) st.bar.visible = false;
     });
+    CS.econ.open(S.level);
     CS.orders.reset(S.level);
+    CS.staff.spawn();
     CS.ui.clearTickets();
     CS.fx.clear();
     placePlayer(CS.SPAWN.col, CS.SPAWN.row);
   }
 
-  /* ----------------------------------------------------- the campaign
-     One day = one level. Pass the day's target to move on; miss it and you
-     retry the same day. Career total accumulates across the whole run.     */
-  function bestDay() {
-    try { return parseInt(localStorage.getItem('chickenSandyBestDay') || '1', 10) || 1; }
-    catch (e) { return 1; }
-  }
-  function recordBestDay(d) {
-    try {
-      if (d > bestDay()) localStorage.setItem('chickenSandyBestDay', String(d));
-    } catch (e) {}
+  /* Tear the shop down and put it back up from the current CS.MAP. Called
+     after the editor, or after a wing has been bought: both move walls, and
+     everything downstream (collision heights, the station list, where the
+     staff think the fryers are) is derived from the build. */
+  function rebuildKitchen() {
+    world = CS.world.rebuild(scene, world, { lowSpec: CS.platform.mobile });
+    stations = world.stations;
+    stations.forEach(function (st) { st.group.userData.station = st; });
+    S.target = null;
+    CS.staff.clear();
+    placePlayer(CS.SPAWN.col, CS.SPAWN.row);
   }
 
+  /* ----------------------------------------------------- the campaign
+     A day is a day's trading. Clear the rent and the wages and you bank the
+     profit and move on; fall short and you retry the same day having lost
+     nothing but the time. Between days you are in the shop, spending it. */
   function showIntro(day) {
     S.day = day;
     S.level = CS.levelFor(day);
@@ -4556,23 +6433,48 @@ window.CS = window.CS || {};
     S.phase = 'over';
     CS.touch.release();
     CS.audio.stopMusic();
-    var passed = S.score >= S.level.target;
-    if (passed) {
-      S.total += S.score;
-      recordBestDay(S.day + 1);
-      CS.audio.fanfare();
-    } else {
-      CS.audio.over();
-    }
-    CS.ui.showLevelResult(S.level, S, passed, S.total,
-      function () { showIntro(S.day + 1); },
-      function () { showIntro(S.day); });
+    CS.staff.clear();
+
+    /* Anything still in your wings, or sitting out on a counter when the
+       shutters come down, was bought and not sold. */
+    if (S.held) { CS.econ.waste(S.held); setHeld(null); }
+    stations.forEach(function (st) {
+      if (st.item) { CS.econ.waste(st.item); setStationItem(st, null); }
+      st.cook = null;
+    });
+
+    var L = CS.econ.settle();
+    CS.audio[L.passed ? 'fanfare' : 'over']();
+    CS.ui.showLevelResult(S.level, L, openShop, function () { showIntro(S.day); });
+  }
+
+  /* ------------------------------------------------------------ the shop
+     Everything between days happens here: spend the profit, then walk back
+     into the kitchen. The editor hands control straight back. */
+  function openShop() {
+    S.phase = 'shop';
+    CS.audio.stopMusic();
+    rebuildKitchen();
+    CS.shop.show(
+      function () { showIntro(CS.econ.state.day); },
+      function () {
+        S.phase = 'editor';
+        CS.editor.open(function () {
+          rebuildKitchen();
+          openShop();
+        });
+      });
   }
 
   function quitRun() {
     S.phase = 'over';
     CS.audio.stopMusic();
-    CS.ui.showQuit(S.day, S.total, function () { S.total = 0; showIntro(1); });
+    CS.staff.clear();
+    CS.ui.showQuit(openShop, function () {
+      CS.econ.reset();
+      rebuildKitchen();
+      openShop();
+    });
   }
 
   /* ----------------------------------------------------------- the loop */
@@ -4680,13 +6582,15 @@ window.CS = window.CS || {};
 
       var progress = 1 - S.time / S.level.seconds;
       CS.orders.update(dt, progress, onExpire);
+      CS.staff.update(dt, stations);
       CS.ui.renderTickets(CS.orders.list);
 
       S.time -= dt;
+      var L = CS.econ.ledger;
       CS.ui.setClock(S.time);
-      CS.ui.setScore(S.score);
+      CS.ui.setScore(CS.econ.takings());
       CS.ui.setCombo(S.combo);
-      CS.ui.setTarget(S.score, S.level.target);
+      CS.ui.setTarget(CS.econ.takings(), L.rent + L.wages);
       CS.ui.setFryers(fryerRows());
       CS.ui.setMoves(1 - P.dashCd / DASH_CD, P.grounded ? MAX_FLAPS : P.flaps, MAX_FLAPS, !P.grounded);
       if (S.time <= 0) endDay();
@@ -4786,12 +6690,17 @@ window.CS = window.CS || {};
     camera = new THREE.PerspectiveCamera(45, 1, 0.5, 140);
     clock = new THREE.Clock();
 
+    // The save has to land before the world is built: it is what decides how
+    // big the kitchen is and where everything in it stands.
+    CS.econ.load();
+
     world = CS.world.build(scene, { lowSpec: lowSpec });
     stations = world.stations;
     stations.forEach(function (st) { st.group.userData.station = st; });
 
     CS.fx.init(scene);
     CS.orders.init(scene);
+    CS.staff.init(scene);
 
     chef = CS.models.chef();
     chef.group.scale.setScalar(1.25);
@@ -4824,11 +6733,17 @@ window.CS = window.CS || {};
     setCamMode(camMode);
     CS.touch.init();
     CS.platform.onResize(function () { syncCamModes(); onResize(); });
-    S.level = CS.levelFor(1);
+    S.level = CS.levelFor(CS.econ.state.day);
     CS.ui.setLevel(S.level);
 
     CS.ui.hideLoading();
-    CS.ui.showStart(function () { showIntro(1); }, bestDay());
+    // a shop worth carrying on is one that has actually traded
+    var saved = CS.econ.state.career.days > 0 ? CS.econ.state : null;
+    CS.ui.showStart(openShop, function () {
+      CS.econ.reset();
+      rebuildKitchen();
+      openShop();
+    }, saved);
     loop();
   }
 

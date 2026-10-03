@@ -217,21 +217,13 @@ up on its own line.
 Tipping is deliberately **not** a lottery. Below `tip.minLeft` of their patience
 remaining nobody tips at all, and above it both the chance and the size scale with
 how early you were — so it pays for a shop that stays ahead of its queue rather than
-for luck. All four numbers are in `CS.SCORE.tip` in `src/config.js`.
+for luck. All four numbers are in `CS.TIP` in `src/config.js`.
 
-#### Ideas for the happiness system
+The tip is also the only place the **combo** still shows up: it multiplies what you
+are tipped, not what you are paid.
 
-Tips are the first half of a happiness mechanic; the boosts they pay for are not
-built yet. The hooks that exist today are `S.tips` and `S.tipCount` on the run state
-and the per-serve `left` fraction that decides the tip. Things worth trying when it
-gets picked up:
+#### Ideas still on the shelf
 
-* **A happiness meter for the shop**, filled by fast serves and tips and drained by
-  walkouts and burnt food. Feed it back into patience: a happy shop is a patient
-  queue, which makes a good run compound and a bad one bite.
-* **Spend tips between days** on things that make the next shift easier — a fourth
-  fryer, a faster oil, a second plate stack, a bell that shows the next ticket early.
-  That gives the tip jar somewhere to go besides the score.
 * **Regulars.** A customer who was served well comes back tomorrow with a marker over
   them, tips more, and waits longer. One who walked out comes back impatient.
 * **Per-species quirks** — the frog always orders sauce cups, the bear always wants
@@ -244,34 +236,122 @@ gets picked up:
 
 ### The days
 
-Each day has a length, a points target and a queue size. Hit the target and you move
-on; miss it and you retry that day. One to three stars depending on how far past the
-target you land, and a career total across the run.
+Each day has a length, a rent and a queue size. Clear the rent (and any wages) and
+you bank the profit and move on; fall short and you retry that day having lost
+nothing but the time. One to three stars depending on how far past your outgoings you
+land.
 
-| Day | Name | Length | Target | Tickets | What's new |
+| Day | Name | Length | Rent | Tickets | What's new |
 | --- | --- | --- | --- | --- | --- |
-| 1 | Opening Day | 2:00 | 400 | 2 | Plate, bun, fried chicken — nothing else |
-| 2 | Fries Are Up | 2:20 | 750 | 2 | French fries |
-| 3 | Garden Fresh | 2:30 | 1050 | 3 | Lettuce, tomato, pickles |
-| 4 | Sauce Boss | 2:40 | 1350 | 3 | Mayo, BBQ, hot sauce |
-| 5 | Sides Please | 2:50 | 1650 | 3 | Sauce cups to go |
-| 6 | Lunch Rush | 3:00 | 2050 | 4 | A fourth ticket, shorter tempers |
-| 7 | The Works | 3:10 | 2500 | 4 | Fully loaded sandwiches |
-| 8+ | Overtime *n* | 3:10 | +520/day | 4 | Endless: faster arrivals, less patience |
+| 1 | Opening Day | 2:00 | $18 | 2 | Plate, bun, fried chicken — nothing else |
+| 2 | Fries Are Up | 2:20 | $32 | 2 | French fries |
+| 3 | Garden Fresh | 2:30 | $46 | 3 | Lettuce, tomato, pickles |
+| 4 | Sauce Boss | 2:40 | $60 | 3 | Mayo, BBQ, hot sauce |
+| 5 | Sides Please | 2:50 | $74 | 3 | Sauce cups to go |
+| 6 | Lunch Rush | 3:00 | $90 | 4 | A fourth ticket, shorter tempers |
+| 7 | The Works | 3:10 | $108 | 4 | Fully loaded sandwiches |
+| 8+ | Overtime *n* | 3:10 | +$18/day | 4 | Endless: faster arrivals, less patience |
 
 Within a single day the spawn interval and customer patience interpolate from the
 day's `spawn[0]`/`limit[0]` to `spawn[1]`/`limit[1]`, and ticket complexity ramps
 with them — so the last minute of Day 7 is a very different shift from the first.
 
-### Scoring
+---
 
-* Base value per ticket (sandwich + each extra + fries + each cup).
-* Up to **+60%** for serving with time to spare.
-* **Combo multiplier** climbs by 0.25 per correct serve, up to 4×; a customer
-  walking out resets it and costs 40 points.
+## The money
+
+The till is the score. Every item has a price on the menu board and that is what it
+fetches, every time — being quick does not make a sandwich cost more. What speed buys
+you is **throughput** (more customers through the door before closing) and **tips**.
+
+| | |
+| --- | --- |
+| Chicken sandwich | $4.50 |
+| Each topping | $0.40 |
+| Each sauce | $0.30 |
+| French fries | $1.80 |
+| Sauce cup | $0.75 |
+
+Money also goes *out*. Food you bin was bought with real money, so a burnt basket
+costs you the stock as well as the time, and a customer who walks out takes the prep
+that was already in flight with them. Anything still sitting on a counter when the
+shutters come down is written off too. All of it is in `CS.PRICES`, `CS.FOOD_COST`
+and `CS.WALKOUT_COST`.
 
 A plate only matches a ticket if it's **exact** — same toppings, same sauces, same
 number and kind of sauce cups, fries present or not.
+
+At closing time you get an itemised receipt: sales by line, tips, waste, then rent
+and wages off the bottom. Where the money came from is the thing that tells you what
+to buy next.
+
+## The shop
+
+Between days you are in the shop, spending the profit. Four kinds of thing to buy:
+
+* **Equipment** — fitted the moment you buy it. Vented Baskets and Twin Burners take
+  15% off the fryer clock each (and compound); a Thermostat buys you half again as
+  long before a basket burns; a Waiting Bench makes customers 12% more patient; Deep
+  Trays fit a fourth sauce cup on a plate; a Roadside Sign adds a customer to the
+  queue.
+* **Kit** — a fryer, a prep counter, a sauce bottle. Buying one drops it in the tray;
+  you place it yourself in the kitchen editor.
+* **The building** — the Back Room adds two rows, the East Wing four columns. The
+  wall moves out and anything mounted on it slides out with it.
+* **Staff** — see below.
+
+Everything is saved to `localStorage` under `chickenSandy.shop.v1` the moment it
+changes, so the shop is still there when you come back. Telegram webviews can clear
+storage, so treat it as durable rather than permanent. `NEW SHOP` on the title screen
+wipes it.
+
+### Hiring
+
+Two assistants, each of whom does exactly one job and refuses to do anything else.
+That is the point: you should be able to glance at the potato and know what it is
+about to do.
+
+| | Hire | Wage | Does |
+| --- | --- | --- | --- |
+| **Spud** the fry cook | $150 | $8/day | Potato bin → fryer → prep counter |
+| **Dollop** the sauce hand | $120 | $6/day | Cup dispenser → ketchup → prep counter |
+
+They never assemble a plate and never touch the serving window. Deciding what goes on
+the plate stays your job — they just keep you in stock, and you pick their output up
+off a prep counter the same way you'd pick up anything else.
+
+Work is **demand-driven**: a hand reads the live ticket rail, nets it against what is
+already on the counters, in the fryers and in another hand's arms, and only starts a
+job if the shop is actually short. So two hands never cook the same portion of fries,
+and nobody fills your counters with cups nobody ordered. They also leave you a free
+counter to work on. Spud stands over a basket and lifts it the moment it dings, which
+is most of what you are paying for; a basket that burns anyway goes straight in the
+bin rather than onto a counter.
+
+Training widens the remit — Dollop can learn BBQ and hot sauce, Spud can learn the
+chicken fryer — or makes them quicker on their feet or at a station. The wage does not
+go up, so training is usually better value than a second hire.
+
+Paths are a breadth-first flood over open floor, recomputed per trip rather than
+cached, because the layout is editable and a cached graph would go stale the moment
+you moved a counter.
+
+### The kitchen editor
+
+`KITCHEN` in the shop opens a flat grid of the whole floor. Tap something to pick it
+up, tap a tile to set it down; legal tiles light up green while you are holding
+something. Wall-mounted kit (fryers, crates, trays, bottles, the serving window) goes
+on a boundary wall, prep counters and plate stacks go on open floor, and a bin is
+happy either way. Move the serving window and the queue and the front door move with
+it.
+
+Nothing is written until you press `DONE`, and `DONE` stays locked while the layout is
+unplayable — if you wall yourself off from the fryers it tells you how many tiles are
+stranded instead of letting you save it. `CANCEL` puts everything back.
+
+Land you have not bought is `~` in the grid: solid, and drawn as nothing at all. The
+grid is always the same size whatever you own, which is what keeps the world origin
+(and every constant derived from it) still when a wing opens up.
 
 ---
 
@@ -283,15 +363,20 @@ vendor/three.min.js           Three.js r128 (vendored so it runs offline)
 src/
   platform.js                 touch/mobile detection, viewport sizing, Telegram
   touch.js                    on-screen thumbstick and action buttons
-  config.js                   map, recipes, timings, scoring, difficulty curve
+  config.js                   base map, recipes, timings, prices, shop catalogue
+  layout.js                   the live editable grid: bounds, expansion, validation
+  economy.js                  wallet, daily ledger, upgrade modifiers, the save file
   textures.js                 procedural 16x16 pixel textures (wood, oil, breading…)
-  models.js                   voxel builders: chef, customers, food, signs, labels
+  models.js                   voxel builders: chef, customers, staff, food, signs
   world.js                    kitchen construction, stations, lighting, particles
   interact.js                 item data + resolve(): the single "what does E do" rule
   orders.js                   customer lifecycle, tickets, order matching, tips
+  staff.js                    assistant pathfinding and the one-job-each AI
   ui.js                       ticket rail, held-item card, hint line, screens
+  shop.js                     the between-days buy screen
+  editor.js                   the drag-and-drop kitchen grid
   audio.js                    WebAudio SFX plus the four-voice music engine
-  game.js                     renderer, camera, player, main loop, scoring
+  game.js                     renderer, camera, player, main loop, the till
 build-standalone.ps1          bundles everything into one HTML file
 serve.ps1                     optional zero-dependency local server
 index.prototype-backup.html   your earlier prototype page, kept just in case

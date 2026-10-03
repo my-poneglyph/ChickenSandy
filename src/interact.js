@@ -48,7 +48,7 @@ window.CS = window.CS || {};
     }
     if (item.k === 'cup') {
       if (!item.sauce) return { ok: false, why: 'Fill the cup first' };
-      if (plate.cups.length >= 3) return { ok: false, why: 'No room for more cups' };
+      if (plate.cups.length >= CS.econ.mod('cups')) return { ok: false, why: 'No room for more cups' };
       return { ok: true, what: 'cup' };
     }
     if (CS.isBurnt(item)) return { ok: false, why: 'That is burnt — bin it' };
@@ -156,7 +156,7 @@ window.CS = window.CS || {};
         if (!held) return blocked('Drop in chicken or potatoes');
         if (!CS.COOK[held.k]) return blocked('That does not go in the fryer');
         return action('Fry the ' + CS.ITEMS[held.k].label, function () {
-          var def = CS.COOK[held.k];
+          var def = CS.cookDef(held.k);
           G.setStationItem(st, held);
           st.cook = { t: 0, def: def, stage: 'cooking', warned: false };
           G.setHeld(null);
@@ -210,7 +210,11 @@ window.CS = window.CS || {};
       /* --------------------------------------------------------- trash */
       case 'trash': {
         if (!held) return blocked('Nothing to bin');
-        return action('Bin the ' + CS.itemShort(held), function () {
+        // what you bin, you bought: the cost comes off the day's takings
+        var loss = CS.econ.ledger ? CS.econ.costOf(held) : 0;
+        return action('Bin the ' + CS.itemShort(held) +
+          (loss > 0 ? ' (-' + CS.money(loss) + ')' : ''), function () {
+          CS.econ.waste(held);
           G.setHeld(null);
           CS.audio.trash();
           G.puff(st, 0x6a5f55, 8);

@@ -133,28 +133,31 @@ window.CS = window.CS || {};
       var cups = [];
       for (var i = 0; i < nCups; i++) cups.push(CS.pick(CS.CUP_SAUCES));
 
-      var S = CS.SCORE;
-      var reward = 0, extra = 0;
-      if (sandwich) {
-        reward += S.sandwich;
-        extra = sandwich.toppings.length + sandwich.sauces.length;
-        reward += extra * S.extra;
-      }
-      if (wantsFries) reward += S.fries;
-      reward += cups.length * S.cup;
+      var extra = sandwich ? sandwich.toppings.length + sandwich.sauces.length : 0;
 
-      var limit = CS.lerp(lv.limit[0], lv.limit[1], progress)
-        + extra * 5.0 + (wantsFries ? 9 : 0) + cups.length * 5.0;
+      /* Patience. A fussier order buys more time, and a Waiting Bench buys
+         more again -- which is the whole reason to pay for one. */
+      var limit = (CS.lerp(lv.limit[0], lv.limit[1], progress)
+        + extra * 5.0 + (wantsFries ? 9 : 0) + cups.length * 5.0)
+        * CS.econ.mod('patience');
 
-      return {
+      var t = {
         id: nextId++,
         sandwich: sandwich,
         fries: wantsFries,
         cups: cups,
         limit: limit,
-        left: limit,
-        reward: Math.round(reward)
+        left: limit
       };
+      t.price = CS.econ.priceOf(t);
+      return t;
+    },
+
+    /* How long the queue may get: the day's own limit, plus anything the
+       Roadside Sign bought you. */
+    cap: function () {
+      return Math.min(CS.MAX_ORDERS_CAP,
+        this.level.maxOrders + CS.econ.mod('orders'));
     },
 
     /* Pick a species nobody in the queue is currently wearing, so the ticket
@@ -168,7 +171,7 @@ window.CS = window.CS || {};
     },
 
     spawn: function (progress) {
-      if (this.list.length >= this.level.maxOrders) return null;
+      if (this.list.length >= this.cap()) return null;
       var t = this.makeTicket(progress);
       var idx = this.list.length;
       var seed = ri(1000);
@@ -281,7 +284,7 @@ window.CS = window.CS || {};
 
       this.spawnTimer -= dt;
       if (this.spawnTimer <= 0) {
-        if (this.list.length < lv.maxOrders) {
+        if (this.list.length < this.cap()) {
           this.spawn(progress);
           this.spawnTimer = CS.lerp(lv.spawn[0], lv.spawn[1], progress) * (0.85 + Math.random() * 0.3);
         } else {

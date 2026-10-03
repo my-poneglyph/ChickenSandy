@@ -689,6 +689,91 @@ window.CS = window.CS || {};
     return m;
   };
 
+  /* ------------------------------------------------------------ the staff
+     Your hires are the ingredients themselves, grown legs and an apron. They
+     are built on the same chunky two-block body as a customer so they read at
+     a glance from the overview camera, but squatter, and each one keeps the
+     silhouette of what it does: a tomato is round with a leafy crown, a
+     potato is a lumpy oval. `hold` is an empty slot their cargo gets parented
+     to, so whatever they are carrying rides in front of them. */
+  CS.models.assistant = function (kind) {
+    var g = new THREE.Group();
+    var parts = { kind: kind };
+
+    var spud = kind === 'potato';
+    var skin = spud ? { color: 0xc99a5c } : { color: 0xd6402f };
+    var dark = spud ? { color: 0xa87a42 } : { color: 0xa82b1f };
+    var apron = { color: 0xf7e9cd };
+
+    var body = new THREE.Group();
+    body.position.y = 0.52;
+    g.add(body);
+    parts.body = body;
+
+    if (spud) {
+      add(body, CS.box(0.52, 0.46, 0.44, skin, 0, 0, 0));
+      add(body, CS.box(0.42, 0.14, 0.38, skin, 0.04, 0.26, 0));     // knobbly crown
+      add(body, CS.box(0.14, 0.09, 0.09, dark, -0.21, 0.08, 0.16)); // eyes of the spud
+      add(body, CS.box(0.10, 0.08, 0.08, dark, 0.20, -0.09, 0.14));
+    } else {
+      add(body, CS.box(0.54, 0.48, 0.50, skin, 0, 0, 0));
+      add(body, CS.box(0.44, 0.10, 0.44, dark, 0, 0.26, 0));
+      // a little green crown of leaves, splayed out
+      [[-0.14, -0.10], [0.15, -0.09], [-0.09, 0.15], [0.12, 0.14]].forEach(function (p) {
+        add(body, CS.box(0.17, 0.07, 0.17, { color: 0x4e9b2f }, p[0], 0.33, p[1]));
+      });
+      add(body, CS.box(0.07, 0.12, 0.07, { color: 0x3d7a24 }, 0, 0.40, 0));
+    }
+
+    // apron bib, so they read as staff and not as loose produce
+    add(body, CS.box(0.34, 0.26, 0.03, apron, 0, -0.08, spud ? 0.23 : 0.26));
+    add(body, CS.box(0.30, 0.04, 0.03, { color: 0xc0392b }, 0, 0.07, spud ? 0.235 : 0.265));
+
+    // face
+    var fz = spud ? 0.225 : 0.255;
+    add(body, CS.box(0.09, 0.11, 0.03, { color: 0x1d1309 }, -0.12, 0.09, fz));
+    add(body, CS.box(0.09, 0.11, 0.03, { color: 0x1d1309 }, 0.12, 0.09, fz));
+    add(body, CS.box(0.05, 0.05, 0.03, { color: 0xffffff }, -0.10, 0.12, fz + 0.01));
+    add(body, CS.box(0.05, 0.05, 0.03, { color: 0xffffff }, 0.14, 0.12, fz + 0.01));
+
+    // stubby arms and legs, pivoting at the shoulder/hip like the customers
+    var LIMB = { color: spud ? 0xa87a42 : 0xa82b1f };
+    var BOOT = { color: 0x3d2a18 };
+    [-1, 1].forEach(function (s, i) {
+      var arm = new THREE.Group();
+      arm.position.set(s * 0.31, 0.04, 0);
+      add(arm, CS.box(0.12, 0.26, 0.12, LIMB, 0, -0.13, 0));
+      body.add(arm);
+      parts[i ? 'armR' : 'armL'] = arm;
+
+      var leg = new THREE.Group();
+      leg.position.set(s * 0.14, -0.24, 0);
+      add(leg, CS.box(0.14, 0.20, 0.14, LIMB, 0, -0.10, 0));
+      add(leg, CS.box(0.17, 0.08, 0.21, BOOT, 0, -0.23, 0.03));
+      body.add(leg);
+      parts[i ? 'legR' : 'legL'] = leg;
+    });
+
+    // where their cargo rides
+    var hold = new THREE.Object3D();
+    hold.position.set(0, 0.62, 0.34);
+    g.add(hold);
+    parts.hold = hold;
+
+    // "..." over the head while they have nothing to do, so an idle hire is
+    // visibly idle rather than looking broken
+    parts.mark = new THREE.Group();
+    parts.mark.position.set(0, 1.32, 0);
+    parts.mark.visible = false;
+    g.add(parts.mark);
+    [-0.14, 0, 0.14].forEach(function (x) {
+      add(parts.mark, CS.box(0.09, 0.09, 0.09,
+        CS.mat({ color: 0xf0d79a, basic: true }), x, 0, 0));
+    });
+
+    return { group: g, parts: parts };
+  };
+
   /* Outlined square that marks the station you are pointing at. */
   CS.models.highlight = function () {
     var c = document.createElement('canvas'); c.width = c.height = 16;
