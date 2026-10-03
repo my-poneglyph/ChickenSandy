@@ -14,6 +14,10 @@
     --gold:#f0a63c; --red:#c0392b; --red-dk:#7e2419; --green:#6fbf3a;
     --ink:#2c1c10; --paper:#f4e4c1; --paper-dk:#d9c298;
     --railW:146px;   /* width of the landscape ticket column */
+    /* Safe-area insets. Default to the device values; platform.js widens them
+       to clear Telegram's own overlay when the mini app runs fullscreen. */
+    --sat:env(safe-area-inset-top);    --sar:env(safe-area-inset-right);
+    --sab:env(safe-area-inset-bottom); --sal:env(safe-area-inset-left);
   }
   *{box-sizing:border-box;margin:0;padding:0;}
   html,body{height:100%;overflow:hidden;background:#1a1009;}
@@ -38,11 +42,14 @@
     padding:8px 12px;
   }
 
-  /* Absolutely-positioned HUD children resolve against the padding box, so
-     padding here keeps everything clear of notches and the Telegram header. */
+  /* Inset rather than padded: an absolutely-positioned child resolves against
+     its container's padding *edge*, so padding here would not move any of the
+     HUD. Shrinking the box itself does, and every child below can then use
+     plain offsets and stay clear of notches, home indicators and — when we run
+     as a fullscreen Telegram mini app — Telegram's floating close button. */
   #hud{
-    position:fixed;inset:0;pointer-events:none;z-index:10;
-    padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+    position:fixed;pointer-events:none;z-index:10;
+    top:var(--sat); right:var(--sar); bottom:var(--sab); left:var(--sal);
   }
 
   /* ---------- top bar ---------- */
@@ -351,8 +358,8 @@
     transform:translate(-50%,-50%);
   }
   #pad{
-    position:absolute;right:calc(12px + env(safe-area-inset-right));
-    bottom:calc(14px + env(safe-area-inset-bottom));
+    position:absolute;right:12px;
+    bottom:14px;
     display:grid;grid-template-columns:auto auto;gap:10px;align-items:end;
     pointer-events:none;z-index:13;
   }
@@ -397,7 +404,7 @@
   /* The hint sits just above the thumb controls; everything else stacks from
      the top, offset by the live ticket-rail height (--ticketH, set in JS). */
   body.mobile #hint{
-    top:auto;bottom:calc(184px + env(safe-area-inset-bottom));
+    top:auto;bottom:184px;
     font-size:9px;padding:4px 9px;max-width:88vw;white-space:normal;text-align:center;
   }
   body.mobile #hint .key{display:none;}
@@ -421,7 +428,7 @@
   body.mobile #held .k{font-size:6px;}
   body.mobile #held .v{font-size:10px;}
   body.mobile #held .detail{font-size:8px;line-height:1.5;}
-  body.mobile #toasts{top:auto;bottom:calc(178px + env(safe-area-inset-bottom));}
+  body.mobile #toasts{top:auto;bottom:178px;}
   body.mobile .toast{font-size:10px;padding:4px 9px;border-width:2px;}
 
   /* ---------------------------------------------- short landscape phones ---
@@ -454,12 +461,12 @@
     /* the held card moves out from under the old rail to the bottom, between
        the ticket column and the thumb buttons */
     body.mobile #leftstack{
-      top:auto; bottom:calc(6px + env(safe-area-inset-bottom));
+      top:auto; bottom:6px;
       left:calc(var(--railW) + 10px);
     }
     body.mobile #held{max-width:30vw;}
     body.mobile #fryers{top:40px;}
-    body.mobile #toasts{top:auto;bottom:calc(96px + env(safe-area-inset-bottom));}
+    body.mobile #toasts{top:auto;bottom:96px;}
 
     .tbtn{width:56px;height:56px;font-size:9px;}
     .tbtn.use{width:76px;height:76px;font-size:12px;}
@@ -583,6 +590,7 @@ window.CS = window.CS || {};
     coarse: false,     // touch-first input: show the on-screen controls
     tg: null,          // Telegram.WebApp once (and if) it loads
     standalone: false,
+    fullscreen: false, // true while Telegram is running us edge-to-edge
 
     /* The canvas is sized from #app rather than window.innerHeight, because on
        mobile (and inside Telegram) the visual viewport moves around as browser
@@ -617,6 +625,26 @@ window.CS = window.CS || {};
           P.tg.HapticFeedback.impactOccurred(style || 'light');
         }
       } catch (e) { /* older Telegram clients */ }
+    },
+
+    /* Fullscreen hides Telegram's header but floats the close/menu buttons over
+       our canvas, so the HUD has to be pushed clear of them. Telegram reports
+       that as two stacked insets: safeAreaInset is the device's own notch and
+       home indicator, contentSafeAreaInset is Telegram's chrome inside it.
+       We widen the --sa* vars that index.html pads the HUD with, keeping
+       whatever the device's env() already claims. */
+    applySafeArea: function () {
+      var tg = P.tg;
+      if (!tg) return;
+      var dev = tg.safeAreaInset || {};
+      var app = tg.contentSafeAreaInset || {};
+      var sides = { sat: 'top', sar: 'right', sab: 'bottom', sal: 'left' };
+      for (var k in sides) {
+        var side = sides[k];
+        var px = (dev[side] || 0) + (app[side] || 0);
+        document.documentElement.style.setProperty(
+          '--' + k, 'max(env(safe-area-inset-' + side + '), ' + px + 'px)');
+      }
     },
 
     init: function () {
@@ -683,10 +711,34 @@ window.CS = window.CS || {};
         try { tg.setHeaderColor && tg.setHeaderColor('#1a1009'); } catch (e) {}
         try { tg.setBackgroundColor && tg.setBackgroundColor('#1a1009'); } catch (e) {}
         try { tg.onEvent('viewportChanged', onReady); } catch (e) {}
+
+        /* Go edge-to-edge. requestFullscreen is Bot API 8.0 and phone-only —
+           desktop and web clients answer with fullscreenFailed, where the
+           expand() above is already the right answer. The insets move whenever
+           the mode changes or the phone rotates, so track them too. */
+        var syncFullscreen = function () {
+          P.fullscreen = !!tg.isFullscreen;
+          document.body.classList.toggle('tg-fullscreen', P.fullscreen);
+          P.applySafeArea();
+          onReady();
+        };
+        try { tg.onEvent('fullscreenChanged', syncFullscreen); } catch (e) {}
+        try { tg.onEvent('fullscreenFailed', syncFullscreen); } catch (e) {}
+        try { tg.onEvent('safeAreaChanged', syncFullscreen); } catch (e) {}
+        try { tg.onEvent('contentSafeAreaChanged', syncFullscreen); } catch (e) {}
+        P.applySafeArea();
+
         // Telegram clients are always touch, even on desktop tablets
-        if (tg.platform === 'android' || tg.platform === 'ios') {
+        var phone = tg.platform === 'android' || tg.platform === 'ios';
+        if (phone) {
           document.body.classList.add('touch', 'coarse');
           P.touch = true; P.coarse = true;
+        }
+
+        var canFullscreen = phone && tg.requestFullscreen &&
+          tg.isVersionAtLeast && tg.isVersionAtLeast('8.0');
+        if (canFullscreen && location.search.indexOf('tgfs=0') < 0) {
+          try { tg.requestFullscreen(); } catch (e) {}
         }
         onReady();
       };

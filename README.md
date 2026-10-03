@@ -91,6 +91,16 @@ feedback. Outside Telegram none of that runs, and the Telegram SDK is only fetch
 when the page is served over http(s) — opened from the filesystem the game makes no
 network requests at all.
 
+On phones the game also asks for **fullscreen** (`requestFullscreen()`, Bot API 8.0),
+which drops Telegram's header and hands the whole screen to the kitchen. Telegram
+then floats its close and menu buttons over the top-right of the canvas, so the HUD
+is kept inside the safe region: `safeAreaInset` (the device's notch and home
+indicator) and `contentSafeAreaInset` (Telegram's own chrome) are summed into the
+`--sat` / `--sar` / `--sab` / `--sal` CSS variables that `#hud` is inset by, and
+re-read whenever the mode changes or the phone rotates. Desktop and web Telegram
+clients don't support fullscreen — they answer with `fullscreenFailed` and keep the
+expanded layout. Add `?tgfs=0` to the URL to opt out and test the windowed layout.
+
 ## Controls
 
 | Key | Action |
