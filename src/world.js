@@ -204,10 +204,10 @@ window.CS = window.CS || {};
     var phone = CS.platform.mobile;
     var m = CS.models.label(LABELS[ch], LABEL_ACCENT[ch], phone ? 2.85 : 2.08);
     var ox = (runW - 1) * T / 2, oz = (runH - 1) * T / 2;
-    if (st.row === 0) oz += T * 0.42;
-    else if (st.row === CS.MAP_H - 1) oz -= T * 0.42;
-    if (st.col === 0) ox += T * 0.42;
-    else if (st.col === CS.MAP_W - 1) ox -= T * 0.42;
+    if (st.row === CS.layout.bounds.r0) oz += T * 0.42;
+    else if (st.row === CS.layout.bounds.r1) oz -= T * 0.42;
+    if (st.col === CS.layout.bounds.c0) ox += T * 0.42;
+    else if (st.col === CS.layout.bounds.c1) ox -= T * 0.42;
 
     m.position.set(st.x + ox, st.topY + (phone ? 0.98 : 0.8), st.z + oz);
     m.rotation.x = -(Math.PI / 2 - (phone ? CS.CAM_PITCH_MOBILE : CS.CAM_PITCH));
@@ -370,11 +370,23 @@ window.CS = window.CS || {};
   }
 
   CS.world = {
-    build: function (scene, opts) {
+    /* Everything goes into one root group rather than straight onto the
+       scene, so the whole shop can be thrown away and rebuilt when you move a
+       fryer or buy a wing. The helpers below all just call `.add()`, so
+       handing them the root instead of the scene is enough. */
+    build: function (parent, opts) {
       opts = opts || {};
       var lowSpec = !!opts.lowSpec;
       var stations = [];
       var solids = [];
+      var scene = new THREE.Group();
+      parent.add(scene);
+
+      /* The floor you actually own. Everything outside it is '~': solid, and
+         drawn as nothing, so the room ends at the wall rather than trailing
+         off into unbought tiles. */
+      var B = CS.layout.bounds;
+      var bw = (B.c1 - B.c0 + 1), bh = (B.r1 - B.r0 + 1);
       // Collision heights per tile. Walls are effectively infinite so the chef
       // can never flutter out of the shop; stations use their real top surface
       // so a well-timed hop can put you on the counter.
@@ -385,13 +397,14 @@ window.CS = window.CS || {};
       }
 
       // ---- kitchen floor
-      var fw = CS.MAP_W * T, fh = CS.MAP_H * T;
+      var fw = bw * T, fh = bh * T;
+      var fx = CS.OX + (B.c0 * T) + fw / 2, fz = CS.OZ + (B.r0 * T) + fh / 2;
       var floor = new THREE.Mesh(new THREE.PlaneGeometry(fw, fh),
         CS.mat({ color: 0xffffff, tex: 'floor' }));
       floor.material = floor.material.clone();
-      floor.material.map = CS.texRepeat('floor', CS.MAP_W / 2, CS.MAP_H / 2);
+      floor.material.map = CS.texRepeat('floor', bw / 2, bh / 2);
       floor.rotation.x = -Math.PI / 2;
-      floor.position.set(CS.OX + fw / 2, 0, CS.OZ + fh / 2);
+      floor.position.set(fx, 0, fz);
       floor.receiveShadow = true;
       scene.add(floor);
 
@@ -401,7 +414,7 @@ window.CS = window.CS || {};
       dine.material = dine.material.clone();
       dine.material.map = CS.texRepeat('diningFloor', (fw + 10) / 4, 10 / 4);
       dine.rotation.x = -Math.PI / 2;
-      dine.position.set(CS.OX + fw / 2, -0.02, CS.OZ - 5);
+      dine.position.set(fx, -0.02, CS.OZ - 5);
       dine.receiveShadow = true;
       scene.add(dine);
 
@@ -413,14 +426,17 @@ window.CS = window.CS || {};
           var p = CS.tileToWorld(col, row);
           solids.push({ col: col, row: row, x: p.x, z: p.z });
 
+          // land you do not own: solid, but there is nothing there to draw
+          if (ch === '~') { heights[row][col] = 99; continue; }
+
           if (ch === '#') {
             heights[row][col] = 99;
-            var south = (row === CS.MAP_H - 1);
+            var south = (row === B.r1);
             var h = south ? CS.LOW_WALL_H : CS.WALL_H;
             var w = CS.box(T, h, T, { color: 0xffffff, tex: 'wall' }, p.x, h / 2, p.z);
             w.receiveShadow = true;
             scene.add(w);
-            if (!south && row === 0) {
+            if (!south && row === B.r0) {
               // a chunkier cornice on the far wall to frame the scene
               scene.add(CS.box(T, 0.22, T * 0.4, { color: 0x5a381c }, p.x, h + 0.11, p.z + T * 0.3));
             }
@@ -440,9 +456,9 @@ window.CS = window.CS || {};
           heights[row][col] = st.topY;
 
           // stations on a wall face inward
-          if (row === 0) g.rotation.y = Math.PI;
-          else if (col === 0) g.rotation.y = Math.PI / 2;
-          else if (col === CS.MAP_W - 1) g.rotation.y = -Math.PI / 2;
+          if (row === B.r0) g.rotation.y = Math.PI;
+          else if (col === B.c0) g.rotation.y = Math.PI / 2;
+          else if (col === B.c1) g.rotation.y = -Math.PI / 2;
 
           // fryers sit forward of the wall, so their item slot follows them out
           var ry = g.rotation.y;
@@ -463,7 +479,7 @@ window.CS = window.CS || {};
          with CS.DOOR_X, which is directly behind the queue, so an arrival
          walks in and straight down the line without a detour. */
       var backZ = CS.OZ - 9.5;
-      var wallW = fw + 10, wallCx = CS.OX + fw / 2;
+      var wallW = fw + 10, wallCx = fx;
       var wallX0 = wallCx - wallW / 2, wallX1 = wallCx + wallW / 2;
       var dx = CS.DOOR_X, dw = CS.DOOR_W, dh = 2.5;
       var gap0 = dx - dw / 2, gap1 = dx + dw / 2;
@@ -484,10 +500,10 @@ window.CS = window.CS || {};
       doorway(scene, dx, backZ, dw, dh);
 
       var s1 = CS.models.signBoard(['Good Food', 'Happy', 'Chicken'], 4.4);
-      s1.position.set(CS.OX + fw * 0.08, 2.0, backZ + 0.35);
+      s1.position.set(fx - fw * 0.42, 2.0, backZ + 0.35);
       scene.add(s1);
       var s2 = CS.models.signBoard(['Chicken', 'Sandwich', '= Happiness'], 4.4);
-      s2.position.set(CS.OX + fw * 0.74, 2.0, backZ + 0.35);
+      s2.position.set(fx + fw * 0.24, 2.0, backZ + 0.35);
       scene.add(s2);
 
       // ---- decor on the north wall (the face the camera always sees)
@@ -515,7 +531,7 @@ window.CS = window.CS || {};
       barrel(scene, CS.OX + 2.9, CS.OZ - 8.2, 0.82);
       chest(scene, CS.OX + fw - 2.2, CS.OZ - 7.8, -0.25);
       barrel(scene, CS.OX + fw - 4.0, CS.OZ - 8.1, 0.9);
-      shelf(scene, CS.OX + fw * 0.5, 2.55, backZ + 0.32, 3.4);
+      shelf(scene, fx, 2.55, backZ + 0.32, 3.4);
 
       // ---- lighting
       scene.add(new THREE.AmbientLight(0xffdcae, 0.50));
@@ -545,13 +561,24 @@ window.CS = window.CS || {};
       // one fewer light on phones; the dining room reads fine without it
       if (!lowSpec) {
         var warm3 = new THREE.PointLight(0xffb45c, 0.48, 18, 2);
-        warm3.position.set(CS.OX + fw / 2, 3.2, CS.OZ - 4);
+        warm3.position.set(fx, 3.2, CS.OZ - 4);
         scene.add(warm3);
       }
 
       scene.fog = new THREE.Fog(0x3a2413, 46, 86);
 
-      return { stations: stations, solids: solids, floor: floor, heights: heights };
+      return { root: scene, stations: stations, solids: solids, floor: floor, heights: heights };
+    },
+
+    /* Throw the shop away and build it again from the current CS.MAP. Called
+       between days, after the editor or a wing purchase has moved the walls.
+       Geometry and materials are shared out of the caches in models.js, so
+       what actually has to go is the flame list -- otherwise tick() keeps
+       animating hearths that are no longer in the scene. */
+    rebuild: function (parent, old, opts) {
+      if (old && old.root) parent.remove(old.root);
+      flames.length = 0;
+      return CS.world.build(parent, opts);
     },
 
     /* Flicker the hearth. Called every frame from the main loop. */

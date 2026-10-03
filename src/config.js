@@ -13,20 +13,31 @@ window.CS = window.CS || {};
      F  fryer         S  serve window  X  trash
      K  raw chicken   T  potato bin    P  plate stack   B  bun crate
      L  lettuce       O  tomato        I  pickles       U  cup dispenser
-     M  mayo          Q  bbq           H  hot sauce     Y  ketchup           */
-  CS.MAP = [
-    '###SSS####MQHY#',
-    '#.............#',
-    'F.............L',
-    '#.............O',
-    'F.....CCC.....I',
-    '#.....CCC.....#',
-    'F.............U',
-    '#.............#',
-    '#....PP.BB....#',
-    '#.............#',
-    '##KK#TT###XX###'
+     M  mayo          Q  bbq           H  hot sauce     Y  ketchup
+     ~  locked        -- floor you have not bought yet
+
+     The grid is always CS.MAP_W x CS.MAP_H, whatever you own. Land you have
+     not bought is '~': solid, and drawn as nothing at all, so the world origin
+     and therefore every world-space constant below stays put when a wing
+     opens up. CS.BASE_MAP is the shop you start with; CS.MAP is the live grid
+     that layout.js rewrites as you expand and rearrange, and that world.js
+     builds from. */
+  CS.BASE_MAP = [
+    '###SSS####MQHY#~~~~',
+    '#.............#~~~~',
+    'F.............L~~~~',
+    '#.............O~~~~',
+    'F.....CCC.....I~~~~',
+    '#.....CCC.....#~~~~',
+    'F.............U~~~~',
+    '#.............#~~~~',
+    '#....PP.BB....#~~~~',
+    '#.............#~~~~',
+    '##KK#TT###XX###~~~~',
+    '~~~~~~~~~~~~~~~~~~~',
+    '~~~~~~~~~~~~~~~~~~~'
   ];
+  CS.MAP = CS.BASE_MAP.slice();
 
   CS.SPAWN = { col: 7, row: 7 };          // where the chef starts
   CS.SERVE_COL = 4;                       // queue lines up north of this column
@@ -98,43 +109,43 @@ window.CS = window.CS || {};
 
   CS.LEVELS = [
     { name: 'Opening Day', tag: 'Plain sandwiches. Find your feet.',
-      seconds: 120, target: 400, maxOrders: 2,
+      seconds: 120, rent: 18, maxOrders: 2,
       spawn: [10.0, 8.5], limit: [80, 70],
       friesChance: 0, cupChance: 0, twoCupChance: 0, maxTop: 0, maxSauce: 0,
       unlocks: ['Plate', 'Bun', 'Fried chicken'] },
 
     { name: 'Fries Are Up', tag: 'A second fryer is lit.',
-      seconds: 140, target: 750, maxOrders: 2,
+      seconds: 140, rent: 32, maxOrders: 2,
       spawn: [9.5, 8.0], limit: [78, 68],
       friesChance: 0.5, cupChance: 0, twoCupChance: 0, maxTop: 0, maxSauce: 0,
       unlocks: ['French fries'] },
 
     { name: 'Garden Fresh', tag: 'The topping trays open up.',
-      seconds: 150, target: 1050, maxOrders: 3,
+      seconds: 150, rent: 46, maxOrders: 3,
       spawn: [9.0, 7.4], limit: [76, 64],
       friesChance: 0.45, cupChance: 0, twoCupChance: 0, maxTop: 1, maxSauce: 0,
       unlocks: ['Lettuce', 'Tomato', 'Pickles'] },
 
     { name: 'Sauce Boss', tag: 'Squeeze bottles on the back wall.',
-      seconds: 160, target: 1350, maxOrders: 3,
+      seconds: 160, rent: 60, maxOrders: 3,
       spawn: [8.4, 6.9], limit: [74, 62],
       friesChance: 0.45, cupChance: 0, twoCupChance: 0, maxTop: 1, maxSauce: 1,
       unlocks: ['Mayo', 'BBQ sauce', 'Hot sauce'] },
 
     { name: 'Sides Please', tag: 'Cups of sauce to go.',
-      seconds: 170, target: 1650, maxOrders: 3,
+      seconds: 170, rent: 74, maxOrders: 3,
       spawn: [7.8, 6.3], limit: [72, 60],
       friesChance: 0.5, cupChance: 0.45, twoCupChance: 0.12, maxTop: 2, maxSauce: 1,
       unlocks: ['Sauce cups: BBQ, hot sauce, ketchup'] },
 
     { name: 'Lunch Rush', tag: 'Four tickets on the rail at once.',
-      seconds: 180, target: 2050, maxOrders: 4,
+      seconds: 180, rent: 90, maxOrders: 4,
       spawn: [6.8, 5.4], limit: [68, 55],
       friesChance: 0.55, cupChance: 0.5, twoCupChance: 0.2, maxTop: 2, maxSauce: 2,
       unlocks: ['A fourth ticket', 'Shorter tempers'] },
 
     { name: 'The Works', tag: 'Everything on everything.',
-      seconds: 190, target: 2500, maxOrders: 4,
+      seconds: 190, rent: 108, maxOrders: 4,
       spawn: [6.0, 4.6], limit: [64, 50],
       friesChance: 0.6, cupChance: 0.55, twoCupChance: 0.3, maxTop: 3, maxSauce: 3,
       unlocks: ['Fully loaded sandwiches'] }
@@ -158,33 +169,139 @@ window.CS = window.CS || {};
     l.day = day;
     l.name = 'Overtime ' + over;
     l.tag = 'No end in sight. Keep frying.';
-    l.target = 2500 + over * 520;
+    l.rent = 108 + over * 18;
     l.spawn = [Math.max(3.2, 6.0 - over * 0.45), Math.max(2.6, 4.6 - over * 0.40)];
     l.limit = [Math.max(44, 64 - over * 3), Math.max(34, 50 - over * 3)];
     l.unlocks = [];
     return l;
   };
 
-  /* Star thresholds as multiples of the day's target. */
-  CS.STARS = [1.0, 1.35, 1.75];
+  /* Star thresholds as multiples of the day's rent. */
+  CS.STARS = [1.0, 1.9, 3.0];
 
-  CS.SCORE = {
-    sandwich: 60, extra: 12, fries: 30, cup: 16,
-    speedBonus: 0.6,     // up to +60% of base for a fast serve
-    comboStep: 0.25, comboMax: 4,
-    missPenalty: 40,
+  /* ---------------------------------------------------------- the money
+     The till is the score. An item is worth what it says on the menu board,
+     every time -- being fast does not make a sandwich cost more. What speed
+     buys you is throughput (more customers through the door in one shift) and
+     tips, which is where the skill shows up. */
+  CS.PRICES = {
+    sandwich: 4.50,    // chicken sandwich, plain
+    topping: 0.40,     // each
+    sauce: 0.30,       // each
+    fries: 1.80,
+    cup: 0.75
+  };
 
-    /* Tips. A customer served with `minLeft` or less of their patience
-       remaining never tips; above that both the chance and the size scale
-       with how early you were, so the payoff is for staying ahead of the
-       queue rather than for luck. */
-    tip: {
-      minLeft: 0.45,     // fraction of patience that must still be on the clock
-      chance: 0.85,      // odds at a perfect serve, tapering to 0 at minLeft
-      share: 0.30,       // tip as a fraction of the order's base reward
-      bigTip: 30         // at or above this, they drop three coins, not one
+  /* Food that goes in the bin was bought with real money, so burning a basket
+     costs you twice: the time, and the stock. This is what makes a better
+     fryer worth paying for. */
+  CS.FOOD_COST = {
+    rawChicken: 0.95, friedChicken: 0.95, burntChicken: 0.95,
+    rawFries: 0.50, cookedFries: 0.50, burntFries: 0.50,
+    cup: 0.08, plate: 0.00
+  };
+
+  CS.WALKOUT_COST = 1.20;   // wasted prep when a customer gives up and leaves
+
+  CS.COMBO = { step: 0.25, max: 4 };
+
+  /* Tips. A customer served with `minLeft` or less of their patience still on
+     the clock never tips; above that both the chance and the size scale with
+     how early you were, so tipping rewards a shop that stays ahead of its
+     queue rather than a lucky one. The combo rides on the tip, not the price. */
+  CS.TIP = {
+    minLeft: 0.45,
+    chance: 0.85,
+    share: 0.30,       // tip as a fraction of the order's menu price
+    bigTip: 2.50       // at or above this they drop three coins, not one
+  };
+
+  /* --------------------------------------------------------------- staff
+     Each assistant runs one tight loop and ignores everything else, which is
+     what makes them readable: you always know what the potato is going to do.
+     `wage` comes off the till every day they are on the payroll, so hiring is
+     a real decision and not just a button you press once.
+
+     `jobs` is what they will make. Training widens it. */
+  CS.STAFF_DEFS = {
+    potato: {
+      name: 'Spud', role: 'Fry Cook', hire: 150, wage: 8.00,
+      tint: 0xd8a860,
+      blurb: 'Cuts, fries and plates chips. Will not touch anything else.',
+      jobs: ['fries'],
+      speed: 2.0, act: 0.55
+    },
+    tomato: {
+      name: 'Dollop', role: 'Sauce Hand', hire: 120, wage: 6.00,
+      tint: 0xd6402f,
+      blurb: 'Fills sauce cups and leaves them on a prep counter.',
+      jobs: ['cup:ketchup'],
+      speed: 2.2, act: 0.45
     }
   };
+
+  /* Per-hire training. `adds` extends the job list, `mult` scales a stat. */
+  CS.TRAINING = {
+    potato: [
+      { id: 'potato-chicken', name: 'Chicken Ticket', cost: 110,
+        blurb: 'Spud learns the chicken fryer too.', adds: ['chicken'] },
+      { id: 'potato-boots',   name: 'Non-Slip Boots', cost: 70,
+        blurb: '+40% walking speed.', mult: { speed: 1.4 } },
+      { id: 'potato-hands',   name: 'Asbestos Mitts', cost: 95,
+        blurb: 'Works a station 35% faster.', mult: { act: 0.65 } }
+    ],
+    tomato: [
+      { id: 'tomato-sauces', name: 'The Full Range', cost: 90,
+        blurb: 'Dollop learns BBQ and hot sauce cups.',
+        adds: ['cup:bbq', 'cup:hot'] },
+      { id: 'tomato-boots',  name: 'Non-Slip Boots', cost: 70,
+        blurb: '+40% walking speed.', mult: { speed: 1.4 } },
+      { id: 'tomato-hands',  name: 'Quick Thumbs', cost: 95,
+        blurb: 'Works a station 35% faster.', mult: { act: 0.65 } }
+    ]
+  };
+
+  /* ------------------------------------------------------------ upgrades
+     Three kinds, and the kind decides what buying one actually does:
+       gear   -- an instant, permanent modifier (see CS.econ.mod)
+       part   -- adds a station to your stock, which you then place yourself
+       land   -- unlocks a region of '~' into floor                        */
+  CS.UPGRADES = [
+    { id: 'basket',  kind: 'gear', name: 'Vented Baskets',  cost: 70,
+      blurb: 'Everything fries 15% faster.', mod: { fryCook: 0.85 } },
+    { id: 'basket2', kind: 'gear', name: 'Twin Burners',    cost: 165, needs: 'basket',
+      blurb: 'Another 15% off the fryer clock.', mod: { fryCook: 0.85 } },
+    { id: 'thermo',  kind: 'gear', name: 'Thermostat',      cost: 90,
+      blurb: 'Half again as long before a basket burns.', mod: { fryGrace: 1.5 } },
+    { id: 'bench',   kind: 'gear', name: 'Waiting Bench',   cost: 110,
+      blurb: 'Customers wait 12% longer before walking out.', mod: { patience: 1.12 } },
+    { id: 'tray',    kind: 'gear', name: 'Deep Trays',      cost: 60,
+      blurb: 'Fit a fourth sauce cup on a plate.', mod: { cups: 4 } },
+    { id: 'sign',    kind: 'gear', name: 'Roadside Sign',   cost: 180,
+      blurb: 'One more customer in the queue at a time.', mod: { orders: 1 } },
+
+    { id: 'fryer',   kind: 'part', name: 'Fryer',           cost: 85,  ch: 'F', wall: true },
+    { id: 'counter', kind: 'part', name: 'Prep Counter',    cost: 25,  ch: 'C' },
+    { id: 'plates',  kind: 'part', name: 'Plate Stack',     cost: 30,  ch: 'P' },
+    { id: 'buns',    kind: 'part', name: 'Bun Crate',       cost: 30,  ch: 'B' },
+    { id: 'cups',    kind: 'part', name: 'Cup Dispenser',   cost: 35,  ch: 'U', wall: true },
+    { id: 'bin',     kind: 'part', name: 'Trash Can',       cost: 20,  ch: 'X' },
+    { id: 'chicken', kind: 'part', name: 'Chicken Crate',   cost: 45,  ch: 'K', wall: true },
+    { id: 'spuds',   kind: 'part', name: 'Potato Bin',      cost: 45,  ch: 'T', wall: true },
+    { id: 'ketchup', kind: 'part', name: 'Ketchup Bottle',  cost: 40,  ch: 'Y', wall: true },
+    { id: 'bbq',     kind: 'part', name: 'BBQ Bottle',      cost: 40,  ch: 'Q', wall: true },
+    { id: 'hot',     kind: 'part', name: 'Hot Sauce',       cost: 40,  ch: 'H', wall: true },
+    { id: 'mayo',    kind: 'part', name: 'Mayo Bottle',     cost: 40,  ch: 'M', wall: true },
+    { id: 'lettuce', kind: 'part', name: 'Lettuce Tray',    cost: 40,  ch: 'L', wall: true },
+    { id: 'maters',  kind: 'part', name: 'Tomato Tray',     cost: 40,  ch: 'O', wall: true },
+    { id: 'pickles', kind: 'part', name: 'Pickle Tray',     cost: 40,  ch: 'I', wall: true },
+    { id: 'window',  kind: 'part', name: 'Serving Window',  cost: 200, ch: 'S', wall: 'north' },
+
+    { id: 'backroom', kind: 'land', name: 'The Back Room', cost: 240,
+      blurb: 'Two more rows behind the kitchen.', region: 'south' },
+    { id: 'eastwing', kind: 'land', name: 'The East Wing', cost: 300,
+      blurb: 'Four more columns of floor.', region: 'east' }
+  ];
 
   /* ---------------------------------------------------------------- utils */
   CS.MAP_W = CS.MAP[0].length;
@@ -239,5 +356,5 @@ window.CS = window.CS || {};
      orders.js walks customers through it, so the two must agree. */
   CS.DOOR_X = CS.OX + (CS.SERVE_COL + 0.5) * CS.TILE;   // straight behind the queue
   CS.DOOR_W = 2.8;
-  CS.MAX_ORDERS_CAP = 4;       // widest the queue ever gets, across all days
+  CS.MAX_ORDERS_CAP = 5;       // widest the queue ever gets, Roadside Sign included
 })(window.CS);

@@ -16,6 +16,7 @@ window.CS = window.CS || {};
     coarse: false,     // touch-first input: show the on-screen controls
     tg: null,          // Telegram.WebApp once (and if) it loads
     standalone: false,
+    fullscreen: false, // true while Telegram is running us edge-to-edge
 
     /* The canvas is sized from #app rather than window.innerHeight, because on
        mobile (and inside Telegram) the visual viewport moves around as browser
@@ -50,6 +51,26 @@ window.CS = window.CS || {};
           P.tg.HapticFeedback.impactOccurred(style || 'light');
         }
       } catch (e) { /* older Telegram clients */ }
+    },
+
+    /* Fullscreen hides Telegram's header but floats the close/menu buttons over
+       our canvas, so the HUD has to be pushed clear of them. Telegram reports
+       that as two stacked insets: safeAreaInset is the device's own notch and
+       home indicator, contentSafeAreaInset is Telegram's chrome inside it.
+       We widen the --sa* vars that index.html pads the HUD with, keeping
+       whatever the device's env() already claims. */
+    applySafeArea: function () {
+      var tg = P.tg;
+      if (!tg) return;
+      var dev = tg.safeAreaInset || {};
+      var app = tg.contentSafeAreaInset || {};
+      var sides = { sat: 'top', sar: 'right', sab: 'bottom', sal: 'left' };
+      for (var k in sides) {
+        var side = sides[k];
+        var px = (dev[side] || 0) + (app[side] || 0);
+        document.documentElement.style.setProperty(
+          '--' + k, 'max(env(safe-area-inset-' + side + '), ' + px + 'px)');
+      }
     },
 
     init: function () {
@@ -116,10 +137,34 @@ window.CS = window.CS || {};
         try { tg.setHeaderColor && tg.setHeaderColor('#1a1009'); } catch (e) {}
         try { tg.setBackgroundColor && tg.setBackgroundColor('#1a1009'); } catch (e) {}
         try { tg.onEvent('viewportChanged', onReady); } catch (e) {}
+
+        /* Go edge-to-edge. requestFullscreen is Bot API 8.0 and phone-only —
+           desktop and web clients answer with fullscreenFailed, where the
+           expand() above is already the right answer. The insets move whenever
+           the mode changes or the phone rotates, so track them too. */
+        var syncFullscreen = function () {
+          P.fullscreen = !!tg.isFullscreen;
+          document.body.classList.toggle('tg-fullscreen', P.fullscreen);
+          P.applySafeArea();
+          onReady();
+        };
+        try { tg.onEvent('fullscreenChanged', syncFullscreen); } catch (e) {}
+        try { tg.onEvent('fullscreenFailed', syncFullscreen); } catch (e) {}
+        try { tg.onEvent('safeAreaChanged', syncFullscreen); } catch (e) {}
+        try { tg.onEvent('contentSafeAreaChanged', syncFullscreen); } catch (e) {}
+        P.applySafeArea();
+
         // Telegram clients are always touch, even on desktop tablets
-        if (tg.platform === 'android' || tg.platform === 'ios') {
+        var phone = tg.platform === 'android' || tg.platform === 'ios';
+        if (phone) {
           document.body.classList.add('touch', 'coarse');
           P.touch = true; P.coarse = true;
+        }
+
+        var canFullscreen = phone && tg.requestFullscreen &&
+          tg.isVersionAtLeast && tg.isVersionAtLeast('8.0');
+        if (canFullscreen && location.search.indexOf('tgfs=0') < 0) {
+          try { tg.requestFullscreen(); } catch (e) {}
         }
         onReady();
       };

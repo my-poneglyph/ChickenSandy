@@ -42,16 +42,18 @@ window.CS = window.CS || {};
     setLevel: function (lv) {
       el.day.textContent = lv.day;
       el.dayName.textContent = lv.name;
-      el.tgtLabel.textContent = 'target ' + lv.target;
+      el.tgtLabel.textContent = 'rent ' + CS.money(lv.rent);
     },
 
-    setTarget: function (score, target) {
-      var f = CS.clamp(score / target, 0, 1);
+    /* The till bar fills as the day's takings close on what the day costs --
+       rent plus wages. Full means you are trading at a profit. */
+    setTarget: function (took, owed) {
+      var f = CS.clamp(took / Math.max(0.01, owed), 0, 1);
       el.tgtBar.firstElementChild.style.width = (f * 100).toFixed(1) + '%';
-      el.tgtBar.className = 'tgt' + (score >= target ? ' done' : '');
-      el.tgtLabel.textContent = score >= target
-        ? 'target met!'
-        : 'target ' + target;
+      el.tgtBar.className = 'tgt' + (took >= owed ? ' done' : '');
+      el.tgtLabel.textContent = took >= owed
+        ? 'in profit'
+        : 'owes ' + CS.money(owed - took);
     },
 
     setMoves: function (dashReady, flaps, maxFlaps, airborne) {
@@ -95,7 +97,7 @@ window.CS = window.CS || {};
       el.clock.textContent = m + ':' + (s < 10 ? '0' : '') + s;
       el.clock.className = 'v' + (sec <= 30 ? ' hot' : '');
     },
-    setScore: function (n) { el.score.textContent = Math.round(n); },
+    setScore: function (n) { el.score.textContent = CS.money(n); },
     setCombo: function (c) {
       el.combo.textContent = 'x' + (Math.round(c * 100) / 100);
       el.combo.className = 'v' + (c > 1.01 ? ' gold' : '');
@@ -187,8 +189,8 @@ window.CS = window.CS || {};
     setCamLabel: function (n) { el.btnCam.textContent = 'VIEW: ' + n.toUpperCase(); },
 
     /* ------------------------------------------------------------ screens */
-    showScreen: function (html) {
-      el.screen.innerHTML = '<div class="card">' + html + '</div>';
+    showScreen: function (html, extra) {
+      el.screen.innerHTML = '<div class="card' + (extra ? ' ' + extra : '') + '">' + html + '</div>';
       el.screen.classList.remove('hidden');
       return el.screen.querySelector('.card');
     },
@@ -229,15 +231,24 @@ window.CS = window.CS || {};
         '</div>';
     },
 
-    showStart: function (onStart, bestDay) {
+    /* `saved` is the shop on disk, if there is one, so the front page can
+       offer to carry on rather than silently resuming or silently wiping. */
+    showStart: function (onStart, onFresh, saved) {
       var c = this.showScreen(
         '<h1>CHICKEN SANDY</h1>' +
         '<h2>&#9829; GOOD FOOD &#183; HAPPY CHICKEN &#9829;</h2>' +
         '<p>You are the chef. You are also a chicken. Try not to think about the menu.</p>' +
-        (bestDay > 1 ? '<p style="color:var(--gold)">Best run so far: Day ' + bestDay + '</p>' : '') +
+        (saved
+          ? '<p style="color:var(--gold)">Your shop is on Day ' + saved.day +
+            ' with ' + CS.money(saved.wallet) + ' in the till.</p>'
+          : '') +
         this.howToHTML() +
-        '<button class="big" id="startBtn">START DAY 1</button>');
+        '<button class="big" id="startBtn">' +
+          (saved ? 'CARRY ON &#9656;' : 'START DAY 1') + '</button>' +
+        (saved ? '<button class="btn" id="freshBtn" style="margin-left:10px">NEW SHOP</button>' : ''));
       c.querySelector('#startBtn').onclick = onStart;
+      var f = c.querySelector('#freshBtn');
+      if (f) f.onclick = onFresh;
       this.setHudVisible(false);
     },
 
@@ -256,8 +267,9 @@ window.CS = window.CS || {};
         '<div class="cols">' + unlocks +
         '<div class="col"><h3>THE SHIFT</h3><ul>' +
         '<li>Length: <b>' + mins + ':' + (secs < 10 ? '0' : '') + secs + '</b></li>' +
-        '<li>Target: <b>' + lv.target + '</b> points</li>' +
-        '<li>Tickets at once: <b>' + lv.maxOrders + '</b></li>' +
+        '<li>Rent: <b>' + CS.money(lv.rent) + '</b></li>' +
+        (CS.econ.wages() > 0 ? '<li>Wages: <b>' + CS.money(CS.econ.wages()) + '</b></li>' : '') +
+        '<li>Tickets at once: <b>' + CS.orders.cap() + '</b></li>' +
         '</ul></div>' +
         '<div class="col"><h3>REMINDERS</h3><ul>' +
         (CS.platform && CS.platform.coarse
@@ -273,37 +285,55 @@ window.CS = window.CS || {};
       this.setHudVisible(false);
     },
 
-    showLevelResult: function (lv, s, passed, total, onNext, onRetry) {
-      var stars = 0;
-      for (var i = 0; i < CS.STARS.length; i++) {
-        if (s.score >= lv.target * CS.STARS[i]) stars = i + 1;
-      }
+    /* End of trading: the day's receipt. Sales are itemised because where the
+       money came from is the thing that tells you what to buy next -- a day
+       carried by sauce cups wants a Dollop, not another fryer. */
+    showLevelResult: function (lv, L, onNext, onRetry) {
+      var stars = CS.econ.stars(L);
       var starRow = '';
       for (var j = 0; j < 3; j++) {
         starRow += '<span style="color:' + (j < stars ? 'var(--gold)' : '#5a4630') + '">&#9733;</span>';
       }
+
+      function line(label, n, cls) {
+        return '<div class="scoreline"><span>' + label + '</span><span' +
+          (cls ? ' class="' + cls + '"' : '') + '>' + n + '</span></div>';
+      }
+      function sale(label, count, money) {
+        if (!count) return '';
+        return line(count + ' &#215; ' + label, CS.money(money));
+      }
+
+      var body =
+        sale('sandwich', L.lines.sandwich, L.revenue.sandwich) +
+        sale('topping', L.lines.topping, L.revenue.topping) +
+        sale('sauce', L.lines.sauce, L.revenue.sauce) +
+        sale('fries', L.lines.fries, L.revenue.fries) +
+        sale('sauce cup', L.lines.cup, L.revenue.cup) +
+        (L.tipCount ? line('tips (' + L.tipCount + ')', CS.money(L.tips), 'tipval') : '') +
+        (L.waste > 0 ? line('waste &amp; walkouts', '-' + CS.money(L.waste), 'badval') : '') +
+        '<div class="scoreline rule"><span>TAKINGS</span><span>' + CS.money(L.net) + '</span></div>' +
+        line('rent', '-' + CS.money(L.rent)) +
+        (L.wages > 0 ? line('wages', '-' + CS.money(L.wages)) : '') +
+        '<div class="scoreline rule big-line"><span>PROFIT</span><span class="' +
+          (L.passed ? 'tipval' : 'badval') + '">' + CS.money(L.profit) + '</span></div>' +
+        (L.passed ? line('in the wallet', CS.money(CS.econ.state.wallet)) : '');
+
       var c = this.showScreen(
-        '<h1>' + (passed ? 'DAY ' + lv.day + ' DONE' : 'CLOSING TIME') + '</h1>' +
+        '<h1>' + (L.passed ? 'DAY ' + lv.day + ' DONE' : 'IN THE RED') + '</h1>' +
         '<div class="rank" style="letter-spacing:8px">' + starRow + '</div>' +
-        '<h2>' + (passed
+        '<h2>' + (L.passed
           ? (stars === 3 ? 'The queue is singing your name.'
             : stars === 2 ? 'Solid shift. Barely a burnt nugget.'
-              : 'Scraped through. The bar is rising.')
-          : 'You needed ' + lv.target + ' to keep the lights on.') + '</h2>' +
-        '<div style="max-width:420px;margin:14px auto 0">' +
-        '<div class="scoreline"><span>Orders served</span><span>' + s.served + '</span></div>' +
-        '<div class="scoreline"><span>Walked out</span><span>' + s.missed + '</span></div>' +
-        '<div class="scoreline"><span>Best combo</span><span>x' + (Math.round(s.bestCombo * 100) / 100) + '</span></div>' +
-        '<div class="scoreline"><span>Things burnt</span><span>' + s.burnt + '</span></div>' +
-        (s.tipCount
-          ? '<div class="scoreline"><span>Tips (' + s.tipCount + ')</span><span class="tipval">+' + s.tips + '</span></div>'
-          : '') +
-        '<div class="scoreline"><span>Target</span><span>' + lv.target + '</span></div>' +
-        '<div class="scoreline" style="border:none;font-size:17px;padding-top:10px"><span>TODAY</span><span>' + Math.round(s.score) + '</span></div>' +
-        (passed ? '<div class="scoreline" style="border:none;font-size:12px;padding-top:0"><span>Career total</span><span>' + Math.round(total) + '</span></div>' : '') +
-        '</div>' +
-        '<button class="big" id="nextBtn">' + (passed ? 'DAY ' + (lv.day + 1) + ' &#9656;' : 'TRY DAY ' + lv.day + ' AGAIN') + '</button>');
-      c.querySelector('#nextBtn').onclick = passed ? onNext : onRetry;
+              : 'Scraped through. The rent is rising.')
+          : 'You took ' + CS.money(L.net) + ' and owed ' + CS.money(L.outgoings) +
+            '. Nothing lost but the day.') + '</h2>' +
+        '<div class="receipt">' + body + '</div>' +
+        '<div class="scoreline small"><span>' + L.served + ' served, ' +
+          L.missed + ' walked out, ' + L.burnt + ' burnt</span></div>' +
+        '<button class="big" id="nextBtn">' +
+        (L.passed ? 'TO THE SHOP &#9656;' : 'TRY DAY ' + lv.day + ' AGAIN') + '</button>');
+      c.querySelector('#nextBtn').onclick = L.passed ? onNext : onRetry;
       this.setHudVisible(false);
     },
 
@@ -333,15 +363,24 @@ window.CS = window.CS || {};
       sync();
     },
 
-    showQuit: function (day, total, onAgain) {
+    /* Ending a run does not wipe the shop -- it just shuts the doors. The
+       save is still there, so CARRY ON picks it straight back up. */
+    showQuit: function (onAgain, onWipe) {
+      var st = CS.econ.state, cr = st.career;
       var c = this.showScreen(
         '<h1>SHOP CLOSED</h1>' +
-        '<h2>You made it to Day ' + day + '</h2>' +
-        '<div style="max-width:420px;margin:14px auto 0">' +
-        '<div class="scoreline" style="border:none;font-size:17px"><span>CAREER TOTAL</span><span>' + Math.round(total) + '</span></div>' +
+        '<h2>Day ' + st.day + ' &#183; ' + CS.money(st.wallet) + ' in the till</h2>' +
+        '<div class="receipt">' +
+        '<div class="scoreline"><span>Days traded</span><span>' + cr.days + '</span></div>' +
+        '<div class="scoreline"><span>Orders served</span><span>' + cr.served + '</span></div>' +
+        '<div class="scoreline"><span>Tips taken</span><span class="tipval">' + CS.money(cr.tips) + '</span></div>' +
+        '<div class="scoreline"><span>Best day</span><span>' + CS.money(cr.best) + '</span></div>' +
+        '<div class="scoreline rule"><span>LIFETIME TAKINGS</span><span>' + CS.money(cr.earned) + '</span></div>' +
         '</div>' +
-        '<button class="big" id="againBtn">BACK TO DAY 1</button>');
+        '<button class="big" id="againBtn">BACK TO THE SHOP</button>' +
+        '<button class="btn" id="wipeBtn" style="margin-left:10px">START A NEW SHOP</button>');
       c.querySelector('#againBtn').onclick = onAgain;
+      c.querySelector('#wipeBtn').onclick = onWipe;
       this.setHudVisible(false);
     }
   };

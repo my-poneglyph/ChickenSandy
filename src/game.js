@@ -72,12 +72,10 @@ window.CS = window.CS || {};
   var camDist = 36, fitDist = 36, camYaw = 0;
 
   var S = {
-    phase: 'menu',          // menu | intro | play | pause | over
-    day: 1, level: null, total: 0,
+    phase: 'menu',          // menu | shop | editor | intro | play | pause | over
+    day: 1, level: null,
     time: 120,
-    score: 0, combo: 1, bestCombo: 1,
-    served: 0, missed: 0, burnt: 0,
-    tips: 0, tipCount: 0,
+    combo: 1, bestCombo: 1,
     held: null, target: null
   };
 
@@ -318,7 +316,7 @@ window.CS = window.CS || {};
 
   function setHeld(item) { S.held = item; refreshHeld(); }
 
-  /* --------------------------------------------------------------- score */
+  /* ---------------------------------------------------------- the till */
   function serve(plate) {
     var o = CS.orders.findMatch(plate);
     if (!o) {
@@ -326,17 +324,17 @@ window.CS = window.CS || {};
       CS.ui.toast('That is not on any ticket!', 'bad');
       return;
     }
+    /* The menu price is the menu price -- being quick does not make a
+       sandwich cost more. What speed earns you is the tip, and the room to
+       serve the next customer before they give up. */
+    var took = CS.econ.sale(o);
     var left = o.left / o.limit;
-    var speed = 1 + CS.SCORE.speedBonus * left;
-    var gain = Math.round(o.reward * speed * S.combo);
-    S.score += gain;
-    S.served++;
-    S.combo = Math.min(CS.SCORE.comboMax, S.combo + CS.SCORE.comboStep);
+    S.combo = Math.min(CS.COMBO.max, S.combo + CS.COMBO.step);
     S.bestCombo = Math.max(S.bestCombo, S.combo);
     setHeld(null);
     CS.orders.complete(o, true);
     CS.audio.cash();
-    CS.ui.toast('+' + gain + '   ORDER #' + String(o.id).padStart(2, '0') + ' UP!', 'good');
+    CS.ui.toast(CS.money(took) + '   ORDER #' + String(o.id).padStart(2, '0') + ' UP!', 'good');
 
     var sv = stations.filter(function (s) { return s.type === 'serve'; })[0];
     if (sv) CS.fx.burst(sv.x, sv.topY + 0.5, sv.z, 16, { color: 0xffd464, life: 0.8, vy: 2.2 });
@@ -346,26 +344,25 @@ window.CS = window.CS || {};
        Below TIP.minLeft nobody tips, and the chance and the size both climb
        with how much of their patience was still on the clock -- so tipping is
        the reward for a shop that keeps ahead of its queue, not a lottery. */
-    var T = CS.SCORE.tip;
+    var T = CS.TIP;
     if (left > T.minLeft && Math.random() < (left - T.minLeft) / (1 - T.minLeft) * T.chance) {
-      var tip = Math.max(1, Math.round(o.reward * T.share * left * S.combo));
+      var tip = Math.round(o.price * T.share * left * S.combo * 100) / 100;
+      if (tip < 0.05) tip = 0.05;
       var nCoins = tip >= T.bigTip ? 3 : (tip >= T.bigTip / 2 ? 2 : 1);
-      S.score += tip;
-      S.tips += tip;
-      S.tipCount++;
+      CS.econ.tip(tip);
       if (sv) CS.orders.tipBurst(sv.x, sv.topY, sv.z, nCoins);
       setTimeout(function () {
-        CS.ui.toast('+' + tip + '   ' + o.critter.name.toUpperCase() + ' LEFT A TIP', 'tip');
+        CS.ui.toast(CS.money(tip) + '   ' + o.critter.name.toUpperCase() + ' LEFT A TIP', 'tip');
       }, 260);
     }
   }
 
   function onExpire(o) {
-    S.score = Math.max(0, S.score - CS.SCORE.missPenalty);
+    var lost = CS.econ.walkout();
     S.combo = 1;
-    S.missed++;
     CS.audio.fail();
-    CS.ui.toast('Order #' + String(o.id).padStart(2, '0') + ' walked out!', 'bad');
+    CS.ui.toast('Order #' + String(o.id).padStart(2, '0') + ' walked out! -' +
+      CS.money(lost), 'bad');
   }
 
   function puff(st, color, n) {
@@ -408,7 +405,7 @@ window.CS = window.CS || {};
         if (c.t >= d.cook + d.grace) {
           c.stage = 'burnt';
           setStationItem(st, { k: d.burnt });
-          S.burnt++;
+          CS.econ.ledger.burnt++;
           CS.audio.burn();
           CS.ui.toast('Something is burning!', 'bad');
         } else if (Math.random() < dt * 5) {
@@ -669,9 +666,7 @@ window.CS = window.CS || {};
   function reset() {
     S.level = S.level || CS.levelFor(S.day);
     S.time = S.level.seconds;
-    S.score = 0; S.combo = 1; S.bestCombo = 1;
-    S.served = 0; S.missed = 0; S.burnt = 0;
-    S.tips = 0; S.tipCount = 0;
+    S.combo = 1; S.bestCombo = 1;
     S.target = null;
     setHeld(null);
     stations.forEach(function (st) {
@@ -679,25 +674,31 @@ window.CS = window.CS || {};
       st.cook = null;
       if (st.bar) st.bar.visible = false;
     });
+    CS.econ.open(S.level);
     CS.orders.reset(S.level);
+    CS.staff.spawn();
     CS.ui.clearTickets();
     CS.fx.clear();
     placePlayer(CS.SPAWN.col, CS.SPAWN.row);
   }
 
-  /* ----------------------------------------------------- the campaign
-     One day = one level. Pass the day's target to move on; miss it and you
-     retry the same day. Career total accumulates across the whole run.     */
-  function bestDay() {
-    try { return parseInt(localStorage.getItem('chickenSandyBestDay') || '1', 10) || 1; }
-    catch (e) { return 1; }
-  }
-  function recordBestDay(d) {
-    try {
-      if (d > bestDay()) localStorage.setItem('chickenSandyBestDay', String(d));
-    } catch (e) {}
+  /* Tear the shop down and put it back up from the current CS.MAP. Called
+     after the editor, or after a wing has been bought: both move walls, and
+     everything downstream (collision heights, the station list, where the
+     staff think the fryers are) is derived from the build. */
+  function rebuildKitchen() {
+    world = CS.world.rebuild(scene, world, { lowSpec: CS.platform.mobile });
+    stations = world.stations;
+    stations.forEach(function (st) { st.group.userData.station = st; });
+    S.target = null;
+    CS.staff.clear();
+    placePlayer(CS.SPAWN.col, CS.SPAWN.row);
   }
 
+  /* ----------------------------------------------------- the campaign
+     A day is a day's trading. Clear the rent and the wages and you bank the
+     profit and move on; fall short and you retry the same day having lost
+     nothing but the time. Between days you are in the shop, spending it. */
   function showIntro(day) {
     S.day = day;
     S.level = CS.levelFor(day);
@@ -729,23 +730,48 @@ window.CS = window.CS || {};
     S.phase = 'over';
     CS.touch.release();
     CS.audio.stopMusic();
-    var passed = S.score >= S.level.target;
-    if (passed) {
-      S.total += S.score;
-      recordBestDay(S.day + 1);
-      CS.audio.fanfare();
-    } else {
-      CS.audio.over();
-    }
-    CS.ui.showLevelResult(S.level, S, passed, S.total,
-      function () { showIntro(S.day + 1); },
-      function () { showIntro(S.day); });
+    CS.staff.clear();
+
+    /* Anything still in your wings, or sitting out on a counter when the
+       shutters come down, was bought and not sold. */
+    if (S.held) { CS.econ.waste(S.held); setHeld(null); }
+    stations.forEach(function (st) {
+      if (st.item) { CS.econ.waste(st.item); setStationItem(st, null); }
+      st.cook = null;
+    });
+
+    var L = CS.econ.settle();
+    CS.audio[L.passed ? 'fanfare' : 'over']();
+    CS.ui.showLevelResult(S.level, L, openShop, function () { showIntro(S.day); });
+  }
+
+  /* ------------------------------------------------------------ the shop
+     Everything between days happens here: spend the profit, then walk back
+     into the kitchen. The editor hands control straight back. */
+  function openShop() {
+    S.phase = 'shop';
+    CS.audio.stopMusic();
+    rebuildKitchen();
+    CS.shop.show(
+      function () { showIntro(CS.econ.state.day); },
+      function () {
+        S.phase = 'editor';
+        CS.editor.open(function () {
+          rebuildKitchen();
+          openShop();
+        });
+      });
   }
 
   function quitRun() {
     S.phase = 'over';
     CS.audio.stopMusic();
-    CS.ui.showQuit(S.day, S.total, function () { S.total = 0; showIntro(1); });
+    CS.staff.clear();
+    CS.ui.showQuit(openShop, function () {
+      CS.econ.reset();
+      rebuildKitchen();
+      openShop();
+    });
   }
 
   /* ----------------------------------------------------------- the loop */
@@ -853,13 +879,15 @@ window.CS = window.CS || {};
 
       var progress = 1 - S.time / S.level.seconds;
       CS.orders.update(dt, progress, onExpire);
+      CS.staff.update(dt, stations);
       CS.ui.renderTickets(CS.orders.list);
 
       S.time -= dt;
+      var L = CS.econ.ledger;
       CS.ui.setClock(S.time);
-      CS.ui.setScore(S.score);
+      CS.ui.setScore(CS.econ.takings());
       CS.ui.setCombo(S.combo);
-      CS.ui.setTarget(S.score, S.level.target);
+      CS.ui.setTarget(CS.econ.takings(), L.rent + L.wages);
       CS.ui.setFryers(fryerRows());
       CS.ui.setMoves(1 - P.dashCd / DASH_CD, P.grounded ? MAX_FLAPS : P.flaps, MAX_FLAPS, !P.grounded);
       if (S.time <= 0) endDay();
@@ -959,12 +987,17 @@ window.CS = window.CS || {};
     camera = new THREE.PerspectiveCamera(45, 1, 0.5, 140);
     clock = new THREE.Clock();
 
+    // The save has to land before the world is built: it is what decides how
+    // big the kitchen is and where everything in it stands.
+    CS.econ.load();
+
     world = CS.world.build(scene, { lowSpec: lowSpec });
     stations = world.stations;
     stations.forEach(function (st) { st.group.userData.station = st; });
 
     CS.fx.init(scene);
     CS.orders.init(scene);
+    CS.staff.init(scene);
 
     chef = CS.models.chef();
     chef.group.scale.setScalar(1.25);
@@ -997,11 +1030,17 @@ window.CS = window.CS || {};
     setCamMode(camMode);
     CS.touch.init();
     CS.platform.onResize(function () { syncCamModes(); onResize(); });
-    S.level = CS.levelFor(1);
+    S.level = CS.levelFor(CS.econ.state.day);
     CS.ui.setLevel(S.level);
 
     CS.ui.hideLoading();
-    CS.ui.showStart(function () { showIntro(1); }, bestDay());
+    // a shop worth carrying on is one that has actually traded
+    var saved = CS.econ.state.career.days > 0 ? CS.econ.state : null;
+    CS.ui.showStart(openShop, function () {
+      CS.econ.reset();
+      rebuildKitchen();
+      openShop();
+    }, saved);
     loop();
   }
 

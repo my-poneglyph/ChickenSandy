@@ -14,6 +14,10 @@
     --gold:#f0a63c; --red:#c0392b; --red-dk:#7e2419; --green:#6fbf3a;
     --ink:#2c1c10; --paper:#f4e4c1; --paper-dk:#d9c298;
     --railW:146px;   /* width of the landscape ticket column */
+    /* Safe-area insets. Default to the device values; platform.js widens them
+       to clear Telegram's own overlay when the mini app runs fullscreen. */
+    --sat:env(safe-area-inset-top);    --sar:env(safe-area-inset-right);
+    --sab:env(safe-area-inset-bottom); --sal:env(safe-area-inset-left);
   }
   *{box-sizing:border-box;margin:0;padding:0;}
   html,body{height:100%;overflow:hidden;background:#1a1009;}
@@ -38,11 +42,14 @@
     padding:8px 12px;
   }
 
-  /* Absolutely-positioned HUD children resolve against the padding box, so
-     padding here keeps everything clear of notches and the Telegram header. */
+  /* Inset rather than padded: an absolutely-positioned child resolves against
+     its container's padding *edge*, so padding here would not move any of the
+     HUD. Shrinking the box itself does, and every child below can then use
+     plain offsets and stay clear of notches, home indicators and — when we run
+     as a fullscreen Telegram mini app — Telegram's floating close button. */
   #hud{
-    position:fixed;inset:0;pointer-events:none;z-index:10;
-    padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+    position:fixed;pointer-events:none;z-index:10;
+    top:var(--sat); right:var(--sar); bottom:var(--sab); left:var(--sal);
   }
 
   /* ---------- top bar ---------- */
@@ -181,10 +188,16 @@
   @keyframes toastout{to{transform:translateY(-22px);opacity:0}}
 
   /* ---------- screens ---------- */
+  /* Padding, not insets, because the card is a flex child and so it actually
+     moves -- unlike #hud, whose children are absolutely positioned. Running
+     fullscreen in Telegram this is what keeps the shop and the kitchen editor
+     out from under the floating close button. */
   #screen{
     position:fixed;inset:0;z-index:30;display:flex;align-items:center;justify-content:center;
     background:radial-gradient(ellipse at center,#3a2413ee 0%,#150c06f7 75%);
-    padding:20px;overflow:auto;
+    overflow:auto;
+    padding:calc(20px + var(--sat)) calc(20px + var(--sar))
+            calc(20px + var(--sab)) calc(20px + var(--sal));
   }
   #screen.hidden{display:none;}
   .card{
@@ -214,6 +227,117 @@
   }
   .big:hover{background:#d4483a;}
   .big:active{transform:translateY(3px);box-shadow:inset 0 3px 0 #e05a45;}
+  .big.off,.big:disabled{background:#4a3722;border-color:#2a1d10;color:#8e7a5f;
+    box-shadow:inset 0 3px 0 #5e4830;cursor:not-allowed;}
+  .big.off:active,.big:disabled:active{transform:none;}
+
+  /* ---------- the receipt ---------- */
+  .receipt{max-width:420px;margin:14px auto 0;text-align:left;}
+  .scoreline.rule{border:none;border-top:3px solid #2e1c0f;margin-top:6px;padding-top:8px;}
+  .scoreline.big-line{font-size:17px;color:var(--gold);}
+  .scoreline.small{border:none;font-size:10px;color:#c0a67f;justify-content:center;}
+  .badval{color:#e8705c;}
+
+  /* ---------- the shop ---------- */
+  .card.wide{width:min(860px,96vw);}
+  .walletbar{
+    display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin:6px 0 12px;
+  }
+  .walletbar div{
+    background:#3f2715;border:3px solid #241608;padding:6px 14px;min-width:116px;
+  }
+  .walletbar span{display:block;font-size:8px;color:#c0a67f;letter-spacing:1px;}
+  .walletbar b{font-size:16px;color:var(--gold);}
+  .shopscroll{max-height:46vh;overflow-y:auto;text-align:left;padding-right:4px;}
+  .shopscroll h3{
+    font-size:11px;color:var(--gold);letter-spacing:1px;margin:14px 0 6px;
+    border-bottom:2px solid #2e1c0f;padding-bottom:4px;
+  }
+  .buyrow{
+    display:flex;align-items:center;gap:10px;padding:5px 0;
+    border-bottom:2px solid #4a3119;
+  }
+  .buyrow.dim{opacity:.55;}
+  .buyrow.hired{background:#4a3119;padding-left:8px;}
+  .buyname{flex:1;font-size:11px;color:#ffd9a3;line-height:1.5;}
+  .buyname span{display:block;font-size:9px;color:#c0a67f;}
+  .buy{
+    flex:0 0 auto;min-width:92px;background:var(--green);border:3px solid #3f7a1e;
+    color:#1d2a10;font:inherit;font-size:11px;padding:6px 10px;cursor:pointer;
+    box-shadow:inset 0 2px 0 #9ddc68;
+  }
+  .buy:hover{background:#7fd044;}
+  .buy:active{transform:translateY(2px);box-shadow:none;}
+  .buy.off{background:#4a3722;border-color:#2a1d10;color:#8e7a5f;
+    box-shadow:none;cursor:not-allowed;}
+  .buy.off:active{transform:none;}
+
+  /* ---------- the kitchen editor ---------- */
+  .trayrow{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin:4px 0 10px;}
+  .tray{
+    background:var(--wood);border:3px solid var(--wood-dk);color:#2c1c10;
+    font:inherit;font-size:10px;padding:5px 9px;cursor:pointer;
+    box-shadow:inset 0 2px 0 #c08a4a;
+  }
+  .tray.on{background:var(--gold);box-shadow:inset 0 2px 0 #ffd9a3,0 0 0 3px #ffd46488;}
+  .tray b{color:#5c3a16;}
+  /* The cells are square and there are 19 x 13 of them, so the grid is 1.46
+     times as wide as it is tall. Cap the width by the viewport HEIGHT as well
+     as the card, or on a short window the kitchen runs off the bottom and you
+     are laying out a floor you cannot see. */
+  .kgrid{
+    display:grid;gap:1px;background:#241608;border:3px solid #241608;
+    margin:0 auto;width:min(100%, calc(42vh * 1.462));
+  }
+  .kgrid i{
+    aspect-ratio:1;display:flex;align-items:center;justify-content:center;
+    font-style:normal;font-size:7px;letter-spacing:0;color:#2c1c10;
+    background:#6b4524;overflow:hidden;
+  }
+  .kgrid .void{background:#140c06;}
+  .kgrid .wall{background:#3a2413;}
+  .kgrid .floor{background:#8a5a2b;}
+  .kgrid .spawn{box-shadow:inset 0 0 0 2px #f0a63c99;}
+  .kgrid .st{color:#1d1309;font-size:6px;}
+  .kgrid .fryer{background:#2e2a26;color:#ffb45c;}
+  .kgrid .serve{background:#c9a65f;}
+  .kgrid .bin{background:#55504a;color:#d8d2c8;}
+  .kgrid .prep{background:#c8a877;}
+  .kgrid .crate{background:#8d5f32;color:#f0dcb8;}
+  .kgrid .stack{background:#e4d7bb;}
+  .kgrid .top-let{background:#6fbf3a;}
+  .kgrid .top-tom{background:#d6402f;color:#fff;}
+  .kgrid .top-pic{background:#93ad36;}
+  .kgrid .sau-may{background:#f6edd3;}
+  .kgrid .sau-bbq{background:#7d3417;color:#f0dcb8;}
+  .kgrid .sau-hot{background:#e0431f;color:#fff;}
+  .kgrid .sau-ket{background:#c01f14;color:#fff;}
+  .kgrid .lift{cursor:pointer;}
+  .kgrid .lift:hover{box-shadow:inset 0 0 0 2px #ffd464;}
+  .kgrid .ok{cursor:pointer;box-shadow:inset 0 0 0 2px #6fbf3a;}
+  .kgrid .ok:hover{background:#6fbf3a;}
+  .kgrid .no{opacity:.4;}
+  .khint{font-size:9px;color:#c0a67f;margin-top:8px;}
+  .kok{font-size:10px;color:#9fd36a;margin-top:8px;min-height:14px;}
+  .kbad{font-size:10px;color:#ffb0a0;margin-top:8px;min-height:14px;}
+  .krow{display:flex;gap:8px;justify-content:center;align-items:center;
+    flex-wrap:wrap;margin-top:12px;}
+  .krow .big{margin-top:0;}
+
+  /* On a phone the reason a thing cannot be bought ("Needs Vented Baskets
+     first") is longer than the name beside it, so cap the button or it eats
+     the row and the name wraps a word per line. */
+  @media (max-width:560px){
+    .card.wide{padding:16px 12px 18px;}
+    .walletbar div{min-width:96px;padding:5px 10px;}
+    .walletbar b{font-size:14px;}
+    .shopscroll{max-height:52vh;}
+    .buy{min-width:0;max-width:44%;font-size:9px;padding:6px 6px;}
+    .buyname{font-size:10px;}
+    .buyname span{font-size:8px;}
+    .kgrid{width:100%;}
+    .kgrid i{font-size:5px;}
+  }
   .scoreline{display:flex;justify-content:space-between;font-size:13px;padding:5px 2px;border-bottom:2px dashed #8a6b3c66;}
   .scoreline span:last-child{color:var(--gold);}
   .rank{font-size:40px;color:var(--gold);text-shadow:3px 3px 0 #2e1c0f;margin:10px 0 2px;}
@@ -240,8 +364,8 @@
     transform:translate(-50%,-50%);
   }
   #pad{
-    position:absolute;right:calc(12px + env(safe-area-inset-right));
-    bottom:calc(14px + env(safe-area-inset-bottom));
+    position:absolute;right:12px;
+    bottom:14px;
     display:grid;grid-template-columns:auto auto;gap:10px;align-items:end;
     pointer-events:none;z-index:13;
   }
@@ -286,7 +410,7 @@
   /* The hint sits just above the thumb controls; everything else stacks from
      the top, offset by the live ticket-rail height (--ticketH, set in JS). */
   body.mobile #hint{
-    top:auto;bottom:calc(184px + env(safe-area-inset-bottom));
+    top:auto;bottom:184px;
     font-size:9px;padding:4px 9px;max-width:88vw;white-space:normal;text-align:center;
   }
   body.mobile #hint .key{display:none;}
@@ -310,7 +434,7 @@
   body.mobile #held .k{font-size:6px;}
   body.mobile #held .v{font-size:10px;}
   body.mobile #held .detail{font-size:8px;line-height:1.5;}
-  body.mobile #toasts{top:auto;bottom:calc(178px + env(safe-area-inset-bottom));}
+  body.mobile #toasts{top:auto;bottom:178px;}
   body.mobile .toast{font-size:10px;padding:4px 9px;border-width:2px;}
 
   /* ---------------------------------------------- short landscape phones ---
@@ -343,12 +467,12 @@
     /* the held card moves out from under the old rail to the bottom, between
        the ticket column and the thumb buttons */
     body.mobile #leftstack{
-      top:auto; bottom:calc(6px + env(safe-area-inset-bottom));
+      top:auto; bottom:6px;
       left:calc(var(--railW) + 10px);
     }
     body.mobile #held{max-width:30vw;}
     body.mobile #fryers{top:40px;}
-    body.mobile #toasts{top:auto;bottom:calc(96px + env(safe-area-inset-bottom));}
+    body.mobile #toasts{top:auto;bottom:96px;}
 
     .tbtn{width:56px;height:56px;font-size:9px;}
     .tbtn.use{width:76px;height:76px;font-size:12px;}
@@ -394,9 +518,9 @@
     </div>
     <div class="panel stat" id="clockwrap"><div class="k">Shift</div><div class="v" id="clock">2:00</div></div>
     <div class="panel stat" id="scorewrap">
-      <div class="k">Score</div><div class="v gold" id="score">0</div>
+      <div class="k">Till</div><div class="v gold" id="score">$0.00</div>
       <div class="tgt" id="tgtBar"><i></i></div>
-      <div id="tgtLabel">target 400</div>
+      <div id="tgtLabel">rent $18.00</div>
     </div>
     <div class="panel stat"><div class="k">Combo</div><div class="v" id="combo">x1</div></div>
   </div>
@@ -445,13 +569,18 @@
 <script src="./vendor/three.min.js"></script>
 <script src="./src/platform.js"></script>
 <script src="./src/config.js"></script>
+<script src="./src/layout.js"></script>
+<script src="./src/economy.js"></script>
 <script src="./src/audio.js"></script>
 <script src="./src/textures.js"></script>
 <script src="./src/models.js"></script>
 <script src="./src/world.js"></script>
 <script src="./src/interact.js"></script>
 <script src="./src/orders.js"></script>
+<script src="./src/staff.js"></script>
 <script src="./src/ui.js"></script>
+<script src="./src/shop.js"></script>
+<script src="./src/editor.js"></script>
 <script src="./src/touch.js"></script>
 <script src="./src/game.js"></script>
 <script>
