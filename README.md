@@ -249,14 +249,19 @@ are tipped, not what you are paid.
 Each day has a length, a rent and a queue size. One to three stars depending on how
 far past your outgoings you land.
 
-The rents are set against what the kitchen can physically produce, not against a
-guess. One sandwich-and-fries ticket is a 116-world-unit round trip — plates, buns,
-a counter, the chicken crate, a fryer, back to the counter, the potato bin, the
-fryer again, the counter, the window — which is 18 seconds of walking at `SPEED`,
-plus 13 seconds of frying. Call it a 24–31 second cycle, so a 2:30 shift is five to
-eight orders for someone who is not rushing. Day 3 at five orders clears about $20,
-and at eight about $42. That is the floor the curve is built on; getting quicker, and
-hiring, is what lifts you off it.
+The rents are set against what the kitchen can physically produce, measured by
+playing it rather than guessed. One ticket is a long round trip — plates, buns, a
+counter, the chicken crate, a fryer, back to the counter, maybe the potato bin and
+the fryer again, then the window — and a scripted player who never overlaps anything
+takes **25 to 37 seconds** per order and gets **three** of them done in a 2:30 shift.
+
+That is the floor the curve is built on, and day 3 at three orders has to come out
+positive, because someone having a bad time is exactly who must not be taxed into a
+corner. It clears about $5. Five orders clears about $20, eight about $42.
+
+Everything that lifts you off the floor is a real decision: overlapping your trips
+(start a basket, fetch the plate while it cooks), a Vented Basket, or hiring Spud to
+take the whole fries loop off you.
 
 **You never lose money you have already earned.** Whatever is left after rent and
 wages goes in the wallet; a day that does not cover them simply banks nothing and
@@ -271,14 +276,14 @@ could never bank enough to buy one.)
 
 | Day | Name | Length | Rent | Tickets | What's new |
 | --- | --- | --- | --- | --- | --- |
-| 1 | Opening Day | 2:00 | $8 | 2 | Plate, bun, fried chicken — nothing else |
-| 2 | Fries Are Up | 2:20 | $12 | 2 | French fries |
-| 3 | Garden Fresh | 2:30 | $16 | 3 | Lettuce, tomato, pickles |
-| 4 | Sauce Boss | 2:40 | $21 | 3 | Mayo, BBQ, hot sauce |
-| 5 | Sides Please | 2:50 | $27 | 3 | Sauce cups to go |
-| 6 | Lunch Rush | 3:00 | $34 | 4 | A fourth ticket, shorter tempers |
-| 7 | The Works | 3:10 | $41 | 4 | Fully loaded sandwiches |
-| 8+ | Overtime *n* | 3:10 | +$7/day | 4 | Endless: faster arrivals, less patience |
+| 1 | Opening Day | 2:00 | $5 | 2 | Plate, bun, fried chicken — nothing else |
+| 2 | Fries Are Up | 2:20 | $7 | 2 | French fries |
+| 3 | Garden Fresh | 2:30 | $10 | 3 | Lettuce, tomato, pickles |
+| 4 | Sauce Boss | 2:40 | $13 | 3 | Mayo, BBQ, hot sauce |
+| 5 | Sides Please | 2:50 | $17 | 3 | Sauce cups to go |
+| 6 | Lunch Rush | 3:00 | $21 | 4 | A fourth ticket, shorter tempers |
+| 7 | The Works | 3:10 | $26 | 4 | Fully loaded sandwiches |
+| 8+ | Overtime *n* | 3:10 | +$4/day | 4 | Endless: faster arrivals, less patience |
 
 Within a single day the spawn interval and customer patience interpolate from the
 day's `spawn[0]`/`limit[0]` to `spawn[1]`/`limit[1]`, and ticket complexity ramps
