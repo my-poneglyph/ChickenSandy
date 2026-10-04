@@ -268,7 +268,9 @@ window.CS = window.CS || {};
         '<div class="col"><h3>THE SHIFT</h3><ul>' +
         '<li>Length: <b>' + mins + ':' + (secs < 10 ? '0' : '') + secs + '</b></li>' +
         '<li>Rent: <b>' + CS.money(lv.rent) + '</b></li>' +
-        (CS.econ.wages() > 0 ? '<li>Wages: <b>' + CS.money(CS.econ.wages()) + '</b></li>' : '') +
+        (CS.econ.crew().length
+          ? '<li>Wages: <b>' + CS.money(CS.econ.wageRange().min) + '+</b>, a share of takings</li>'
+          : '') +
         '<li>Tickets at once: <b>' + CS.orders.cap() + '</b></li>' +
         '</ul></div>' +
         '<div class="col"><h3>REMINDERS</h3><ul>' +
@@ -317,23 +319,32 @@ window.CS = window.CS || {};
         (L.wages > 0 ? line('wages', '-' + CS.money(L.wages)) : '') +
         '<div class="scoreline rule big-line"><span>PROFIT</span><span class="' +
           (L.passed ? 'tipval' : 'badval') + '">' + CS.money(L.profit) + '</span></div>' +
-        (L.passed ? line('in the wallet', CS.money(CS.econ.state.wallet)) : '');
+        line(L.passed ? 'banked' : 'banked (never less than nothing)',
+          CS.money(L.banked)) +
+        line('in the wallet', CS.money(CS.econ.state.wallet));
 
+      /* Both ways forward are always offered. Carrying on is the default even
+         after a bad day -- the shop is yours and nobody is taking it off you
+         -- but replaying the same day is there if you would rather bank a bit
+         more before the rent goes up again. */
       var c = this.showScreen(
-        '<h1>' + (L.passed ? 'DAY ' + lv.day + ' DONE' : 'IN THE RED') + '</h1>' +
+        '<h1>' + (L.passed ? 'DAY ' + lv.day + ' DONE' : 'A SLOW DAY') + '</h1>' +
         '<div class="rank" style="letter-spacing:8px">' + starRow + '</div>' +
         '<h2>' + (L.passed
           ? (stars === 3 ? 'The queue is singing your name.'
             : stars === 2 ? 'Solid shift. Barely a burnt nugget.'
               : 'Scraped through. The rent is rising.')
           : 'You took ' + CS.money(L.net) + ' and owed ' + CS.money(L.outgoings) +
-            '. Nothing lost but the day.') + '</h2>' +
+            '. The shop is still yours.') + '</h2>' +
         '<div class="receipt">' + body + '</div>' +
         '<div class="scoreline small"><span>' + L.served + ' served, ' +
           L.missed + ' walked out, ' + L.burnt + ' burnt</span></div>' +
-        '<button class="big" id="nextBtn">' +
-        (L.passed ? 'TO THE SHOP &#9656;' : 'TRY DAY ' + lv.day + ' AGAIN') + '</button>');
-      c.querySelector('#nextBtn').onclick = L.passed ? onNext : onRetry;
+        '<div class="krow">' +
+        '<button class="btn" id="retryBtn">RUN DAY ' + lv.day + ' AGAIN</button>' +
+        '<button class="big" id="nextBtn">DAY ' + (lv.day + 1) + ' &#9656;</button>' +
+        '</div>');
+      c.querySelector('#nextBtn').onclick = onNext;
+      c.querySelector('#retryBtn').onclick = onRetry;
       this.setHudVisible(false);
     },
 
