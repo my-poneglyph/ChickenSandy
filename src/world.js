@@ -229,6 +229,82 @@ window.CS = window.CS || {};
     }
   };
 
+  /* ------------------------------------------------------- stonework
+     Walls are built, not painted: a dark mortar core with real dressed
+     stones standing proud of it in running courses, a heavy plinth along
+     the floor and an overhanging coping on top. Every piece of a wall is
+     baked into one mesh (CS.merge) with its own tint, so all that relief
+     costs a single draw call per wall tile. */
+  var STONE_TINTS = [0xb3aea8, 0xa9a4a0, 0xbcb6ae, 0x9f9b99, 0xb7ab9a, 0xa8a6ab, 0xc0b8aa];
+  var MORTAR_TINT = 0x57535c, PLINTH_TINT = 0x7d7873, COPING_TINT = 0xc4beb5;
+  var stoneMat = null;
+
+  function hash(n) { var s = Math.sin(n * 12.9898) * 43758.5453; return s - Math.floor(s); }
+  function tinted(mesh, hex) { mesh.userData.tint = CS.linear(hex); return mesh; }
+
+  /* Courses of stones across one face of a wall. (cx, cz) is the middle of
+     the face, on its surface; (nx, nz) is its outward normal; it is w wide
+     and the stones fill y0..y1. Joints are laid out along the wall in world
+     coordinates, so courses run on unbroken from one wall tile to the next,
+     and a stone cut in two at a tile edge keeps one tint and one depth. */
+  function stoneCourses(out, cx, cz, nx, nz, w, y0, y1, o) {
+    o = o || {};
+    var L = o.len || 0.7, rowH = o.rowH || 0.46, gap = 0.05, depth = 0.18;
+    var tx = Math.abs(nz), tz = Math.abs(nx);          // the face runs along x or z
+    var g0 = cx * tx + cz * tz;                          // where this face sits along it
+    var line = Math.round((tx ? cz : cx) * 10);          // which wall this is
+    var rows = Math.max(1, Math.round((y1 - y0) / rowH)), rh = (y1 - y0) / rows;
+    function edge(k, r) { return k * L + (r % 2) * L * 0.5 + (hash(k * 7.1 + r * 131.3 + line * 17.7) - 0.5) * L * 0.35; }
+    for (var r = 0; r < rows; r++) {
+      var k0 = Math.floor((g0 - w / 2) / L) - 2, k1 = Math.ceil((g0 + w / 2) / L) + 1;
+      for (var k = k0; k <= k1; k++) {
+        var A = edge(k, r), Bk = edge(k + 1, r);
+        var a = Math.max(A - g0, -w / 2), b = Math.min(Bk - g0, w / 2);
+        if (b - a < 0.08) continue;
+        // only real joints get a gap; a cut at the tile edge butts up flush
+        var ga = (A - g0 > -w / 2) ? gap / 2 : 0, gb = (Bk - g0 < w / 2) ? gap / 2 : 0;
+        var len = b - a - ga - gb, mid = (a + ga + b - gb) / 2;
+        var seed = k * 3.7 + r * 91.1 + line * 5.3;
+        var proud = 0.03 + hash(seed) * 0.05, off = proud - depth / 2;
+        var y = y0 + r * rh + rh / 2 + (hash(seed + 2) - 0.5) * 0.02;
+        var m = CS.box(tx ? len : depth, rh - gap, tz ? len : depth, {},
+          cx + nx * off + tx * mid, y, cz + nz * off + tz * mid);
+        out.push(tinted(m, STONE_TINTS[Math.floor(hash(seed + 1) * STONE_TINTS.length)]));
+      }
+    }
+  }
+
+  /* A strip along the foot or the top of a face: the plinth and the coping
+     lip. It stands `proud` out from the face. */
+  function band(out, cx, cz, nx, nz, w, y, h, proud, tint) {
+    var tx = Math.abs(nz), tz = Math.abs(nx), d = 0.3;
+    var m = CS.box(tx ? w : d, h, tz ? w : d, { round: 0.035 },
+      cx + nx * (proud - d / 2), y + h / 2, cz + nz * (proud - d / 2));
+    out.push(tinted(m, tint));
+  }
+
+  function stoneMesh(parts) {
+    if (!stoneMat) stoneMat = CS.mat({ color: 0xffffff, tex: 'grain', rough: 0.85, vc: true });
+    return CS.merge(parts, stoneMat);
+  }
+
+  /* One wall tile: core, then for each face that can be seen, stones from
+     wherever it becomes visible (the floor, or the top of a lower wall next
+     to it) up to the coping. */
+  function wallTile(scene, x, z, h, faces) {
+    var parts = [];
+    parts.push(tinted(CS.box(T, h, T, { round: 0 }, x, h / 2, z), MORTAR_TINT));
+    faces.forEach(function (f) {
+      var nx = f[0], nz = f[1], from = f[2];
+      var cx = x + nx * T / 2, cz = z + nz * T / 2;
+      if (from === 0) band(parts, cx, cz, nx, nz, T, 0, 0.26, 0.13, PLINTH_TINT);
+      stoneCourses(parts, cx, cz, nx, nz, T, from === 0 ? 0.26 : from, h);
+      band(parts, cx, cz, nx, nz, T, h, 0.15, 0.12, COPING_TINT);
+    });
+    parts.push(tinted(CS.box(T, 0.15, T, { round: 0.035 }, x, h + 0.075, z), COPING_TINT));
+    scene.add(stoneMesh(parts));
+  }
+
   var LABELS = {
     F: 'Fryer', S: 'Serve', X: 'Trash', K: 'Chicken', T: 'Potatoes',
     P: 'Plates', B: 'Buns', L: 'Lettuce', O: 'Tomato', I: 'Pickles',
@@ -362,7 +438,7 @@ window.CS = window.CS || {};
     // mask the square top corners of the view with stone
     var cornerW = archR * 0.32;
     [-1, 1].forEach(function (s) {
-      g.add(CS.box(cornerW, archR * 0.62, 0.06, { color: 0xffffff, tex: 'wall' }, s * (w / 2 - cornerW / 2), h / 2 + archR * 0.66, 0.06, 0));
+      g.add(CS.box(cornerW, archR * 0.62, 0.06, { color: 0xb0aba6, tex: 'grain', rough: 0.9 }, s * (w / 2 - cornerW / 2), h / 2 + archR * 0.66, 0.06, 0));
     });
     var F = { color: 0xe8dcc4, rough: 0.8 };
     g.add(CS.box(0.22, h, 0.24, F, -w / 2, 0, 0.08));
@@ -490,15 +566,15 @@ window.CS = window.CS || {};
       var fw = bw * T, fh = bh * T;
       var fx = CS.OX + (B.c0 * T) + fw / 2, fz = CS.OZ + (B.r0 * T) + fh / 2;
       var floor = new THREE.Mesh(new THREE.PlaneGeometry(fw, fh),
-        CS.mat({ color: 0xffffff, tex: 'floor', rough: 0.55 }));
+        CS.mat({ color: 0xffffff, tex: 'floor', rough: 0.2 }));
       floor.material = floor.material.clone();
       floor.material.map = CS.texRepeat('floor', bw / 2, bh / 2);
       floor.rotation.x = -Math.PI / 2;
       floor.position.set(fx, 0, fz);
       floor.receiveShadow = true;
       scene.add(floor);
-      // the polished sheen on top of it: see mirror.js
-      scene.add(CS.mirror.create(fw, fh, fx, fz, 0.55));
+      // and the reflection on top of the polish: see mirror.js
+      scene.add(CS.mirror.create(fw, fh, fx, fz, 0.8));
 
       // ---- dining floor beyond the serving window
       var dine = new THREE.Mesh(new THREE.PlaneGeometry(fw + 10, 10),
@@ -511,7 +587,33 @@ window.CS = window.CS || {};
       scene.add(dine);
 
       // ---- tiles
-      var WALL = { color: 0xffffff, tex: 'wall', rough: 0.9, round: 0 };
+      // The back wall stands tall behind everything. The side walls are low,
+      // like the front one, or they would stand in front of the stoves and
+      // trays mounted along them and hide them from the camera.
+      function wallHeight(col, row) {
+        if (row === B.r1) return CS.LOW_WALL_H;
+        if (row > B.r0 && (col === B.c0 || col === B.c1)) return CS.SIDE_WALL_H;
+        return CS.WALL_H;
+      }
+      // Which faces of a wall tile can be seen, and from what height: open
+      // floor next to it shows the whole face; a lower wall next to it shows
+      // the part above that wall; the front wall shows its outside face too.
+      function wallFaces(col, row, h) {
+        var out = [];
+        [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(function (d) {
+          var c = col + d[0], r = row + d[1];
+          var nb = CS.charAt(c, r);
+          if (row === B.r1 && d[1] === 1) out.push([0, 1, 0]);      // faces the camera
+          else if (nb === '.') out.push([d[0], d[1], 0]);
+          else if (CS.STATION_DEFS[nb]) out.push([d[0], d[1], 0.85]);  // shows above the kit
+          else if (nb === '#' && c >= B.c0 && c <= B.c1 && r >= B.r0 && r <= B.r1) {
+            var nh = wallHeight(c, r);
+            if (nh < h - 0.3) out.push([d[0], d[1], nh + 0.15]);
+          }
+        });
+        return out;
+      }
+
       for (var row = 0; row < CS.MAP_H; row++) {
         for (var col = 0; col < CS.MAP_W; col++) {
           var ch = CS.MAP[row][col];
@@ -524,11 +626,8 @@ window.CS = window.CS || {};
 
           if (ch === '#') {
             heights[row][col] = 99;
-            var south = (row === B.r1);
-            var h = south ? CS.LOW_WALL_H : CS.WALL_H;
-            scene.add(CS.box(T, h, T, WALL, p.x, h / 2, p.z));
-            // a rounded stone coping along the top of every wall
-            scene.add(CS.box(T, 0.16, T * 1.04, { color: 0x8e8a92, rough: 0.8 }, p.x, h + 0.06, p.z));
+            var h = wallHeight(col, row);
+            wallTile(scene, p.x, p.z, h, wallFaces(col, row, h));
             continue;
           }
 
@@ -573,31 +672,37 @@ window.CS = window.CS || {};
       var dx = CS.DOOR_X, dw = CS.DOOR_W, dh = 2.5;
       var gap0 = dx - dw / 2, gap1 = dx + dw / 2;
 
+      // the same stonework as the kitchen, in bigger blocks, on the face
+      // that looks back at the kitchen
+      var face = backZ + 0.3, dining = [];
       [[wallX0, gap0], [gap1, wallX1]].forEach(function (seg) {
         var w = seg[1] - seg[0];
         if (w <= 0.01) return;
-        var mt = CS.mat({ color: 0xffffff, tex: 'wall', rough: 0.9 }).clone();
-        mt.map = CS.texRepeat('wall', w / 2.2, 3.6 / 2.9);
-        scene.add(CS.box(w, 3.6, 0.6, mt, (seg[0] + seg[1]) / 2, 1.8, backZ));
+        var cx = (seg[0] + seg[1]) / 2;
+        dining.push(tinted(CS.box(w, 3.6, 0.6, { round: 0 }, cx, 1.8, backZ), MORTAR_TINT));
+        band(dining, cx, face, 0, 1, w, 0, 0.3, 0.14, PLINTH_TINT);
+        stoneCourses(dining, cx, face, 0, 1, w, 0.3, 3.55, { len: 1.0, rowH: 0.54 });
       });
       // lintel over the opening, then the cornice runs unbroken above it all
-      scene.add(CS.box(dw, 3.6 - dh, 0.6, WALL, dx, dh + (3.6 - dh) / 2, backZ));
-      scene.add(CS.box(wallW, 0.3, 0.9, { color: 0xe8dcc4, rough: 0.8 }, wallCx, 3.7, backZ));
+      dining.push(tinted(CS.box(dw, 3.6 - dh, 0.6, { round: 0 }, dx, dh + (3.6 - dh) / 2, backZ), MORTAR_TINT));
+      stoneCourses(dining, dx, face, 0, 1, dw, dh + 0.2, 3.55, { len: 1.0, rowH: 0.54 });
+      dining.push(tinted(CS.box(wallW, 0.3, 0.9, { round: 0.05 }, wallCx, 3.7, backZ), COPING_TINT));
+      scene.add(stoneMesh(dining));
 
       doorway(scene, dx, backZ, dw, dh);
 
       var s1 = CS.models.signBoard(['Good Food', 'Happy', 'Chicken'], 3.4);
-      s1.position.set(fx - fw * 0.40, 2.0, backZ + 0.35);
+      s1.position.set(fx - fw * 0.40, 2.0, backZ + 0.45);
       scene.add(s1);
       var s2 = CS.models.signBoard(['Chicken', 'Sandwich', '= Happiness'], 3.4);
-      s2.position.set(fx + fw * 0.24, 2.0, backZ + 0.35);
+      s2.position.set(fx + fw * 0.24, 2.0, backZ + 0.45);
       scene.add(s2);
-      banner(scene, fx - fw * 0.16, 2.0, backZ + 0.3, 1.0);
-      banner(scene, fx + fw * 0.44, 2.0, backZ + 0.3, 1.0);
+      banner(scene, fx - fw * 0.16, 2.0, backZ + 0.42, 1.0);
+      banner(scene, fx + fw * 0.44, 2.0, backZ + 0.42, 1.0);
 
       // ---- decor on the north wall (the face the camera always sees)
       // Row 0 spans z = [OZ, OZ+T], so the face the camera sees is at OZ+T.
-      var wallZ = CS.OZ + T + 0.02;
+      var wallZ = CS.OZ + T + 0.12;          // clear of the stones standing proud of it
 
       kitchenWindow(scene, CS.OX + T * 7.0, 1.55, wallZ, 3.4, 1.6);
       fireplace(scene, CS.OX + T * 9.0, wallZ + 0.12);
@@ -622,7 +727,7 @@ window.CS = window.CS || {};
       barrel(scene, CS.OX + 2.9, CS.OZ - 8.2, 0.82);
       chest(scene, CS.OX + fw - 2.2, CS.OZ - 7.8, -0.25);
       barrel(scene, CS.OX + fw - 4.0, CS.OZ - 8.1, 0.9);
-      shelf(scene, fx, 2.75, backZ + 0.32, 3.4);
+      shelf(scene, fx, 2.75, backZ + 0.42, 3.4);
 
       // ---- lighting: a warm key from the window side, a soft sky/bounce
       // fill, and pools of lantern light. The renderer tone-maps all of it.

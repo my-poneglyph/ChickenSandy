@@ -10,20 +10,24 @@ each day after that adds exactly one new idea and squeezes the timings, and the
 pressure also builds *inside* each shift — tickets that arrive late in a day are
 fussier than the ones that opened it.
 
-The look is a storybook fantasy kitchen: sandstone flags, grey castle stone,
-honey-oak cabinets with blue-and-white tiled worktops, stone stoves with iron
-skillets over glowing coals, royal-blue banners and an arched window onto a castle
-on the hill. Everything is built in code from smooth primitives — rounded boxes,
-ellipsoids, cylinders — with painted procedural textures, physically-based
-materials and filmic tone mapping. There are no image assets, no build step, and no
-network calls at runtime.
+The look is a storybook fantasy kitchen: a polished marble checker floor, castle
+walls of real dressed stone, honey-oak cabinets with blue-and-white tiled worktops,
+stone stoves with iron skillets over glowing coals, royal-blue banners and an arched
+window onto a castle on the hill. Everything is built in code from smooth primitives
+— rounded boxes, ellipsoids, cylinders — with painted procedural textures,
+physically-based materials and filmic tone mapping. There are no image assets, no
+build step, and no network calls at runtime.
 
 A few touches worth knowing about:
 
-* **The floor is polished.** It is a real planar reflection, rendered at half
-  resolution with a Fresnel falloff so it shines across the room and fades out at
-  your feet. It costs a second draw of the scene, so phones skip it; add
-  `?mirror=1` or `?mirror=0` to the URL to force it either way.
+* **The floor is polished.** Glossy marble tiles that catch the lights, under a real
+  planar reflection with a Fresnel falloff, so it shines most across the room and
+  least at your feet. The reflection costs a second draw of the scene, so phones skip
+  it; add `?mirror=1` or `?mirror=0` to the URL to force it either way.
+* **The walls are built, not painted.** Every wall is courses of individual stones
+  standing proud of the mortar, with a plinth along the floor and an overhanging
+  coping, all baked into one mesh per wall tile. The back wall stands tall; the side
+  and front walls are kept low so they never hide the stoves and trays along them.
 * **Food steams.** A pan puffs steam the whole time something is frying, more as it
   nears done and going grey as it starts to catch; a burnt basket smokes. Anything
   fresh out of the oil keeps steaming for a while wherever it ends up — on a

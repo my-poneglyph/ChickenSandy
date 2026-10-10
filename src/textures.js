@@ -173,11 +173,66 @@ window.CS = window.CS || {};
   }
 
   var G = {
-    /* Kitchen floor: big warm sandstone flags, two map tiles per repeat. */
+    /* Kitchen floor: polished marble tiles in a cream and slate-blue
+       checker, two to a map tile, with soft veining and a bright bevel on
+       each one. It is drawn glossy, and the planar reflection in mirror.js
+       sits on top of it. */
     floor: function () {
-      return finish(masonry({ size: 256, seed: 21, rowH: 64, minW: 70, maxW: 140,
-        base: 0xc6a77c, vary: 22, grout: 0x7e6548, gap: 2.5, round: 7, grain: 9,
-        blot: [0xd8bd92, 0xae8e64, 0xcfae80] }), 1);
+      var size = 512, n = 4, t = size / n, c = canvas(size), x = c.x, rng = rngFrom(21);
+      x.fillStyle = '#cbc2b1'; x.fillRect(0, 0, size, size);              // grout
+      for (var i = 0; i < n; i++) {
+        for (var j = 0; j < n; j++) {
+          var dark = (i + j) % 2 === 1;
+          var base = dark ? 0x56657e : 0xe3d5ba;
+          var px = i * t, py = j * t;
+          var col = shade(base, (rng() - 0.5) * 10);
+          var g = x.createLinearGradient(px, py, px + t, py + t);
+          g.addColorStop(0, hex(shade(col, 10)));
+          g.addColorStop(1, hex(shade(col, -8)));
+          roundRect(x, px + 2, py + 2, t - 4, t - 4, 5);
+          x.fillStyle = g; x.fill();
+          // marble veins: a few long soft wandering lines
+          x.save();
+          roundRect(x, px + 2, py + 2, t - 4, t - 4, 5); x.clip();
+          for (var v = 0; v < 2; v++) {
+            x.strokeStyle = rgba(dark ? 0x7c8aa3 : 0xcdbf9f, 0.16 + rng() * 0.12);
+            x.lineWidth = 0.6 + rng() * 0.9;
+            x.beginPath();
+            var sx = px + rng() * t, sy = py - 4;
+            x.moveTo(sx, sy);
+            for (var k = 1; k <= 6; k++) {
+              x.quadraticCurveTo(sx + (rng() - 0.5) * 24, py + (k - 0.5) * t / 6,
+                sx + (rng() - 0.5) * 14 + (k - 3) * 6, py + k * t / 6);
+            }
+            x.stroke();
+          }
+          x.restore();
+          // bevel: a light lip top-left, a soft shadow bottom-right
+          x.fillStyle = rgba(0xffffff, dark ? 0.16 : 0.35);
+          x.fillRect(px + 7, py + 4, t - 14, 2);
+          x.fillRect(px + 4, py + 7, 2, t - 14);
+          x.fillStyle = rgba(0x000000, 0.12);
+          x.fillRect(px + 7, py + t - 6, t - 14, 2);
+          x.fillRect(px + t - 6, py + 7, 2, t - 14);
+        }
+      }
+      grain(x, size, 5, 22);
+      return finish(c.c, 1);
+    },
+
+    /* Fine speckle for the faces of the wall stones. White, so each stone's
+       own tint (a vertex colour) shows through. */
+    grain: function () {
+      var size = 128, c = canvas(size), x = c.x;
+      x.fillStyle = '#e9e9e9'; x.fillRect(0, 0, size, size);
+      blotches(x, size, [0xffffff, 0xc8c8c8], 26, 8, 26, 0.5, 301);
+      var rng = rngFrom(302);
+      for (var i = 0; i < 160; i++) {
+        x.fillStyle = rgba(rng() < 0.5 ? 0x9a9a9a : 0xffffff, 0.4);
+        x.beginPath(); x.arc(rng() * size, rng() * size, 0.6 + rng() * 1.6, 0, Math.PI * 2); x.fill();
+      }
+      grain(x, size, 14, 303);
+      return finish(c.c, 1);
     },
 
     /* Dining room: smaller, rosier pavers so the two rooms read apart. */
@@ -185,14 +240,6 @@ window.CS = window.CS || {};
       return finish(masonry({ size: 256, seed: 44, rowH: 64, minW: 48, maxW: 96,
         base: 0xae7f64, vary: 26, grout: 0x6e5242, gap: 2.5, round: 6, grain: 9,
         blot: [0xc2937a, 0x946a52] }), 1);
-    },
-
-    /* Walls: cool grey castle stone, so the warm floor and the oak and
-       brass in front of it stand out. */
-    wall: function () {
-      return finish(masonry({ size: 256, seed: 88, rowH: 64, minW: 60, maxW: 120,
-        base: 0xaaa6a4, vary: 22, grout: 0x6c6870, gap: 2, round: 5, grain: 8,
-        blot: [0xbcb8b2, 0x8e8b96] }), 1);
     },
 
     /* Hearth and stove stone: a cooler grey so the fire glows against it. */

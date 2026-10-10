@@ -1,11 +1,11 @@
 /* The polished kitchen floor.
 
    A real planar reflection: once a frame the scene is drawn again from a
-   camera mirrored through the floor, into a texture at half resolution, and
-   that texture is laid over the floor flags as a faint waxed sheen, softened
+   camera mirrored through the floor, into a texture at reduced resolution, and
+   that texture is laid over the polished tiles, softened very slightly
    with a small five-tap blur and faded by a Fresnel term, so it shines
-   across the room and all but vanishes at your feet -- polish, not a
-   mirror.
+   brightest across the room and softest at your feet, the way a real
+   polished floor does.
 
    Anything that should not show up in the floor (plaques, progress bars, the
    chef's blob shadow, the target highlight) is moved onto layer 1 with
@@ -38,8 +38,8 @@ window.CS = window.CS || {};
   // The render target is cleared to transparent black, so averaging taps
   // weights colour by coverage; dividing by alpha undoes that, and edges of a
   // reflected object fade out instead of going dark. The Fresnel term is
-  // what makes it read as polish rather than haze: looking down at your feet
-  // a waxed floor barely reflects, while far across the room it shines.
+  // what makes it read as polish rather than haze: looking straight down a
+  // polished floor reflects least, and across the room it is nearly a mirror.
   var FRAG = [
     'uniform sampler2D tMirror;',
     'uniform float strength;',
@@ -48,20 +48,20 @@ window.CS = window.CS || {};
     'varying vec3 vWorld;',
     'void main() {',
     '  vec2 uv = vUv.xy / vUv.w;',
-    '  vec4 c = texture2D(tMirror, uv) * 0.36;',
-    '  c += texture2D(tMirror, uv + vec2(0.0, texel.y)) * 0.22;',
-    '  c += texture2D(tMirror, uv - vec2(0.0, texel.y)) * 0.22;',
+    '  vec4 c = texture2D(tMirror, uv) * 0.6;',
+    '  c += texture2D(tMirror, uv + vec2(0.0, texel.y)) * 0.1;',
+    '  c += texture2D(tMirror, uv - vec2(0.0, texel.y)) * 0.1;',
     '  c += texture2D(tMirror, uv + vec2(texel.x, 0.0)) * 0.10;',
     '  c += texture2D(tMirror, uv - vec2(texel.x, 0.0)) * 0.10;',
     '  vec3 col = c.rgb / max(c.a, 0.001);',
     '  float cosV = clamp(normalize(cameraPosition - vWorld).y, 0.0, 1.0);',
-    '  float fres = 0.12 + 0.88 * pow(1.0 - cosV, 2.0);',
+    '  float fres = 0.3 + 0.7 * pow(1.0 - cosV, 1.5);',
     '  gl_FragColor = vec4(col * 0.9, c.a * strength * fres);',
     '  #include <encodings_fragment>',
     '}'
   ].join('\n');
 
-  var rt = null, mesh = null, on = true, scale = 0.5;
+  var rt = null, mesh = null, on = true, scale = 0.65;
   var vcam = new THREE.PerspectiveCamera();
   vcam.layers.set(0);
 

@@ -239,7 +239,7 @@ window.CS = window.CS || {};
     st.item = item;
     while (st.slot.children.length) st.slot.remove(st.slot.children[0]);
     if (item) {
-      var m = CS.models.item(item);
+      var m = CS.models.item(item, { inPan: st.type === 'fryer' });
       m.scale.setScalar(1.5);            // oversized so the food reads from here
       if (st.type === 'fryer') m.position.y = -0.09;
       st.slot.add(m);

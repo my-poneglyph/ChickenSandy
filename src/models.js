@@ -24,7 +24,7 @@ window.CS = window.CS || {};
     var rep = o.rep ? (o.rep[0] + 'x' + o.rep[1]) : '-';
     var key = [o.color == null ? 0xffffff : o.color, o.tex || '-', rep, o.emissive || 0,
       o.opacity == null ? 1 : o.opacity, o.basic ? 1 : 0,
-      o.rough == null ? '-' : o.rough, o.metal || 0, o.side || 0].join('|');
+      o.rough == null ? '-' : o.rough, o.metal || 0, o.side || 0, o.vc ? 1 : 0].join('|');
     if (matCache[key]) return matCache[key];
     var params = {
       color: CS.linear(o.color == null ? 0xffffff : o.color),
@@ -32,6 +32,7 @@ window.CS = window.CS || {};
       opacity: o.opacity == null ? 1 : o.opacity
     };
     if (o.side) params.side = THREE.DoubleSide;
+    if (o.vc) params.vertexColors = true;          // per-piece tints, see CS.merge
     // `rep` keeps a pattern at a fixed scale on faces of different sizes
     if (o.tex) params.map = o.rep ? CS.texRepeat(o.tex, o.rep[0], o.rep[1]) : CS.tex(o.tex);
     var m;
@@ -160,6 +161,45 @@ window.CS = window.CS || {};
   };
 
   function add(parent, mesh) { parent.add(mesh); return mesh; }
+
+  /* Bake a list of loose meshes into one mesh, so a wall of a few dozen
+     stones costs one draw call instead of a few dozen. Each piece keeps its
+     own transform, and can carry a tint in `userData.tint` (a linear
+     THREE.Color) that becomes its vertex colour -- give the result a
+     material made with `vc: true` to see the tints. */
+  CS.merge = function (meshes, material) {
+    var pos = [], nor = [], uv = [], col = [], idx = [], base = 0;
+    var v = new THREE.Vector3(), n = new THREE.Vector3(), nm = new THREE.Matrix3();
+    var white = new THREE.Color(1, 1, 1);
+    meshes.forEach(function (m) {
+      m.updateMatrix();
+      nm.getNormalMatrix(m.matrix);
+      var g = m.geometry, P = g.attributes.position, N = g.attributes.normal, U = g.attributes.uv;
+      var c = m.userData.tint || white;
+      for (var i = 0; i < P.count; i++) {
+        v.fromBufferAttribute(P, i).applyMatrix4(m.matrix);
+        n.fromBufferAttribute(N, i).applyMatrix3(nm).normalize();
+        pos.push(v.x, v.y, v.z);
+        nor.push(n.x, n.y, n.z);
+        uv.push(U ? U.getX(i) : 0, U ? U.getY(i) : 0);
+        col.push(c.r, c.g, c.b);
+      }
+      if (g.index) {
+        for (var j = 0; j < g.index.count; j++) idx.push(g.index.getX(j) + base);
+      } else {
+        for (var k = 0; k < P.count; k++) idx.push(k + base);
+      }
+      base += P.count;
+    });
+    var geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    geo.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+    geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+    geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+    geo.setIndex(idx);
+    geo.computeBoundingSphere();
+    return finishMesh(new THREE.Mesh(geo, material), 0, 0, 0);
+  };
 
   /* A point on the surface of an ellipsoid, using SphereGeometry's angles:
      phi runs around (PI/2 is straight ahead, +z), theta from the top down. */
@@ -572,33 +612,73 @@ window.CS = window.CS || {};
     return g;
   }
 
-  /* A splayed bundle of fries, each a slim rounded stick. */
-  function friesBundle(color, count, emissive) {
+  /* A cheap, repeatable "random" for laying out fries, so the same item
+     always looks the same and a re-rendered carton does not jump about. */
+  function jitter(i, k) {
+    var s = Math.sin(i * 12.9898 + k * 78.233) * 43758.5453;
+    return s - Math.floor(s);
+  }
+
+  /* A bundle of slim fries standing on end and splaying outward: a filled
+     disc of sticks, the outer ones leaning further, each a little different
+     in length and with a lighter crisp tip. */
+  function friesBundle(body, tip, count, emissive, tight) {
     var g = new THREE.Group();
-    var mb = { color: color, emissive: emissive, rough: 0.5 };
+    var mb = { color: body, emissive: emissive, rough: 0.5 };
+    var mt = { color: tip, emissive: emissive, rough: 0.5 };
     for (var i = 0; i < count; i++) {
-      var a = (i / count) * Math.PI * 2;
-      var r = 0.055 + (i % 2) * 0.025;
-      var h = 0.26 + (i % 3) * 0.04;
-      var f = add(g, CS.box(0.05, h, 0.05, mb, Math.cos(a) * r, h / 2, Math.sin(a) * r));
-      f.rotation.z = Math.cos(a) * 0.24;
-      f.rotation.x = -Math.sin(a) * 0.24;
+      var ring = i === 0 ? 0 : (i < 7 ? 1 : 2);
+      var a = i * 2.39996 + jitter(i, 1) * 0.4;                // golden-angle spread
+      var r = ring * (tight ? 0.028 : 0.04) + jitter(i, 2) * 0.01;
+      var h = 0.30 + jitter(i, 3) * 0.10;
+      var stick = new THREE.Group();
+      stick.position.set(Math.cos(a) * r, 0, Math.sin(a) * r * (tight ? 0.75 : 1));
+      stick.add(CS.box(0.036, h, 0.036, mb, 0, h / 2, 0));
+      stick.add(CS.box(0.038, 0.03, 0.038, mt, 0, h - 0.01, 0));
+      var lean = tight ? 0.04 + ring * 0.07 : 0.06 + ring * 0.13;
+      stick.rotation.z = -Math.cos(a) * lean;
+      stick.rotation.x = Math.sin(a) * lean * (tight ? 0.6 : 1);   // the carton is shallower front to back
+      g.add(stick);
     }
     return g;
   }
 
-  /* The red carton, tapered, with a gold crest on the front and the fries
-     fanned out over the top. */
+  /* Loose fries tumbled in the pan: sticks lying every which way, a couple
+     of layers deep, so a basket of fries reads as fries and not a carton. */
+  function friesPile(body, count, emissive) {
+    var g = new THREE.Group();
+    var m = { color: body, emissive: emissive, rough: 0.45 };
+    for (var i = 0; i < count; i++) {
+      var a = jitter(i, 4) * Math.PI * 2, r = jitter(i, 5) * 0.22;
+      var f = add(g, CS.box(0.30, 0.036, 0.036, m, Math.cos(a) * r, 0.03 + (i % 3) * 0.03, Math.sin(a) * r));
+      f.rotation.y = jitter(i, 6) * Math.PI;
+      f.rotation.z = (jitter(i, 7) - 0.5) * 0.3;
+    }
+    return g;
+  }
+
+  /* The red carton: an open-topped box built from its four walls and a
+     floor, with a white band round the rim and a gold crest on the front,
+     and the fries standing up out of it. No two faces share a plane, so
+     nothing can flicker. */
   function friesCarton(burnt) {
     var g = new THREE.Group();
-    var box = add(g, CS.cyl(0.17, 0.12, 0.25, { color: 0xd8382e, rough: 0.5 }, 0, 0.125, 0, 4));
-    box.rotation.y = Math.PI / 4;
-    var lip = add(g, CS.cyl(0.175, 0.17, 0.03, { color: 0xf0f0e8, rough: 0.6 }, 0, 0.235, 0, 4));
-    lip.rotation.y = Math.PI / 4;
-    add(g, CS.ball(0.04, 0.04, 0.012, { color: 0xf2c54a, rough: 0.3, metal: 0.6 }, 0, 0.14, 0.105));
-    var f = burnt ? friesBundle(0x3a2f26, 10) : friesBundle(0xffc63f, 10, WARM);
-    f.position.y = 0.10;
-    f.scale.set(1.15, 0.9, 0.9);
+    var RED = { color: 0xd8382e, rough: 0.5 };
+    var BAND = { color: 0xf4efe4, rough: 0.6 };
+    var W = 0.26, D = 0.20, H = 0.24, t = 0.022;
+    g.add(CS.box(W - 0.02, 0.02, D - 0.02, RED, 0, 0.01, 0));
+    [-1, 1].forEach(function (s) {
+      g.add(CS.box(W, H, t, RED, 0, H / 2, s * (D / 2 - t / 2)));                  // front, back
+      g.add(CS.box(t, H, D - t * 2, RED, s * (W / 2 - t / 2), H / 2, 0));           // sides
+      g.add(CS.box(W + 0.014, 0.045, t + 0.014, BAND, 0, H - 0.055, s * (D / 2 - t / 2)));
+      g.add(CS.box(t + 0.014, 0.045, D - t * 2, BAND, s * (W / 2 - t / 2), H - 0.055, 0));
+    });
+    var crest = add(g, CS.cyl(0.035, 0.035, 0.012, { color: 0xf2c54a, rough: 0.3, metal: 0.6 },
+      0, 0.11, D / 2 + 0.006, 16));
+    crest.rotation.x = Math.PI / 2;
+    var f = burnt ? friesBundle(0x3a2f26, 0x2a221c, 16, null, true)
+      : friesBundle(0xffc63f, 0xffe18a, 16, WARM, true);
+    f.position.y = 0.03;
     g.add(f);
     return g;
   }
@@ -687,8 +767,10 @@ window.CS = window.CS || {};
   }
   CS.models.dish = dish;
 
-  /* item -> THREE.Group. `item` is the plain data object from interact.js */
-  CS.models.item = function (item) {
+  /* item -> THREE.Group. `item` is the plain data object from interact.js.
+     opts.inPan draws fries as they look frying: loose in the oil, not boxed. */
+  CS.models.item = function (item, opts) {
+    var inPan = !!(opts && opts.inPan);
     var g = new THREE.Group();
     if (!item) return g;
 
@@ -696,9 +778,9 @@ window.CS = window.CS || {};
       case 'rawChicken':   g.add(chickenPatty('raw')); break;
       case 'friedChicken': g.add(chickenPatty('fried')); break;
       case 'burntChicken': g.add(chickenPatty('burnt')); break;
-      case 'rawFries':     g.add(friesBundle(0xfbe9b8, 10)); break;
-      case 'cookedFries':  g.add(friesCarton(false)); break;
-      case 'burntFries':   g.add(friesCarton(true)); break;
+      case 'rawFries':     g.add(inPan ? friesPile(0xfbe9b8, 16) : friesBundle(0xfbe9b8, 0xfff6dc, 12)); break;
+      case 'cookedFries':  g.add(inPan ? friesPile(0xffc63f, 16, WARM) : friesCarton(false)); break;
+      case 'burntFries':   g.add(inPan ? friesPile(0x3a2f26, 16) : friesCarton(true)); break;
       case 'cup':          g.add(sauceCup(item.sauce)); break;
       case 'plate': {
         dish(g);

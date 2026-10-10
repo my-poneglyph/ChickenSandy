@@ -300,15 +300,15 @@
     background:#34508f;overflow:hidden;
   }
   .kgrid .void{background:#120f2c;}
-  .kgrid .wall{background:#ff8a7a;}
-  .kgrid .floor{background:#7fd3c0;}
+  .kgrid .wall{background:#8f8a92;}
+  .kgrid .floor{background:#e3d5ba;}
   .kgrid .spawn{box-shadow:inset 0 0 0 2px #f0a63c99;}
   .kgrid .st{color:#14203d;font-size:6px;}
-  .kgrid .fryer{background:#ffc23d;color:#3a2a1e;}
-  .kgrid .serve{background:#ffd23f;}
-  .kgrid .bin{background:#3fc7b4;color:#ffffff;}
-  .kgrid .prep{background:#d9cbf7;}
-  .kgrid .crate{background:#ff9a3d;color:#ffffff;}
+  .kgrid .fryer{background:#3a3d46;color:#ffb45c;}
+  .kgrid .serve{background:#c9a04a;}
+  .kgrid .bin{background:#8a5a33;color:#ffffff;}
+  .kgrid .prep{background:#c9d4ec;}
+  .kgrid .crate{background:#c8955c;color:#ffffff;}
   .kgrid .stack{background:#ffffff;}
   .kgrid .top-let{background:#6fbf3a;}
   .kgrid .top-tom{background:#d6402f;color:#fff;}
@@ -770,6 +770,7 @@ window.CS = window.CS || {};
   CS.TILE = 2.2;          // world units per map tile
   CS.WALL_H = 2.9;        // height of a plain wall block
   CS.LOW_WALL_H = 1.05;   // south wall is short so it never hides the kitchen
+  CS.SIDE_WALL_H = 1.35;  // so are the side walls, or they hide the stoves on them
 
   /* Kitchen layout.
      #  wall          .  floor         C  counter (free slot)
@@ -2317,11 +2318,66 @@ window.CS = window.CS || {};
   }
 
   var G = {
-    /* Kitchen floor: big warm sandstone flags, two map tiles per repeat. */
+    /* Kitchen floor: polished marble tiles in a cream and slate-blue
+       checker, two to a map tile, with soft veining and a bright bevel on
+       each one. It is drawn glossy, and the planar reflection in mirror.js
+       sits on top of it. */
     floor: function () {
-      return finish(masonry({ size: 256, seed: 21, rowH: 64, minW: 70, maxW: 140,
-        base: 0xc6a77c, vary: 22, grout: 0x7e6548, gap: 2.5, round: 7, grain: 9,
-        blot: [0xd8bd92, 0xae8e64, 0xcfae80] }), 1);
+      var size = 512, n = 4, t = size / n, c = canvas(size), x = c.x, rng = rngFrom(21);
+      x.fillStyle = '#cbc2b1'; x.fillRect(0, 0, size, size);              // grout
+      for (var i = 0; i < n; i++) {
+        for (var j = 0; j < n; j++) {
+          var dark = (i + j) % 2 === 1;
+          var base = dark ? 0x56657e : 0xe3d5ba;
+          var px = i * t, py = j * t;
+          var col = shade(base, (rng() - 0.5) * 10);
+          var g = x.createLinearGradient(px, py, px + t, py + t);
+          g.addColorStop(0, hex(shade(col, 10)));
+          g.addColorStop(1, hex(shade(col, -8)));
+          roundRect(x, px + 2, py + 2, t - 4, t - 4, 5);
+          x.fillStyle = g; x.fill();
+          // marble veins: a few long soft wandering lines
+          x.save();
+          roundRect(x, px + 2, py + 2, t - 4, t - 4, 5); x.clip();
+          for (var v = 0; v < 2; v++) {
+            x.strokeStyle = rgba(dark ? 0x7c8aa3 : 0xcdbf9f, 0.16 + rng() * 0.12);
+            x.lineWidth = 0.6 + rng() * 0.9;
+            x.beginPath();
+            var sx = px + rng() * t, sy = py - 4;
+            x.moveTo(sx, sy);
+            for (var k = 1; k <= 6; k++) {
+              x.quadraticCurveTo(sx + (rng() - 0.5) * 24, py + (k - 0.5) * t / 6,
+                sx + (rng() - 0.5) * 14 + (k - 3) * 6, py + k * t / 6);
+            }
+            x.stroke();
+          }
+          x.restore();
+          // bevel: a light lip top-left, a soft shadow bottom-right
+          x.fillStyle = rgba(0xffffff, dark ? 0.16 : 0.35);
+          x.fillRect(px + 7, py + 4, t - 14, 2);
+          x.fillRect(px + 4, py + 7, 2, t - 14);
+          x.fillStyle = rgba(0x000000, 0.12);
+          x.fillRect(px + 7, py + t - 6, t - 14, 2);
+          x.fillRect(px + t - 6, py + 7, 2, t - 14);
+        }
+      }
+      grain(x, size, 5, 22);
+      return finish(c.c, 1);
+    },
+
+    /* Fine speckle for the faces of the wall stones. White, so each stone's
+       own tint (a vertex colour) shows through. */
+    grain: function () {
+      var size = 128, c = canvas(size), x = c.x;
+      x.fillStyle = '#e9e9e9'; x.fillRect(0, 0, size, size);
+      blotches(x, size, [0xffffff, 0xc8c8c8], 26, 8, 26, 0.5, 301);
+      var rng = rngFrom(302);
+      for (var i = 0; i < 160; i++) {
+        x.fillStyle = rgba(rng() < 0.5 ? 0x9a9a9a : 0xffffff, 0.4);
+        x.beginPath(); x.arc(rng() * size, rng() * size, 0.6 + rng() * 1.6, 0, Math.PI * 2); x.fill();
+      }
+      grain(x, size, 14, 303);
+      return finish(c.c, 1);
     },
 
     /* Dining room: smaller, rosier pavers so the two rooms read apart. */
@@ -2329,14 +2385,6 @@ window.CS = window.CS || {};
       return finish(masonry({ size: 256, seed: 44, rowH: 64, minW: 48, maxW: 96,
         base: 0xae7f64, vary: 26, grout: 0x6e5242, gap: 2.5, round: 6, grain: 9,
         blot: [0xc2937a, 0x946a52] }), 1);
-    },
-
-    /* Walls: cool grey castle stone, so the warm floor and the oak and
-       brass in front of it stand out. */
-    wall: function () {
-      return finish(masonry({ size: 256, seed: 88, rowH: 64, minW: 60, maxW: 120,
-        base: 0xaaa6a4, vary: 22, grout: 0x6c6870, gap: 2, round: 5, grain: 8,
-        blot: [0xbcb8b2, 0x8e8b96] }), 1);
     },
 
     /* Hearth and stove stone: a cooler grey so the fire glows against it. */
@@ -2527,7 +2575,7 @@ window.CS = window.CS || {};
     var rep = o.rep ? (o.rep[0] + 'x' + o.rep[1]) : '-';
     var key = [o.color == null ? 0xffffff : o.color, o.tex || '-', rep, o.emissive || 0,
       o.opacity == null ? 1 : o.opacity, o.basic ? 1 : 0,
-      o.rough == null ? '-' : o.rough, o.metal || 0, o.side || 0].join('|');
+      o.rough == null ? '-' : o.rough, o.metal || 0, o.side || 0, o.vc ? 1 : 0].join('|');
     if (matCache[key]) return matCache[key];
     var params = {
       color: CS.linear(o.color == null ? 0xffffff : o.color),
@@ -2535,6 +2583,7 @@ window.CS = window.CS || {};
       opacity: o.opacity == null ? 1 : o.opacity
     };
     if (o.side) params.side = THREE.DoubleSide;
+    if (o.vc) params.vertexColors = true;          // per-piece tints, see CS.merge
     // `rep` keeps a pattern at a fixed scale on faces of different sizes
     if (o.tex) params.map = o.rep ? CS.texRepeat(o.tex, o.rep[0], o.rep[1]) : CS.tex(o.tex);
     var m;
@@ -2663,6 +2712,45 @@ window.CS = window.CS || {};
   };
 
   function add(parent, mesh) { parent.add(mesh); return mesh; }
+
+  /* Bake a list of loose meshes into one mesh, so a wall of a few dozen
+     stones costs one draw call instead of a few dozen. Each piece keeps its
+     own transform, and can carry a tint in `userData.tint` (a linear
+     THREE.Color) that becomes its vertex colour -- give the result a
+     material made with `vc: true` to see the tints. */
+  CS.merge = function (meshes, material) {
+    var pos = [], nor = [], uv = [], col = [], idx = [], base = 0;
+    var v = new THREE.Vector3(), n = new THREE.Vector3(), nm = new THREE.Matrix3();
+    var white = new THREE.Color(1, 1, 1);
+    meshes.forEach(function (m) {
+      m.updateMatrix();
+      nm.getNormalMatrix(m.matrix);
+      var g = m.geometry, P = g.attributes.position, N = g.attributes.normal, U = g.attributes.uv;
+      var c = m.userData.tint || white;
+      for (var i = 0; i < P.count; i++) {
+        v.fromBufferAttribute(P, i).applyMatrix4(m.matrix);
+        n.fromBufferAttribute(N, i).applyMatrix3(nm).normalize();
+        pos.push(v.x, v.y, v.z);
+        nor.push(n.x, n.y, n.z);
+        uv.push(U ? U.getX(i) : 0, U ? U.getY(i) : 0);
+        col.push(c.r, c.g, c.b);
+      }
+      if (g.index) {
+        for (var j = 0; j < g.index.count; j++) idx.push(g.index.getX(j) + base);
+      } else {
+        for (var k = 0; k < P.count; k++) idx.push(k + base);
+      }
+      base += P.count;
+    });
+    var geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    geo.setAttribute('normal', new THREE.Float32BufferAttribute(nor, 3));
+    geo.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+    geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
+    geo.setIndex(idx);
+    geo.computeBoundingSphere();
+    return finishMesh(new THREE.Mesh(geo, material), 0, 0, 0);
+  };
 
   /* A point on the surface of an ellipsoid, using SphereGeometry's angles:
      phi runs around (PI/2 is straight ahead, +z), theta from the top down. */
@@ -3075,33 +3163,73 @@ window.CS = window.CS || {};
     return g;
   }
 
-  /* A splayed bundle of fries, each a slim rounded stick. */
-  function friesBundle(color, count, emissive) {
+  /* A cheap, repeatable "random" for laying out fries, so the same item
+     always looks the same and a re-rendered carton does not jump about. */
+  function jitter(i, k) {
+    var s = Math.sin(i * 12.9898 + k * 78.233) * 43758.5453;
+    return s - Math.floor(s);
+  }
+
+  /* A bundle of slim fries standing on end and splaying outward: a filled
+     disc of sticks, the outer ones leaning further, each a little different
+     in length and with a lighter crisp tip. */
+  function friesBundle(body, tip, count, emissive, tight) {
     var g = new THREE.Group();
-    var mb = { color: color, emissive: emissive, rough: 0.5 };
+    var mb = { color: body, emissive: emissive, rough: 0.5 };
+    var mt = { color: tip, emissive: emissive, rough: 0.5 };
     for (var i = 0; i < count; i++) {
-      var a = (i / count) * Math.PI * 2;
-      var r = 0.055 + (i % 2) * 0.025;
-      var h = 0.26 + (i % 3) * 0.04;
-      var f = add(g, CS.box(0.05, h, 0.05, mb, Math.cos(a) * r, h / 2, Math.sin(a) * r));
-      f.rotation.z = Math.cos(a) * 0.24;
-      f.rotation.x = -Math.sin(a) * 0.24;
+      var ring = i === 0 ? 0 : (i < 7 ? 1 : 2);
+      var a = i * 2.39996 + jitter(i, 1) * 0.4;                // golden-angle spread
+      var r = ring * (tight ? 0.028 : 0.04) + jitter(i, 2) * 0.01;
+      var h = 0.30 + jitter(i, 3) * 0.10;
+      var stick = new THREE.Group();
+      stick.position.set(Math.cos(a) * r, 0, Math.sin(a) * r * (tight ? 0.75 : 1));
+      stick.add(CS.box(0.036, h, 0.036, mb, 0, h / 2, 0));
+      stick.add(CS.box(0.038, 0.03, 0.038, mt, 0, h - 0.01, 0));
+      var lean = tight ? 0.04 + ring * 0.07 : 0.06 + ring * 0.13;
+      stick.rotation.z = -Math.cos(a) * lean;
+      stick.rotation.x = Math.sin(a) * lean * (tight ? 0.6 : 1);   // the carton is shallower front to back
+      g.add(stick);
     }
     return g;
   }
 
-  /* The red carton, tapered, with a gold crest on the front and the fries
-     fanned out over the top. */
+  /* Loose fries tumbled in the pan: sticks lying every which way, a couple
+     of layers deep, so a basket of fries reads as fries and not a carton. */
+  function friesPile(body, count, emissive) {
+    var g = new THREE.Group();
+    var m = { color: body, emissive: emissive, rough: 0.45 };
+    for (var i = 0; i < count; i++) {
+      var a = jitter(i, 4) * Math.PI * 2, r = jitter(i, 5) * 0.22;
+      var f = add(g, CS.box(0.30, 0.036, 0.036, m, Math.cos(a) * r, 0.03 + (i % 3) * 0.03, Math.sin(a) * r));
+      f.rotation.y = jitter(i, 6) * Math.PI;
+      f.rotation.z = (jitter(i, 7) - 0.5) * 0.3;
+    }
+    return g;
+  }
+
+  /* The red carton: an open-topped box built from its four walls and a
+     floor, with a white band round the rim and a gold crest on the front,
+     and the fries standing up out of it. No two faces share a plane, so
+     nothing can flicker. */
   function friesCarton(burnt) {
     var g = new THREE.Group();
-    var box = add(g, CS.cyl(0.17, 0.12, 0.25, { color: 0xd8382e, rough: 0.5 }, 0, 0.125, 0, 4));
-    box.rotation.y = Math.PI / 4;
-    var lip = add(g, CS.cyl(0.175, 0.17, 0.03, { color: 0xf0f0e8, rough: 0.6 }, 0, 0.235, 0, 4));
-    lip.rotation.y = Math.PI / 4;
-    add(g, CS.ball(0.04, 0.04, 0.012, { color: 0xf2c54a, rough: 0.3, metal: 0.6 }, 0, 0.14, 0.105));
-    var f = burnt ? friesBundle(0x3a2f26, 10) : friesBundle(0xffc63f, 10, WARM);
-    f.position.y = 0.10;
-    f.scale.set(1.15, 0.9, 0.9);
+    var RED = { color: 0xd8382e, rough: 0.5 };
+    var BAND = { color: 0xf4efe4, rough: 0.6 };
+    var W = 0.26, D = 0.20, H = 0.24, t = 0.022;
+    g.add(CS.box(W - 0.02, 0.02, D - 0.02, RED, 0, 0.01, 0));
+    [-1, 1].forEach(function (s) {
+      g.add(CS.box(W, H, t, RED, 0, H / 2, s * (D / 2 - t / 2)));                  // front, back
+      g.add(CS.box(t, H, D - t * 2, RED, s * (W / 2 - t / 2), H / 2, 0));           // sides
+      g.add(CS.box(W + 0.014, 0.045, t + 0.014, BAND, 0, H - 0.055, s * (D / 2 - t / 2)));
+      g.add(CS.box(t + 0.014, 0.045, D - t * 2, BAND, s * (W / 2 - t / 2), H - 0.055, 0));
+    });
+    var crest = add(g, CS.cyl(0.035, 0.035, 0.012, { color: 0xf2c54a, rough: 0.3, metal: 0.6 },
+      0, 0.11, D / 2 + 0.006, 16));
+    crest.rotation.x = Math.PI / 2;
+    var f = burnt ? friesBundle(0x3a2f26, 0x2a221c, 16, null, true)
+      : friesBundle(0xffc63f, 0xffe18a, 16, WARM, true);
+    f.position.y = 0.03;
     g.add(f);
     return g;
   }
@@ -3190,8 +3318,10 @@ window.CS = window.CS || {};
   }
   CS.models.dish = dish;
 
-  /* item -> THREE.Group. `item` is the plain data object from interact.js */
-  CS.models.item = function (item) {
+  /* item -> THREE.Group. `item` is the plain data object from interact.js.
+     opts.inPan draws fries as they look frying: loose in the oil, not boxed. */
+  CS.models.item = function (item, opts) {
+    var inPan = !!(opts && opts.inPan);
     var g = new THREE.Group();
     if (!item) return g;
 
@@ -3199,9 +3329,9 @@ window.CS = window.CS || {};
       case 'rawChicken':   g.add(chickenPatty('raw')); break;
       case 'friedChicken': g.add(chickenPatty('fried')); break;
       case 'burntChicken': g.add(chickenPatty('burnt')); break;
-      case 'rawFries':     g.add(friesBundle(0xfbe9b8, 10)); break;
-      case 'cookedFries':  g.add(friesCarton(false)); break;
-      case 'burntFries':   g.add(friesCarton(true)); break;
+      case 'rawFries':     g.add(inPan ? friesPile(0xfbe9b8, 16) : friesBundle(0xfbe9b8, 0xfff6dc, 12)); break;
+      case 'cookedFries':  g.add(inPan ? friesPile(0xffc63f, 16, WARM) : friesCarton(false)); break;
+      case 'burntFries':   g.add(inPan ? friesPile(0x3a2f26, 16) : friesCarton(true)); break;
       case 'cup':          g.add(sauceCup(item.sauce)); break;
       case 'plate': {
         dish(g);
@@ -3617,11 +3747,11 @@ window.CS = window.CS || {};
 /* The polished kitchen floor.
 
    A real planar reflection: once a frame the scene is drawn again from a
-   camera mirrored through the floor, into a texture at half resolution, and
-   that texture is laid over the floor flags as a faint waxed sheen, softened
+   camera mirrored through the floor, into a texture at reduced resolution, and
+   that texture is laid over the polished tiles, softened very slightly
    with a small five-tap blur and faded by a Fresnel term, so it shines
-   across the room and all but vanishes at your feet -- polish, not a
-   mirror.
+   brightest across the room and softest at your feet, the way a real
+   polished floor does.
 
    Anything that should not show up in the floor (plaques, progress bars, the
    chef's blob shadow, the target highlight) is moved onto layer 1 with
@@ -3654,8 +3784,8 @@ window.CS = window.CS || {};
   // The render target is cleared to transparent black, so averaging taps
   // weights colour by coverage; dividing by alpha undoes that, and edges of a
   // reflected object fade out instead of going dark. The Fresnel term is
-  // what makes it read as polish rather than haze: looking down at your feet
-  // a waxed floor barely reflects, while far across the room it shines.
+  // what makes it read as polish rather than haze: looking straight down a
+  // polished floor reflects least, and across the room it is nearly a mirror.
   var FRAG = [
     'uniform sampler2D tMirror;',
     'uniform float strength;',
@@ -3664,20 +3794,20 @@ window.CS = window.CS || {};
     'varying vec3 vWorld;',
     'void main() {',
     '  vec2 uv = vUv.xy / vUv.w;',
-    '  vec4 c = texture2D(tMirror, uv) * 0.36;',
-    '  c += texture2D(tMirror, uv + vec2(0.0, texel.y)) * 0.22;',
-    '  c += texture2D(tMirror, uv - vec2(0.0, texel.y)) * 0.22;',
+    '  vec4 c = texture2D(tMirror, uv) * 0.6;',
+    '  c += texture2D(tMirror, uv + vec2(0.0, texel.y)) * 0.1;',
+    '  c += texture2D(tMirror, uv - vec2(0.0, texel.y)) * 0.1;',
     '  c += texture2D(tMirror, uv + vec2(texel.x, 0.0)) * 0.10;',
     '  c += texture2D(tMirror, uv - vec2(texel.x, 0.0)) * 0.10;',
     '  vec3 col = c.rgb / max(c.a, 0.001);',
     '  float cosV = clamp(normalize(cameraPosition - vWorld).y, 0.0, 1.0);',
-    '  float fres = 0.12 + 0.88 * pow(1.0 - cosV, 2.0);',
+    '  float fres = 0.3 + 0.7 * pow(1.0 - cosV, 1.5);',
     '  gl_FragColor = vec4(col * 0.9, c.a * strength * fres);',
     '  #include <encodings_fragment>',
     '}'
   ].join('\n');
 
-  var rt = null, mesh = null, on = true, scale = 0.5;
+  var rt = null, mesh = null, on = true, scale = 0.65;
   var vcam = new THREE.PerspectiveCamera();
   vcam.layers.set(0);
 
@@ -4050,6 +4180,82 @@ window.CS = window.CS || {};
     }
   };
 
+  /* ------------------------------------------------------- stonework
+     Walls are built, not painted: a dark mortar core with real dressed
+     stones standing proud of it in running courses, a heavy plinth along
+     the floor and an overhanging coping on top. Every piece of a wall is
+     baked into one mesh (CS.merge) with its own tint, so all that relief
+     costs a single draw call per wall tile. */
+  var STONE_TINTS = [0xb3aea8, 0xa9a4a0, 0xbcb6ae, 0x9f9b99, 0xb7ab9a, 0xa8a6ab, 0xc0b8aa];
+  var MORTAR_TINT = 0x57535c, PLINTH_TINT = 0x7d7873, COPING_TINT = 0xc4beb5;
+  var stoneMat = null;
+
+  function hash(n) { var s = Math.sin(n * 12.9898) * 43758.5453; return s - Math.floor(s); }
+  function tinted(mesh, hex) { mesh.userData.tint = CS.linear(hex); return mesh; }
+
+  /* Courses of stones across one face of a wall. (cx, cz) is the middle of
+     the face, on its surface; (nx, nz) is its outward normal; it is w wide
+     and the stones fill y0..y1. Joints are laid out along the wall in world
+     coordinates, so courses run on unbroken from one wall tile to the next,
+     and a stone cut in two at a tile edge keeps one tint and one depth. */
+  function stoneCourses(out, cx, cz, nx, nz, w, y0, y1, o) {
+    o = o || {};
+    var L = o.len || 0.7, rowH = o.rowH || 0.46, gap = 0.05, depth = 0.18;
+    var tx = Math.abs(nz), tz = Math.abs(nx);          // the face runs along x or z
+    var g0 = cx * tx + cz * tz;                          // where this face sits along it
+    var line = Math.round((tx ? cz : cx) * 10);          // which wall this is
+    var rows = Math.max(1, Math.round((y1 - y0) / rowH)), rh = (y1 - y0) / rows;
+    function edge(k, r) { return k * L + (r % 2) * L * 0.5 + (hash(k * 7.1 + r * 131.3 + line * 17.7) - 0.5) * L * 0.35; }
+    for (var r = 0; r < rows; r++) {
+      var k0 = Math.floor((g0 - w / 2) / L) - 2, k1 = Math.ceil((g0 + w / 2) / L) + 1;
+      for (var k = k0; k <= k1; k++) {
+        var A = edge(k, r), Bk = edge(k + 1, r);
+        var a = Math.max(A - g0, -w / 2), b = Math.min(Bk - g0, w / 2);
+        if (b - a < 0.08) continue;
+        // only real joints get a gap; a cut at the tile edge butts up flush
+        var ga = (A - g0 > -w / 2) ? gap / 2 : 0, gb = (Bk - g0 < w / 2) ? gap / 2 : 0;
+        var len = b - a - ga - gb, mid = (a + ga + b - gb) / 2;
+        var seed = k * 3.7 + r * 91.1 + line * 5.3;
+        var proud = 0.03 + hash(seed) * 0.05, off = proud - depth / 2;
+        var y = y0 + r * rh + rh / 2 + (hash(seed + 2) - 0.5) * 0.02;
+        var m = CS.box(tx ? len : depth, rh - gap, tz ? len : depth, {},
+          cx + nx * off + tx * mid, y, cz + nz * off + tz * mid);
+        out.push(tinted(m, STONE_TINTS[Math.floor(hash(seed + 1) * STONE_TINTS.length)]));
+      }
+    }
+  }
+
+  /* A strip along the foot or the top of a face: the plinth and the coping
+     lip. It stands `proud` out from the face. */
+  function band(out, cx, cz, nx, nz, w, y, h, proud, tint) {
+    var tx = Math.abs(nz), tz = Math.abs(nx), d = 0.3;
+    var m = CS.box(tx ? w : d, h, tz ? w : d, { round: 0.035 },
+      cx + nx * (proud - d / 2), y + h / 2, cz + nz * (proud - d / 2));
+    out.push(tinted(m, tint));
+  }
+
+  function stoneMesh(parts) {
+    if (!stoneMat) stoneMat = CS.mat({ color: 0xffffff, tex: 'grain', rough: 0.85, vc: true });
+    return CS.merge(parts, stoneMat);
+  }
+
+  /* One wall tile: core, then for each face that can be seen, stones from
+     wherever it becomes visible (the floor, or the top of a lower wall next
+     to it) up to the coping. */
+  function wallTile(scene, x, z, h, faces) {
+    var parts = [];
+    parts.push(tinted(CS.box(T, h, T, { round: 0 }, x, h / 2, z), MORTAR_TINT));
+    faces.forEach(function (f) {
+      var nx = f[0], nz = f[1], from = f[2];
+      var cx = x + nx * T / 2, cz = z + nz * T / 2;
+      if (from === 0) band(parts, cx, cz, nx, nz, T, 0, 0.26, 0.13, PLINTH_TINT);
+      stoneCourses(parts, cx, cz, nx, nz, T, from === 0 ? 0.26 : from, h);
+      band(parts, cx, cz, nx, nz, T, h, 0.15, 0.12, COPING_TINT);
+    });
+    parts.push(tinted(CS.box(T, 0.15, T, { round: 0.035 }, x, h + 0.075, z), COPING_TINT));
+    scene.add(stoneMesh(parts));
+  }
+
   var LABELS = {
     F: 'Fryer', S: 'Serve', X: 'Trash', K: 'Chicken', T: 'Potatoes',
     P: 'Plates', B: 'Buns', L: 'Lettuce', O: 'Tomato', I: 'Pickles',
@@ -4183,7 +4389,7 @@ window.CS = window.CS || {};
     // mask the square top corners of the view with stone
     var cornerW = archR * 0.32;
     [-1, 1].forEach(function (s) {
-      g.add(CS.box(cornerW, archR * 0.62, 0.06, { color: 0xffffff, tex: 'wall' }, s * (w / 2 - cornerW / 2), h / 2 + archR * 0.66, 0.06, 0));
+      g.add(CS.box(cornerW, archR * 0.62, 0.06, { color: 0xb0aba6, tex: 'grain', rough: 0.9 }, s * (w / 2 - cornerW / 2), h / 2 + archR * 0.66, 0.06, 0));
     });
     var F = { color: 0xe8dcc4, rough: 0.8 };
     g.add(CS.box(0.22, h, 0.24, F, -w / 2, 0, 0.08));
@@ -4311,15 +4517,15 @@ window.CS = window.CS || {};
       var fw = bw * T, fh = bh * T;
       var fx = CS.OX + (B.c0 * T) + fw / 2, fz = CS.OZ + (B.r0 * T) + fh / 2;
       var floor = new THREE.Mesh(new THREE.PlaneGeometry(fw, fh),
-        CS.mat({ color: 0xffffff, tex: 'floor', rough: 0.55 }));
+        CS.mat({ color: 0xffffff, tex: 'floor', rough: 0.2 }));
       floor.material = floor.material.clone();
       floor.material.map = CS.texRepeat('floor', bw / 2, bh / 2);
       floor.rotation.x = -Math.PI / 2;
       floor.position.set(fx, 0, fz);
       floor.receiveShadow = true;
       scene.add(floor);
-      // the polished sheen on top of it: see mirror.js
-      scene.add(CS.mirror.create(fw, fh, fx, fz, 0.55));
+      // and the reflection on top of the polish: see mirror.js
+      scene.add(CS.mirror.create(fw, fh, fx, fz, 0.8));
 
       // ---- dining floor beyond the serving window
       var dine = new THREE.Mesh(new THREE.PlaneGeometry(fw + 10, 10),
@@ -4332,7 +4538,33 @@ window.CS = window.CS || {};
       scene.add(dine);
 
       // ---- tiles
-      var WALL = { color: 0xffffff, tex: 'wall', rough: 0.9, round: 0 };
+      // The back wall stands tall behind everything. The side walls are low,
+      // like the front one, or they would stand in front of the stoves and
+      // trays mounted along them and hide them from the camera.
+      function wallHeight(col, row) {
+        if (row === B.r1) return CS.LOW_WALL_H;
+        if (row > B.r0 && (col === B.c0 || col === B.c1)) return CS.SIDE_WALL_H;
+        return CS.WALL_H;
+      }
+      // Which faces of a wall tile can be seen, and from what height: open
+      // floor next to it shows the whole face; a lower wall next to it shows
+      // the part above that wall; the front wall shows its outside face too.
+      function wallFaces(col, row, h) {
+        var out = [];
+        [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(function (d) {
+          var c = col + d[0], r = row + d[1];
+          var nb = CS.charAt(c, r);
+          if (row === B.r1 && d[1] === 1) out.push([0, 1, 0]);      // faces the camera
+          else if (nb === '.') out.push([d[0], d[1], 0]);
+          else if (CS.STATION_DEFS[nb]) out.push([d[0], d[1], 0.85]);  // shows above the kit
+          else if (nb === '#' && c >= B.c0 && c <= B.c1 && r >= B.r0 && r <= B.r1) {
+            var nh = wallHeight(c, r);
+            if (nh < h - 0.3) out.push([d[0], d[1], nh + 0.15]);
+          }
+        });
+        return out;
+      }
+
       for (var row = 0; row < CS.MAP_H; row++) {
         for (var col = 0; col < CS.MAP_W; col++) {
           var ch = CS.MAP[row][col];
@@ -4345,11 +4577,8 @@ window.CS = window.CS || {};
 
           if (ch === '#') {
             heights[row][col] = 99;
-            var south = (row === B.r1);
-            var h = south ? CS.LOW_WALL_H : CS.WALL_H;
-            scene.add(CS.box(T, h, T, WALL, p.x, h / 2, p.z));
-            // a rounded stone coping along the top of every wall
-            scene.add(CS.box(T, 0.16, T * 1.04, { color: 0x8e8a92, rough: 0.8 }, p.x, h + 0.06, p.z));
+            var h = wallHeight(col, row);
+            wallTile(scene, p.x, p.z, h, wallFaces(col, row, h));
             continue;
           }
 
@@ -4394,31 +4623,37 @@ window.CS = window.CS || {};
       var dx = CS.DOOR_X, dw = CS.DOOR_W, dh = 2.5;
       var gap0 = dx - dw / 2, gap1 = dx + dw / 2;
 
+      // the same stonework as the kitchen, in bigger blocks, on the face
+      // that looks back at the kitchen
+      var face = backZ + 0.3, dining = [];
       [[wallX0, gap0], [gap1, wallX1]].forEach(function (seg) {
         var w = seg[1] - seg[0];
         if (w <= 0.01) return;
-        var mt = CS.mat({ color: 0xffffff, tex: 'wall', rough: 0.9 }).clone();
-        mt.map = CS.texRepeat('wall', w / 2.2, 3.6 / 2.9);
-        scene.add(CS.box(w, 3.6, 0.6, mt, (seg[0] + seg[1]) / 2, 1.8, backZ));
+        var cx = (seg[0] + seg[1]) / 2;
+        dining.push(tinted(CS.box(w, 3.6, 0.6, { round: 0 }, cx, 1.8, backZ), MORTAR_TINT));
+        band(dining, cx, face, 0, 1, w, 0, 0.3, 0.14, PLINTH_TINT);
+        stoneCourses(dining, cx, face, 0, 1, w, 0.3, 3.55, { len: 1.0, rowH: 0.54 });
       });
       // lintel over the opening, then the cornice runs unbroken above it all
-      scene.add(CS.box(dw, 3.6 - dh, 0.6, WALL, dx, dh + (3.6 - dh) / 2, backZ));
-      scene.add(CS.box(wallW, 0.3, 0.9, { color: 0xe8dcc4, rough: 0.8 }, wallCx, 3.7, backZ));
+      dining.push(tinted(CS.box(dw, 3.6 - dh, 0.6, { round: 0 }, dx, dh + (3.6 - dh) / 2, backZ), MORTAR_TINT));
+      stoneCourses(dining, dx, face, 0, 1, dw, dh + 0.2, 3.55, { len: 1.0, rowH: 0.54 });
+      dining.push(tinted(CS.box(wallW, 0.3, 0.9, { round: 0.05 }, wallCx, 3.7, backZ), COPING_TINT));
+      scene.add(stoneMesh(dining));
 
       doorway(scene, dx, backZ, dw, dh);
 
       var s1 = CS.models.signBoard(['Good Food', 'Happy', 'Chicken'], 3.4);
-      s1.position.set(fx - fw * 0.40, 2.0, backZ + 0.35);
+      s1.position.set(fx - fw * 0.40, 2.0, backZ + 0.45);
       scene.add(s1);
       var s2 = CS.models.signBoard(['Chicken', 'Sandwich', '= Happiness'], 3.4);
-      s2.position.set(fx + fw * 0.24, 2.0, backZ + 0.35);
+      s2.position.set(fx + fw * 0.24, 2.0, backZ + 0.45);
       scene.add(s2);
-      banner(scene, fx - fw * 0.16, 2.0, backZ + 0.3, 1.0);
-      banner(scene, fx + fw * 0.44, 2.0, backZ + 0.3, 1.0);
+      banner(scene, fx - fw * 0.16, 2.0, backZ + 0.42, 1.0);
+      banner(scene, fx + fw * 0.44, 2.0, backZ + 0.42, 1.0);
 
       // ---- decor on the north wall (the face the camera always sees)
       // Row 0 spans z = [OZ, OZ+T], so the face the camera sees is at OZ+T.
-      var wallZ = CS.OZ + T + 0.02;
+      var wallZ = CS.OZ + T + 0.12;          // clear of the stones standing proud of it
 
       kitchenWindow(scene, CS.OX + T * 7.0, 1.55, wallZ, 3.4, 1.6);
       fireplace(scene, CS.OX + T * 9.0, wallZ + 0.12);
@@ -4443,7 +4678,7 @@ window.CS = window.CS || {};
       barrel(scene, CS.OX + 2.9, CS.OZ - 8.2, 0.82);
       chest(scene, CS.OX + fw - 2.2, CS.OZ - 7.8, -0.25);
       barrel(scene, CS.OX + fw - 4.0, CS.OZ - 8.1, 0.9);
-      shelf(scene, fx, 2.75, backZ + 0.32, 3.4);
+      shelf(scene, fx, 2.75, backZ + 0.42, 3.4);
 
       // ---- lighting: a warm key from the window side, a soft sky/bounce
       // fill, and pools of lantern light. The renderer tone-maps all of it.
@@ -7209,7 +7444,7 @@ window.CS = window.CS || {};
     st.item = item;
     while (st.slot.children.length) st.slot.remove(st.slot.children[0]);
     if (item) {
-      var m = CS.models.item(item);
+      var m = CS.models.item(item, { inPan: st.type === 'fryer' });
       m.scale.setScalar(1.5);            // oversized so the food reads from here
       if (st.type === 'fryer') m.position.y = -0.09;
       st.slot.add(m);

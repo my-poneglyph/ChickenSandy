@@ -7,6 +7,7 @@ window.CS = window.CS || {};
   CS.TILE = 2.2;          // world units per map tile
   CS.WALL_H = 2.9;        // height of a plain wall block
   CS.LOW_WALL_H = 1.05;   // south wall is short so it never hides the kitchen
+  CS.SIDE_WALL_H = 1.35;  // so are the side walls, or they hide the stoves on them
 
   /* Kitchen layout.
      #  wall          .  floor         C  counter (free slot)
