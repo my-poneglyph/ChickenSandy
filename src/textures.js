@@ -1,5 +1,11 @@
-/* Procedural pixel-art textures. Nothing is loaded from disk, so the game
-   works straight off the filesystem with no server and no image assets. */
+/* Procedural painted textures. Nothing is loaded from disk, so the game
+   works straight off the filesystem with no server and no image assets.
+
+   These are soft, hand-painted-looking surfaces -- sandstone flags, dressed
+   stone, honey-coloured wood, golden breading -- drawn once into a canvas at
+   load time, then sampled smoothly with mipmaps. They are authored in sRGB
+   and tagged as such, so the renderer's colour management handles them the
+   same way as every material colour. */
 window.CS = window.CS || {};
 (function (CS) {
   'use strict';
@@ -30,180 +36,299 @@ window.CS = window.CS || {};
   function canvas(size) {
     var c = document.createElement('canvas');
     c.width = c.height = size;
-    var x = c.getContext('2d');
-    x.imageSmoothingEnabled = false;
-    return { c: c, x: x };
+    return { c: c, x: c.getContext('2d') };
   }
 
   function finish(c, repeat) {
     var t = new THREE.CanvasTexture(c);
-    t.magFilter = THREE.NearestFilter;
-    t.minFilter = THREE.NearestFilter;
-    t.generateMipmaps = false;
+    t.encoding = THREE.sRGBEncoding;
+    t.magFilter = THREE.LinearFilter;
+    t.minFilter = THREE.LinearMipmapLinearFilter;
+    t.generateMipmaps = true;
+    t.anisotropy = 4;
     t.wrapS = t.wrapT = THREE.RepeatWrapping;
     if (repeat) t.repeat.set(repeat, repeat);
     return t;
   }
 
-  /* Horizontal plank boards with grain -- the workhorse wood look. */
-  function planks(size, plankH, base, opts) {
-    opts = opts || {};
-    var o = canvas(size), x = o.x, rng = rngFrom(opts.seed || 7);
-    for (var py = 0; py < size; py++) {
-      var row = Math.floor(py / plankH);
-      var seam = (py % plankH === 0);
-      for (var px = 0; px < size; px++) {
-        var tint = Math.floor((rngFrom(row * 131 + 7)() - 0.5) * 22);
-        var grain = (rng() < 0.30) ? (rng() < 0.5 ? -13 : 11) : 0;
-        var c = shade(base, tint + grain);
-        if (seam) c = shade(base, -38);
-        // vertical board breaks
-        if (opts.breaks && (px + row * 5) % Math.floor(size / 2) === 0) c = shade(base, -32);
-        x.fillStyle = hex(c);
-        x.fillRect(px, py, 1, 1);
-      }
+  /* Soft per-pixel grain over whatever is already drawn: a little value
+     noise so flat paint reads as a real surface up close. */
+  function grain(x, size, amount, seed) {
+    var img = x.getImageData(0, 0, size, size), d = img.data, rng = rngFrom(seed || 9);
+    for (var i = 0; i < d.length; i += 4) {
+      var n = (rng() - 0.5) * amount;
+      d[i] = CS.clamp(d[i] + n, 0, 255);
+      d[i + 1] = CS.clamp(d[i + 1] + n, 0, 255);
+      d[i + 2] = CS.clamp(d[i + 2] + n, 0, 255);
     }
-    return o.c;
+    x.putImageData(img, 0, 0);
   }
 
-  function speckle(size, base, spread, density, seed) {
-    var o = canvas(size), x = o.x, rng = rngFrom(seed || 3);
-    for (var py = 0; py < size; py++) {
-      for (var px = 0; px < size; px++) {
-        var c = base;
-        if (rng() < (density == null ? 0.5 : density)) {
-          c = shade(base, Math.floor((rng() - 0.5) * 2 * (spread || 16)));
+  function rgba(c, a) {
+    return 'rgba(' + ((c >> 16) & 255) + ',' + ((c >> 8) & 255) + ',' + (c & 255) + ',' + a + ')';
+  }
+
+  /* Big, soft, low-contrast blotches -- the "painted" variation that keeps a
+     large surface from looking like flat plastic. Wraps at the edges so the
+     texture still tiles. */
+  function blotches(x, size, colors, n, rMin, rMax, alpha, seed) {
+    var rng = rngFrom(seed);
+    for (var i = 0; i < n; i++) {
+      var cx = rng() * size, cy = rng() * size, r = rMin + rng() * (rMax - rMin);
+      var col = colors[Math.floor(rng() * colors.length)];
+      for (var ox = -1; ox <= 1; ox++) {
+        for (var oy = -1; oy <= 1; oy++) {
+          var px = cx + ox * size, py = cy + oy * size;
+          if (px + r < 0 || px - r > size || py + r < 0 || py - r > size) continue;
+          var g = x.createRadialGradient(px, py, 0, px, py, r);
+          g.addColorStop(0, rgba(col, alpha));
+          g.addColorStop(1, rgba(col, 0));
+          x.fillStyle = g;
+          x.fillRect(px - r, py - r, r * 2, r * 2);
         }
-        x.fillStyle = hex(c);
-        x.fillRect(px, py, 1, 1);
       }
     }
-    return o;
+  }
+
+  function roundRect(x, px, py, w, h, r) {
+    x.beginPath();
+    x.moveTo(px + r, py);
+    x.lineTo(px + w - r, py); x.quadraticCurveTo(px + w, py, px + w, py + r);
+    x.lineTo(px + w, py + h - r); x.quadraticCurveTo(px + w, py + h, px + w - r, py + h);
+    x.lineTo(px + r, py + h); x.quadraticCurveTo(px, py + h, px, py + h - r);
+    x.lineTo(px, py + r); x.quadraticCurveTo(px, py, px + r, py);
+    x.closePath();
+  }
+
+  /* Courses of dressed stones with soft bevels: the shared recipe behind the
+     floor flags, the walls and the hearth. Every course sums to exactly the
+     canvas width and a stone that runs off the right edge is drawn again on
+     the left, so the result tiles in both directions. */
+  function masonry(o) {
+    var size = o.size, c = canvas(size), x = c.x, rng = rngFrom(o.seed);
+    x.fillStyle = hex(o.grout);
+    x.fillRect(0, 0, size, size);
+    var rows = Math.round(size / o.rowH);
+    var lip = Math.max(1, size / 128), foot = Math.max(2, size / 96);
+    for (var r = 0; r < rows; r++) {
+      var y = r * o.rowH;
+      var start = Math.floor(rng() * o.minW), xx = start;
+      while (xx < start + size) {
+        var w = Math.min(o.minW + Math.floor(rng() * (o.maxW - o.minW)), start + size - xx);
+        if (start + size - xx - w < o.minW * 0.6) w = start + size - xx;
+        var col = shade(o.base, (rng() - 0.5) * o.vary);
+        [xx, xx - size].forEach(function (sx) {
+          if (sx + w < 0 || sx > size) return;
+          var g = o.gap;
+          roundRect(x, sx + g, y + g, w - g * 2, o.rowH - g * 2, o.round);
+          var grd = x.createLinearGradient(sx, y, sx + w * 0.3, y + o.rowH);
+          grd.addColorStop(0, hex(shade(col, 14)));
+          grd.addColorStop(1, hex(shade(col, -10)));
+          x.fillStyle = grd;
+          x.fill();
+          // a lighter lip along the top edge and a soft shadow along the bottom
+          x.fillStyle = rgba(0xffffff, 0.16);
+          x.fillRect(sx + g + o.round, y + g, w - g * 2 - o.round * 2, lip);
+          x.fillStyle = rgba(0x000000, 0.10);
+          x.fillRect(sx + g + o.round, y + o.rowH - g - foot, w - g * 2 - o.round * 2, foot);
+        });
+        xx += w;
+      }
+    }
+    if (o.blot) blotches(x, size, o.blot, 14, size * 0.06, size * 0.18, 0.12, o.seed + 1);
+    grain(x, size, o.grain || 10, o.seed + 2);
+    return c.c;
+  }
+
+  /* Boards running across the face, with long wavy grain and a dark seam. */
+  function wood(o) {
+    var size = o.size, c = canvas(size), x = c.x, rng = rngFrom(o.seed);
+    var n = Math.round(size / o.board), seam = Math.max(1, size / 96);
+    for (var i = 0; i < n; i++) {
+      var col = shade(o.base, (rng() - 0.5) * o.vary);
+      var y0 = i * o.board;
+      var grd = x.createLinearGradient(0, y0, 0, y0 + o.board);
+      grd.addColorStop(0, hex(shade(col, 10)));
+      grd.addColorStop(1, hex(shade(col, -8)));
+      x.fillStyle = grd;
+      x.fillRect(0, y0, size, o.board);
+      for (var s = 0; s < o.streaks; s++) {
+        var sy = y0 + 2 + rng() * (o.board - 4), amp = 0.6 + rng() * 1.6, ph = rng() * 6.28;
+        x.strokeStyle = rgba(shade(col, -30), 0.22 + rng() * 0.2);
+        x.lineWidth = 0.6 + rng() * 1.1;
+        x.beginPath();
+        for (var px = 0; px <= size; px += 4) {
+          var yy = sy + Math.sin(px / size * Math.PI * 2 * (1 + (s % 2)) + ph) * amp;
+          if (px === 0) x.moveTo(px, yy); else x.lineTo(px, yy);
+        }
+        x.stroke();
+      }
+      x.fillStyle = rgba(shade(o.base, -55), 0.75);
+      x.fillRect(0, y0, size, seam);
+      x.fillStyle = rgba(0xffffff, 0.10);
+      x.fillRect(0, y0 + seam, size, 1);
+    }
+    grain(x, size, 8, o.seed + 3);
+    return c.c;
   }
 
   var G = {
-    /* Kitchen floor: warm planks with a subtle checker of two tones. */
+    /* Kitchen floor: big warm sandstone flags, two map tiles per repeat. */
     floor: function () {
-      var size = 32, o = canvas(size), x = o.x, rng = rngFrom(21);
-      for (var py = 0; py < size; py++) {
-        for (var px = 0; px < size; px++) {
-          var big = ((Math.floor(px / 16) + Math.floor(py / 16)) % 2 === 0);
-          var base = big ? 0xa06c33 : 0x8c5b2a;
-          var row = Math.floor(py / 8);
-          var tint = Math.floor((rngFrom(row * 17 + (big ? 3 : 9))() - 0.5) * 18);
-          var c = shade(base, tint + (rng() < 0.28 ? (rng() < 0.5 ? -12 : 10) : 0));
-          if (py % 8 === 0) c = shade(base, -34);
-          if (px % 16 === 0) c = shade(base, -26);
-          x.fillStyle = hex(c); x.fillRect(px, py, 1, 1);
-        }
-      }
-      return finish(o.c, 1);
+      return finish(masonry({ size: 256, seed: 21, rowH: 64, minW: 70, maxW: 140,
+        base: 0xc6a77c, vary: 22, grout: 0x7e6548, gap: 2.5, round: 7, grain: 9,
+        blot: [0xd8bd92, 0xae8e64, 0xcfae80] }), 1);
     },
 
-    diningFloor: function () { return finish(planks(32, 8, 0x6b4526, { seed: 44 }), 1); },
+    /* Dining room: smaller, rosier pavers so the two rooms read apart. */
+    diningFloor: function () {
+      return finish(masonry({ size: 256, seed: 44, rowH: 64, minW: 48, maxW: 96,
+        base: 0xae7f64, vary: 26, grout: 0x6e5242, gap: 2.5, round: 6, grain: 9,
+        blot: [0xc2937a, 0x946a52] }), 1);
+    },
 
+    /* Walls: cool grey castle stone, so the warm floor and the oak and
+       brass in front of it stand out. */
     wall: function () {
-      var size = 32, o = canvas(size), x = o.x, rng = rngFrom(88);
-      for (var py = 0; py < size; py++) {
-        for (var px = 0; px < size; px++) {
-          var col = Math.floor(px / 8);
-          var base = 0x6b3f1e;
-          var tint = Math.floor((rngFrom(col * 53 + 5)() - 0.5) * 20);
-          var c = shade(base, tint + (rng() < 0.25 ? (rng() < 0.5 ? -11 : 9) : 0));
-          if (px % 8 === 0) c = shade(base, -36);
-          if (py % 16 === 0) c = shade(base, -18);
-          x.fillStyle = hex(c); x.fillRect(px, py, 1, 1);
+      return finish(masonry({ size: 256, seed: 88, rowH: 64, minW: 60, maxW: 120,
+        base: 0xaaa6a4, vary: 22, grout: 0x6c6870, gap: 2, round: 5, grain: 8,
+        blot: [0xbcb8b2, 0x8e8b96] }), 1);
+    },
+
+    /* Hearth and stove stone: a cooler grey so the fire glows against it. */
+    stone: function () {
+      return finish(masonry({ size: 128, seed: 191, rowH: 32, minW: 34, maxW: 64,
+        base: 0xb5ada3, vary: 20, grout: 0x81786e, gap: 1.5, round: 4, grain: 10 }), 1);
+    },
+
+    /* Cabinet and furniture wood: warm honey oak. */
+    counterWood: function () {
+      return finish(wood({ size: 128, seed: 12, board: 32, base: 0xbd8550, vary: 18, streaks: 5 }), 1);
+    },
+
+    /* Worktops: glazed blue-and-white tiles, four to a side, each with a
+       little painted flower. Food reads clearly against them, and they put
+       the castle blue into every counter. */
+    counterTop: function () {
+      var size = 256, n = 4, t = size / n, c = canvas(size), x = c.x;
+      x.fillStyle = '#c9c4b8'; x.fillRect(0, 0, size, size);
+      for (var i = 0; i < n; i++) {
+        for (var j = 0; j < n; j++) {
+          var px = i * t, py = j * t;
+          roundRect(x, px + 2, py + 2, t - 4, t - 4, 6);
+          var g = x.createLinearGradient(px, py, px + t, py + t);
+          g.addColorStop(0, '#f7f3ea'); g.addColorStop(1, '#e2dccd');
+          x.fillStyle = g; x.fill();
+          x.strokeStyle = '#3f62ad'; x.lineWidth = 3;
+          roundRect(x, px + 8, py + 8, t - 16, t - 16, 5); x.stroke();
+          var cx = px + t / 2, cy = py + t / 2;
+          x.fillStyle = '#3f62ad';
+          for (var k = 0; k < 4; k++) {
+            var a = k * Math.PI / 2 + Math.PI / 4;
+            x.beginPath(); x.ellipse(cx + Math.cos(a) * 8, cy + Math.sin(a) * 8, 7, 4, a, 0, Math.PI * 2); x.fill();
+          }
+          x.fillStyle = '#e8b54a';
+          x.beginPath(); x.arc(cx, cy, 4, 0, Math.PI * 2); x.fill();
+          x.fillStyle = 'rgba(255,255,255,0.5)';
+          x.fillRect(px + 10, py + 5, t * 0.35, 2);
         }
       }
-      return finish(o.c, 1);
+      grain(x, size, 5, 33);
+      return finish(c.c, 1);
     },
 
-    counterWood: function () { return finish(planks(16, 4, 0xa8703a, { seed: 12 }), 1); },
-    counterTop:  function () { return finish(planks(16, 8, 0xc08f4e, { seed: 31 }), 1); },
-    crate:       function () {
-      var size = 16, o = speckle(size, 0x8a5a2b, 14, 0.45, 5), x = o.x;
-      x.fillStyle = hex(0x5a381c);
-      x.fillRect(0, 0, size, 2); x.fillRect(0, size - 2, size, 2);
-      x.fillRect(0, 0, 2, size); x.fillRect(size - 2, 0, 2, size);
-      x.fillRect(0, 7, size, 2);
-      return finish(o.c, 1);
+    /* Produce crates: lighter slatted pine. */
+    crate: function () {
+      return finish(wood({ size: 128, seed: 5, board: 32, base: 0xd0a06a, vary: 22, streaks: 3 }), 1);
     },
-
-    metal: function () {
-      var size = 16, o = speckle(size, 0x3c4048, 14, 0.5, 9), x = o.x;
-      x.fillStyle = hex(0x22262c);
-      [[2, 2], [13, 2], [2, 13], [13, 13]].forEach(function (p) { x.fillRect(p[0], p[1], 1, 1); });
-      return finish(o.c, 1);
-    },
-
-    darkMetal: function () { return finish(speckle(16, 0x2a2e34, 12, 0.5, 15).c, 1); },
 
     oil: function () {
-      var size = 16, o = speckle(size, 0xd9821f, 20, 0.6, 23), x = o.x;
+      var size = 128, c = canvas(size), x = c.x;
+      var g = x.createRadialGradient(64, 64, 4, 64, 64, 90);
+      g.addColorStop(0, '#ffd877'); g.addColorStop(0.6, '#f0a52c'); g.addColorStop(1, '#c97a16');
+      x.fillStyle = g; x.fillRect(0, 0, size, size);
       var rng = rngFrom(77);
-      for (var i = 0; i < 14; i++) {
-        x.fillStyle = hex(0xf5c257);
-        x.fillRect(Math.floor(rng() * size), Math.floor(rng() * size), 1, 1);
+      for (var i = 0; i < 40; i++) {
+        x.strokeStyle = rgba(0xfff3c0, 0.35 + rng() * 0.4);
+        x.lineWidth = 1;
+        x.beginPath(); x.arc(rng() * size, rng() * size, 1.5 + rng() * 5, 0, Math.PI * 2); x.stroke();
       }
-      return finish(o.c, 1);
+      return finish(c.c, 1);
     },
 
-    /* Red + white checkered apron, straight off the reference art. */
-    checker: function () {
-      var size = 16, o = canvas(size), x = o.x;
-      for (var py = 0; py < size; py++) {
-        for (var px = 0; px < size; px++) {
-          // coarse 2x2 checks so they still read on a small apron
-          var on = ((Math.floor(px / 8) + Math.floor(py / 8)) % 2 === 0);
-          x.fillStyle = on ? hex(0xc23a2c) : hex(0xf3e6d0);
-          x.fillRect(px, py, 1, 1);
-        }
+    /* Downy plumage: almost white, with soft lighter and darker tufts, so a
+       material colour tints it to whatever bird or animal it is on. */
+    fluff: function () {
+      var size = 128, c = canvas(size), x = c.x;
+      x.fillStyle = '#f2f2f2'; x.fillRect(0, 0, size, size);
+      blotches(x, size, [0xffffff, 0xdadada], 40, 6, 18, 0.45, 61);
+      var rng = rngFrom(62);
+      for (var i = 0; i < 260; i++) {
+        var px = rng() * size, py = rng() * size, l = 3 + rng() * 6, a = -1.2 + rng() * 0.6;
+        x.strokeStyle = rgba(rng() < 0.5 ? 0xffffff : 0xd0d0d0, 0.5);
+        x.lineWidth = 1;
+        x.beginPath(); x.moveTo(px, py); x.lineTo(px + Math.cos(a) * l, py + Math.sin(a) * l); x.stroke();
       }
-      return finish(o.c, 1);
+      return finish(c.c, 1);
     },
 
-    /* Plumage: mostly white, with soft grey barring and a few darker quill
-       marks so the chicken is not a flat blob at close range. */
-    feathers: function () {
-      var size = 16, o = canvas(size), x = o.x, rng = rngFrom(61);
-      for (var py = 0; py < size; py++) {
-        for (var px = 0; px < size; px++) {
-          var base = 0xf7f5ee;
-          var band = (py % 5 === 4) ? -10 : 0;               // faint barring
-          var n = rng() < 0.30 ? (rng() < 0.5 ? -7 : 5) : 0;
-          x.fillStyle = hex(shade(base, band + n));
-          x.fillRect(px, py, 1, 1);
-        }
+    /* Raw chicken: pink, with pale marbling. */
+    rawMeat: function () {
+      var size = 64, c = canvas(size), x = c.x;
+      x.fillStyle = '#f7a59a'; x.fillRect(0, 0, size, size);
+      blotches(x, size, [0xffcdc4, 0xe9857c], 14, 4, 12, 0.6, 63);
+      var rng = rngFrom(64);
+      for (var i = 0; i < 9; i++) {
+        x.strokeStyle = rgba(0xfff0ea, 0.6); x.lineWidth = 1.5;
+        x.beginPath();
+        var sx = rng() * size, sy = rng() * size;
+        x.moveTo(sx, sy); x.quadraticCurveTo(sx + 8, sy + rng() * 10 - 5, sx + 16, sy + rng() * 6 - 3);
+        x.stroke();
       }
-      // scattered quill flecks
-      var r2 = rngFrom(97);
-      for (var i = 0; i < 10; i++) {
-        x.fillStyle = hex(0xe2ddcf);
-        var qx = Math.floor(r2() * size), qy = Math.floor(r2() * size);
-        x.fillRect(qx, qy, 1, 2);
-      }
-      return finish(o.c, 1);
+      return finish(c.c, 1);
     },
+
+    /* Crunchy golden breading: a warm base covered in craggy crumbs, so it
+       reads as crisp rather than flat orange. */
     breading: function () {
-      var size = 16, o = speckle(size, 0xdd8a2a, 26, 0.75, 101), x = o.x;
-      var rng = rngFrom(202);
-      for (var i = 0; i < 24; i++) {
-        x.fillStyle = hex(rng() < 0.5 ? 0xf6b455 : 0xa85b13);
-        x.fillRect(Math.floor(rng() * size), Math.floor(rng() * size), 1, 1);
+      var size = 128, c = canvas(size), x = c.x, rng = rngFrom(101);
+      x.fillStyle = '#d9862c'; x.fillRect(0, 0, size, size);
+      for (var i = 0; i < 520; i++) {
+        var t = rng();
+        x.fillStyle = t < 0.18 ? '#a95a14' : t < 0.6 ? '#f0a83e' : t < 0.9 ? '#ffc964' : '#ffe3a0';
+        x.beginPath(); x.arc(rng() * size, rng() * size, 1.2 + rng() * 3.6, 0, Math.PI * 2); x.fill();
       }
-      return finish(o.c, 1);
-    },
-    stone: function () {
-      var size = 16, o = speckle(size, 0x8a8681, 18, 0.6, 191), x = o.x;
-      x.fillStyle = hex(0x5e5b57);
-      x.fillRect(0, 5, size, 1); x.fillRect(0, 11, size, 1);
-      x.fillRect(5, 0, 1, 5); x.fillRect(11, 6, 1, 5); x.fillRect(3, 12, 1, 4);
-      return finish(o.c, 1);
+      grain(x, size, 10, 102);
+      return finish(c.c, 1);
     },
 
-    bun:    function () { return finish(speckle(16, 0xdca75a, 16, 0.55, 131).c, 1); },
-    plate:  function () { return finish(speckle(16, 0xf2efe6, 7, 0.3, 151).c, 1); },
-    charred:function () { return finish(speckle(16, 0x342a22, 14, 0.7, 171).c, 1); }
+    /* Glossy bun crust: deep gold, lighter towards the crown. */
+    bun: function () {
+      var size = 64, c = canvas(size), x = c.x;
+      var g = x.createLinearGradient(0, 0, 0, size);
+      g.addColorStop(0, '#f2b45e'); g.addColorStop(1, '#d48a3a');
+      x.fillStyle = g; x.fillRect(0, 0, size, size);
+      blotches(x, size, [0xffd28a, 0xc07a30], 10, 6, 14, 0.4, 131);
+      grain(x, size, 6, 132);
+      return finish(c.c, 1);
+    },
+
+    plate: function () {
+      var size = 64, c = canvas(size), x = c.x;
+      x.fillStyle = '#fbf8f2'; x.fillRect(0, 0, size, size);
+      grain(x, size, 4, 151);
+      return finish(c.c, 1);
+    },
+
+    charred: function () {
+      var size = 64, c = canvas(size), x = c.x, rng = rngFrom(171);
+      x.fillStyle = '#2d2420'; x.fillRect(0, 0, size, size);
+      for (var i = 0; i < 90; i++) {
+        x.fillStyle = rng() < 0.85 ? '#1a1412' : '#7a3a16';
+        x.beginPath(); x.arc(rng() * size, rng() * size, 1 + rng() * 2.5, 0, Math.PI * 2); x.fill();
+      }
+      return finish(c.c, 1);
+    }
   };
 
   CS.tex = function (name) {
@@ -223,5 +348,8 @@ window.CS = window.CS || {};
     }
     return cache[key];
   };
-})(window.CS);
 
+  /* Canvas-drawn signage and sprites are authored in sRGB like everything
+     else; this tags them so they are not washed out by the output encode. */
+  CS.srgb = function (t) { t.encoding = THREE.sRGBEncoding; return t; };
+})(window.CS);

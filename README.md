@@ -1,19 +1,33 @@
 # Chicken Sandy — Sandwich Shift
 
-An Overcooked-inspired pixel-art restaurant game built with **Three.js**. You are a
-chicken in a chef's hat running the fry line: take the tickets, fry the chicken and
-the fries, stack the toppings and sauces, and get the plate through the window
-before the customer walks out.
+An Overcooked-inspired restaurant game built with **Three.js**. You are a round
+little yellow chick in chef's whites running the fry line of a castle kitchen: take
+the tickets, fry the chicken and the fries, stack the toppings and sauces, and get
+the plate through the window before the customer walks out.
 
 It plays as a **campaign of days**. Day 1 is plain sandwiches and a generous clock;
 each day after that adds exactly one new idea and squeezes the timings, and the
 pressure also builds *inside* each shift — tickets that arrive late in a day are
 fussier than the ones that opened it.
 
-Everything is voxel geometry with 16×16 procedurally-generated pixel textures — there
-are no image assets, no build step, and no network calls at runtime. Minecraft-style
-directional face shading is baked into the shared box geometry as vertex colours, so
-every block in the game gets bright tops, mid-tone fronts and darker sides for free.
+The look is a storybook fantasy kitchen: sandstone flags, grey castle stone,
+honey-oak cabinets with blue-and-white tiled worktops, stone stoves with iron
+skillets over glowing coals, royal-blue banners and an arched window onto a castle
+on the hill. Everything is built in code from smooth primitives — rounded boxes,
+ellipsoids, cylinders — with painted procedural textures, physically-based
+materials and filmic tone mapping. There are no image assets, no build step, and no
+network calls at runtime.
+
+A few touches worth knowing about:
+
+* **The floor is polished.** It is a real planar reflection, rendered at half
+  resolution with a Fresnel falloff so it shines across the room and fades out at
+  your feet. It costs a second draw of the scene, so phones skip it; add
+  `?mirror=1` or `?mirror=0` to the URL to force it either way.
+* **Food steams.** A pan puffs steam the whole time something is frying, more as it
+  nears done and going grey as it starts to catch; a burnt basket smokes. Anything
+  fresh out of the oil keeps steaming for a while wherever it ends up — on a
+  counter, on a plate, or in someone's arms.
 
 ---
 
@@ -114,7 +128,7 @@ expanded layout. Add `?tgfs=0` to the URL to opt out and test the windowed layou
 | `C` | Switch camera — **Close** / **Overview** / **Behind** |
 | `Esc` | Pause (also shows the how-to-play panel) |
 | `M` | Mute |
-| `P` | Cycle pixel size — 1× crisp, 2× / 3× chunky retro downscale |
+| `P` | Cycle render resolution — full, ½ or ⅓, for a slower machine |
 
 On a phone the same settings live in the pause menu (the `❚❚` button, top-left).
 Phones render at 1× like the desktop; `PIXEL` there drops to 2×/3× if a slower
@@ -340,31 +354,52 @@ wipes it.
 
 ### Hiring
 
-Two assistants, each of whom does exactly one job and refuses to do anything else.
-That is the point: you should be able to glance at the potato and know what it is
-about to do.
+Two assistants, each with a trade, and both with the sense to help out beyond it.
+A thought bubble over each one's head shows what they are working on, and turns
+amber if they are stood holding something with nowhere to put it.
 
-| | Hire | Wage | Does |
+| | Hire | Wage | Makes |
 | --- | --- | --- | --- |
-| **Spud** the fry cook | $85 | 7% of takings, min $1.50 | Potato bin → fryer → prep counter |
-| **Dollop** the sauce hand | $65 | 5% of takings, min $1.00 | Cup dispenser → ketchup → prep counter |
+| **Spud** the fry cook | $85 | 7% of takings, min $1.50 | Fries (chicken with training) |
+| **Dollop** the prep hand | $65 | 5% of takings, min $1.00 | Plates with the bun on, ketchup cups (BBQ and hot with training) |
 
 The wage is **a share of the day's takings**, not a flat fee. A flat wage punished
 exactly the days you could least afford it — a slow shift still owed the full amount.
 Now they earn their keep out of what they helped bring in: cheap while the shop is
 small, worth real money once it is busy, and never the reason a bad day gets worse.
 
-They never assemble a plate and never touch the serving window. Deciding what goes on
-the plate stays your job — they just keep you in stock, and you pick their output up
-off a prep counter the same way you'd pick up anything else.
+In order of urgency, a hand will:
 
-Work is **demand-driven**: a hand reads the live ticket rail, nets it against what is
-already on the counters, in the fryers and in another hand's arms, and only starts a
-job if the shop is actually short. So two hands never cook the same portion of fries,
-and nobody fills your counters with cups nobody ordered. They also leave you a free
-counter to work on. Spud stands over a basket and lifts it the moment it dings, which
-is most of what you are paying for; a basket that burns anyway goes straight in the
-bin rather than onto a counter.
+1. **Save a basket before it burns** — anybody's, yours included — a beat after it
+   dings, unless you are stood right by it with your wings free. An empty-handed hand
+   drops whatever errand it is on to do this, and one minding its own basket will go
+   too if its own has plenty of time left.
+2. **Bin anything burnt**, in a pan or on a counter, so a fryer is never left blocked.
+3. **Make what the tickets are short of** in their trade.
+
+Finished food goes **straight onto a plate** on a counter when a ticket wants it
+there, and otherwise onto the free counter nearest the serving window, so you always
+know where to look. Between the two of them they will put together most of a plate —
+Dollop sets out the bun, Spud drops the chicken on it, Dollop adds the cups — and
+leave you the toppings, the sandwich sauces and the serving.
+
+The rules that keep them out of your way:
+
+* **Nothing is ever put down on top of something else, and nothing good is ever
+  thrown away.** A counter or fryer is checked again the moment a hand arrives,
+  because you may well have used it while they were walking over; if it is taken
+  they find another. A hand with nowhere to put food keeps hold of it and waits.
+* **A hand only adds to a plate if the result still matches an open ticket**, so they
+  can fill a plate in but never spoil one.
+* They never take the last free counter for anything that is not urgent, never touch
+  the serving window, and never put toppings or sandwich sauces on.
+
+Work is **demand-driven**: a hand reads the live ticket rail and nets it against
+everything already in the pipeline — on the counters, in the fryers, in your wings,
+in another hand's arms, or already on a plate — and only starts a job if the shop is
+actually short. So two hands never cook the same portion of fries, and nobody cooks a
+second one because you plated the first. Counters and fryers are claimed by whoever
+is heading for them, so two hands never race for the same spot.
 
 Training widens the remit — Dollop can learn BBQ and hot sauce, Spud can learn the
 chicken fryer — or makes them quicker on their feet or at a station. The wage does not
@@ -404,12 +439,13 @@ src/
   config.js                   base map, recipes, timings, prices, shop catalogue
   layout.js                   the live editable grid: bounds, expansion, validation
   economy.js                  wallet, daily ledger, upgrade modifiers, the save file
-  textures.js                 procedural 16x16 pixel textures (wood, oil, breading…)
-  models.js                   voxel builders: chef, customers, staff, food, signs
-  world.js                    kitchen construction, stations, lighting, particles
+  textures.js                 procedural painted textures (stone, oak, oil, breading…)
+  models.js                   smooth-primitive builders: chef, customers, staff, food, signs
+  mirror.js                   the polished floor: a planar reflection with Fresnel falloff
+  world.js                    kitchen construction, stations, lighting, sparks and steam
   interact.js                 item data + resolve(): the single "what does E do" rule
   orders.js                   customer lifecycle, tickets, order matching, tips
-  staff.js                    assistant pathfinding and the one-job-each AI
+  staff.js                    assistant pathfinding and the job board
   ui.js                       ticket rail, held-item card, hint line, screens
   shop.js                     the between-days buy screen
   editor.js                   the drag-and-drop kitchen grid

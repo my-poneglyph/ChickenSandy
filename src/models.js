@@ -1,228 +1,364 @@
-/* Voxel model builders — the chef, the customers, every food item.
-   Everything is boxes so it reads as chunky pixel art like the reference. */
+/* Model builders -- the chef, the customers, the hired help, every food item
+   and the signage.
+
+   Everything is built from a handful of smooth primitives: rounded boxes,
+   spheres squashed into ellipsoids, cylinders, cones and tori. Shading is
+   physically based (MeshStandardMaterial) and the renderer tone-maps the
+   result, so the look is soft and rounded -- a storybook kitchen rather than
+   a voxel one. */
 window.CS = window.CS || {};
 (function (CS) {
   'use strict';
 
   var matCache = {};
-  var BOX = new THREE.BoxGeometry(1, 1, 1);
 
-  /* Bake Minecraft-style directional face shading straight into the shared box
-     geometry: top faces bright, bottom dark, sides in between. Every block in
-     the game picks this up for free, which is most of what gives voxel art its
-     readable, chunky look. Face order is +x, -x, +y, -y, +z, -z. */
-  (function shadeBoxFaces() {
-    var shades = [0.80, 0.66, 1.0, 0.50, 0.92, 0.74];
-    var colors = [];
-    for (var f = 0; f < 6; f++) {
-      for (var v = 0; v < 4; v++) colors.push(shades[f], shades[f], shades[f]);
-    }
-    BOX.setAttribute('color', new THREE.Float32BufferAttribute(colors, 3));
-  })();
+  /* Colours are authored as the sRGB hex you would pick in a paint program;
+     the renderer works in linear light, so convert on the way in. */
+  CS.linear = function (hex) { return new THREE.Color(hex).convertSRGBToLinear(); };
 
+  /* Material from a small option bag, cached so identical surfaces share one
+     material. `rough`/`metal` tune the sheen: food and glaze are glossy,
+     feathers and cloth are matte. */
   CS.mat = function (o) {
     o = o || {};
     var rep = o.rep ? (o.rep[0] + 'x' + o.rep[1]) : '-';
-    var key = [o.color || 0xffffff, o.tex || '-', rep, o.emissive || 0,
-      o.opacity == null ? 1 : o.opacity, o.basic ? 1 : 0, o.vc ? 1 : 0].join('|');
+    var key = [o.color == null ? 0xffffff : o.color, o.tex || '-', rep, o.emissive || 0,
+      o.opacity == null ? 1 : o.opacity, o.basic ? 1 : 0,
+      o.rough == null ? '-' : o.rough, o.metal || 0, o.side || 0].join('|');
     if (matCache[key]) return matCache[key];
     var params = {
-      color: o.color == null ? 0xffffff : o.color,
+      color: CS.linear(o.color == null ? 0xffffff : o.color),
       transparent: o.opacity != null && o.opacity < 1,
       opacity: o.opacity == null ? 1 : o.opacity
     };
-    // `rep` keeps a pattern at a fixed scale on faces of different sizes --
-    // without it a short panel stretches one tile of the checker into stripes
+    if (o.side) params.side = THREE.DoubleSide;
+    // `rep` keeps a pattern at a fixed scale on faces of different sizes
     if (o.tex) params.map = o.rep ? CS.texRepeat(o.tex, o.rep[0], o.rep[1]) : CS.tex(o.tex);
-    if (o.emissive) params.emissive = o.emissive;
-    if (o.vc) params.vertexColors = true;
-    var m = o.basic ? new THREE.MeshBasicMaterial(params) : new THREE.MeshLambertMaterial(params);
+    var m;
+    if (o.basic) {
+      m = new THREE.MeshBasicMaterial(params);
+    } else {
+      if (o.emissive) params.emissive = CS.linear(o.emissive);
+      params.roughness = o.rough == null ? 0.78 : o.rough;
+      params.metalness = o.metal || 0;
+      m = new THREE.MeshStandardMaterial(params);
+    }
     matCache[key] = m;
     return m;
   };
 
-  /* box(w,h,d, material-or-color-or-opts, x,y,z)
-     Colour/option forms get the face-shaded material; a material passed in
-     directly is used as-is (particles, glows, anything deliberately flat). */
-  CS.box = function (w, h, d, m, x, y, z) {
-    var mat;
-    if (m && m.isMaterial) {
-      mat = m;
-    } else {
-      var o = (typeof m === 'number') ? { color: m } : (m || {});
-      mat = CS.mat({ color: o.color, tex: o.tex, rep: o.rep, emissive: o.emissive,
-                     opacity: o.opacity, basic: o.basic, vc: true });
-    }
-    var mesh = new THREE.Mesh(BOX, mat);
-    mesh.scale.set(w, h, d);
+  function toMat(m) {
+    if (m && m.isMaterial) return m;
+    var o = (typeof m === 'number') ? { color: m } : (m || {});
+    return CS.mat(o);
+  }
+
+  function finishMesh(mesh, x, y, z) {
     mesh.position.set(x || 0, y || 0, z || 0);
     mesh.castShadow = true;
     mesh.receiveShadow = true;
     return mesh;
+  }
+
+  /* --------------------------------------------------------- rounded boxes
+     A box whose edges and corners are rounded off with radius `r`. Built
+     from a subdivided BoxGeometry whose grid lines are pulled out to the
+     edges, then each vertex is projected onto the rounded surface and its
+     normal pointed straight out of it -- so the faces stay flat, the edges
+     are genuinely curved, and the shading across them is smooth. */
+  var geoCache = {};
+  var STEPS = 2;                               // grid lines per rounded edge
+
+  function roundedBox(w, h, d, r) {
+    var key = 'b' + w.toFixed(3) + ',' + h.toFixed(3) + ',' + d.toFixed(3) + ',' + r.toFixed(3);
+    if (geoCache[key]) return geoCache[key];
+    var hw = w / 2, hh = h / 2, hd = d / 2;
+    r = Math.max(0, Math.min(r, hw * 0.999, hh * 0.999, hd * 0.999));
+    var S = STEPS * 2 + 1;
+    var geo = new THREE.BoxGeometry(w, h, d, S, S, S);
+    var pos = geo.attributes.position, nor = geo.attributes.normal;
+    var half = [hw, hh, hd], p = [0, 0, 0], inner = [0, 0, 0], n = [0, 0, 0];
+
+    // pull the grid so all but one division sit inside the rounded edge band
+    function remap(v, hl) {
+      var step = (hl * 2) / S;
+      var i = Math.round((v + hl) / step);
+      if (i <= STEPS) return -hl + r * (i / STEPS);
+      if (i >= S - STEPS) return hl - r + r * ((i - (S - STEPS)) / STEPS);
+      return v;
+    }
+    for (var k = 0; k < pos.count; k++) {
+      p[0] = remap(pos.getX(k), hw); p[1] = remap(pos.getY(k), hh); p[2] = remap(pos.getZ(k), hd);
+      var len = 0;
+      for (var a = 0; a < 3; a++) {
+        inner[a] = Math.max(-half[a] + r, Math.min(half[a] - r, p[a]));
+        n[a] = p[a] - inner[a];
+        len += n[a] * n[a];
+      }
+      len = Math.sqrt(len);
+      if (r > 0 && len > 1e-6) {
+        for (var b = 0; b < 3; b++) { n[b] /= len; p[b] = inner[b] + n[b] * r; }
+        nor.setXYZ(k, n[0], n[1], n[2]);
+      }
+      pos.setXYZ(k, p[0], p[1], p[2]);
+    }
+    geoCache[key] = geo;
+    return geo;
+  }
+
+  /* box(w,h,d, material-or-color-or-opts, x,y,z). Corners are rounded by a
+     radius in proportion to the smallest side, unless opts.round says
+     otherwise. */
+  CS.box = function (w, h, d, m, x, y, z) {
+    var o = (m && !m.isMaterial && typeof m === 'object') ? m : null;
+    var r = (o && o.round != null) ? o.round : Math.min(0.09, Math.min(w, h, d) * 0.22);
+    return finishMesh(new THREE.Mesh(roundedBox(w, h, d, r), toMat(m)), x, y, z);
+  };
+
+  function cached(key, make) {
+    if (!geoCache[key]) geoCache[key] = make();
+    return geoCache[key];
+  }
+
+  /* An ellipsoid with radii rx, ry, rz. */
+  CS.ball = function (rx, ry, rz, m, x, y, z) {
+    var g = cached('s', function () { return new THREE.SphereGeometry(1, 24, 16); });
+    var mesh = finishMesh(new THREE.Mesh(g, toMat(m)), x, y, z);
+    mesh.scale.set(rx, ry, rz);
+    return mesh;
+  };
+
+  /* Part of a sphere -- for aprons, bun crowns, anything that has to hug a
+     round body. Same angle conventions as THREE.SphereGeometry. */
+  CS.shell = function (rx, ry, rz, m, phi0, phiLen, th0, thLen) {
+    var key = ['sh', phi0, phiLen, th0, thLen].map(function (v) { return typeof v === 'number' ? v.toFixed(3) : v; }).join(',');
+    var g = cached(key, function () { return new THREE.SphereGeometry(1, 28, 18, phi0, phiLen, th0, thLen); });
+    var mesh = finishMesh(new THREE.Mesh(g, toMat(m)), 0, 0, 0);
+    mesh.scale.set(rx, ry, rz);
+    return mesh;
+  };
+
+  CS.cyl = function (rt, rb, h, m, x, y, z, seg) {
+    seg = seg || 20;
+    var key = 'c' + rt.toFixed(3) + ',' + rb.toFixed(3) + ',' + h.toFixed(3) + ',' + seg;
+    var g = cached(key, function () { return new THREE.CylinderGeometry(rt, rb, h, seg); });
+    return finishMesh(new THREE.Mesh(g, toMat(m)), x, y, z);
+  };
+
+  CS.cone = function (r, h, m, x, y, z, seg) {
+    seg = seg || 14;
+    var key = 'k' + r.toFixed(3) + ',' + h.toFixed(3) + ',' + seg;
+    var g = cached(key, function () { return new THREE.ConeGeometry(r, h, seg); });
+    return finishMesh(new THREE.Mesh(g, toMat(m)), x, y, z);
+  };
+
+  /* A ring, or an arc of one: TorusGeometry(R, tube, ..., arc). */
+  CS.torus = function (R, tube, arc, m, x, y, z) {
+    var key = 't' + R.toFixed(3) + ',' + tube.toFixed(3) + ',' + (arc || 6.2832).toFixed(3);
+    var g = cached(key, function () { return new THREE.TorusGeometry(R, tube, 10, 28, arc || Math.PI * 2); });
+    return finishMesh(new THREE.Mesh(g, toMat(m)), x, y, z);
   };
 
   function add(parent, mesh) { parent.add(mesh); return mesh; }
 
+  /* A point on the surface of an ellipsoid, using SphereGeometry's angles:
+     phi runs around (PI/2 is straight ahead, +z), theta from the top down. */
+  function onShell(rx, ry, rz, phi, theta, out) {
+    out = out || new THREE.Vector3();
+    return out.set(-rx * Math.cos(phi) * Math.sin(theta), ry * Math.cos(theta), rz * Math.sin(phi) * Math.sin(theta));
+  }
+
   CS.models = {};
 
   /* ------------------------------------------------------------ the chef
-     Built from a lot of small blocks rather than a few big ones, so the face
-     shading has edges to work with and the silhouette reads at a distance.
-     Every animated piece gets its own pivot group. */
-  /* A rounded slab: two crossed boxes whose union is an octagon rather than a
-     rectangle, so the corners read as curved instead of square. Stacking these
-     with a taper is how the bird gets an egg-shaped silhouette while every
-     piece stays an axis-aligned voxel and keeps the baked face shading. */
-  function slab(parent, w, h, d, mat, y, z, corner) {
-    var k = corner == null ? 0.76 : corner;
-    add(parent, CS.box(w, h, d * k, mat, 0, y, z || 0));
-    add(parent, CS.box(w * k, h, d, mat, 0, y, z || 0));
-  }
-
+     A round little yellow chick in chef's whites: a tall toque with a blue
+     band and crest, a blue neckerchief, a white apron trimmed in blue with
+     brass buttons, rosy cheeks and happy closed eyes, and a wooden spoon in
+     one wing. Every animated piece has its own pivot; the names in `parts`
+     are what game.js drives. */
   CS.models.chef = function () {
     var g = new THREE.Group();
     var parts = {};
 
-    var PLUME = { color: 0xfaf8f1, tex: 'feathers' };   // body feathers
-    var PLUME_D = { color: 0xe4e0d4, tex: 'feathers' }; // shaded underside
-    var QUILL = { color: 0xd6d1c2, tex: 'feathers' };   // wing + tail tips
-    var SHIN = 0xe8a134, FOOT = 0xd08418, CLAW = 0xb86f10;
-    var COMB = 0xc9302a, BEAK = 0xf0a52c, BEAK_D = 0xd4821a;
+    var FEATHER = { color: 0xffcf3a, tex: 'fluff', rough: 0.92 };
+    var FEATHER_L = { color: 0xffe07a, tex: 'fluff', rough: 0.92 };
+    var LEG = { color: 0x9a6a40, rough: 0.7 };
+    var CLAW = { color: 0xeee2c8, rough: 0.45 };
+    var BEAK = { color: 0xf59a3c, rough: 0.45 };
+    var BEAK_D = { color: 0xe07c2a, rough: 0.5 };
+    var WHITE = { color: 0xfbf8f1, rough: 0.85 };
+    var BLUE = { color: 0x2f4f96, rough: 0.8 };
+    var BRASS = { color: 0xd6a648, rough: 0.3, metal: 0.8 };
+    var INK = { color: 0x2a1d1a, rough: 0.5 };
 
-    /* ---- legs: thigh + shin + three-toed foot, pivoting at the hip ---- */
-    var hips = new THREE.Group(); hips.position.y = 0.32; g.add(hips);
+    /* ---- legs: a scaly shin and a big clawed foot, pivoting at the hip ---- */
+    var hips = new THREE.Group(); hips.position.y = 0.30; g.add(hips);
     ['legL', 'legR'].forEach(function (id, i) {
       var s = i ? 1 : -1;
       var leg = new THREE.Group();
-      leg.position.set(s * 0.15, 0, 0);
+      leg.position.set(s * 0.17, 0, 0.02);
       hips.add(leg);
-      add(leg, CS.box(0.20, 0.15, 0.20, PLUME_D, 0, -0.04, 0));      // feathered thigh
-      add(leg, CS.box(0.15, 0.07, 0.15, PLUME_D, 0, -0.13, 0));      // fluff over the shin
-      add(leg, CS.box(0.10, 0.20, 0.10, SHIN, 0, -0.21, 0));          // scaly shin
-      add(leg, CS.box(0.12, 0.06, 0.12, FOOT, 0, -0.33, 0));          // ankle
-      add(leg, CS.box(0.07, 0.05, 0.20, FOOT, 0, -0.35, 0.09));       // middle toe
-      var t1 = add(leg, CS.box(0.06, 0.05, 0.15, FOOT, -0.06, -0.35, 0.06));
-      var t2 = add(leg, CS.box(0.06, 0.05, 0.15, FOOT, 0.06, -0.35, 0.06));
-      t1.rotation.y = 0.45; t2.rotation.y = -0.45;
-      add(leg, CS.box(0.06, 0.05, 0.11, CLAW, 0, -0.35, -0.07));      // back spur
+      add(leg, CS.cyl(0.055, 0.05, 0.22, LEG, 0, -0.12, 0, 12));
+      add(leg, CS.ball(0.10, 0.06, 0.12, LEG, 0, -0.25, 0.03));
+      [-0.065, 0, 0.065].forEach(function (tx, k) {
+        var toe = add(leg, CS.ball(0.04, 0.035, 0.07, LEG, tx, -0.27, 0.11));
+        toe.rotation.y = -tx * 2.2;
+        var claw = add(leg, CS.cone(0.026, 0.09, CLAW, tx * 1.3, -0.275, 0.19, 10));
+        claw.rotation.x = Math.PI / 2;
+        claw.rotation.z = tx * 2.2;
+        if (k === 1) claw.scale.setScalar(1.15);
+      });
+      var spur = add(leg, CS.cone(0.022, 0.07, CLAW, 0, -0.27, -0.09, 10));
+      spur.rotation.x = -Math.PI / 2;
       parts[id] = leg;
     });
 
-    /* ---- body ----
-       Six tapered slabs instead of one torso box: narrow and tucked under the
-       tail, bulging through the middle, drawing back in at the shoulders. The
-       breast layers are pushed slightly forward as well as out, so she is
-       round from the side as well as from the front. */
-    var body = new THREE.Group(); body.position.y = 0.28; g.add(body);
+    /* ---- body: one big round, fluffy belly ---- */
+    var body = new THREE.Group(); body.position.y = 0.26; g.add(body);
     parts.body = body;
-    slab(body, 0.42, 0.10, 0.34, PLUME_D, 0.03, -0.01);   // tucked underside
-    slab(body, 0.58, 0.10, 0.46, PLUME_D, 0.12, 0.015);   // lower belly
-    slab(body, 0.68, 0.12, 0.55, PLUME, 0.22, 0.025);     // widest point
-    slab(body, 0.69, 0.11, 0.56, PLUME, 0.33, 0.02);      // breast
-    slab(body, 0.61, 0.10, 0.48, PLUME, 0.43, 0.005);     // upper chest
-    slab(body, 0.48, 0.09, 0.37, PLUME, 0.52, -0.01);     // shoulders
-    add(body, CS.box(0.44, 0.12, 0.10, PLUME, 0, 0.50, 0.20));        // collar ruff
-    add(body, CS.box(0.32, 0.24, 0.09, PLUME_D, 0, 0.46, -0.22));     // shoulder hump
-
-    // tail: a perky fan off the rump, not the middle of the back. A block of
-    // rump fluff first, so the quills grow out of the bird instead of hanging
-    // behind it.
-    add(body, CS.box(0.34, 0.20, 0.14, PLUME_D, 0, 0.19, -0.25));
-    parts.tail = new THREE.Group();
-    parts.tail.position.set(0, 0.22, -0.28);
-    body.add(parts.tail);
-    [[-0.125, 0.00, -0.34], [-0.043, 0.05, -0.11],
-     [0.043, 0.05, 0.11], [0.125, 0.00, 0.34]].forEach(function (q, i) {
-      var mid = (i === 1 || i === 2);
-      var f = add(parts.tail, CS.box(mid ? 0.12 : 0.10, mid ? 0.23 : 0.19, 0.09,
-        mid ? PLUME : QUILL, q[0], q[1], -0.03));
-      f.rotation.x = -0.42;
-      f.rotation.z = q[2];
+    var BR = [0.47, 0.44, 0.43], BY = 0.40;
+    add(body, CS.ball(BR[0], BR[1], BR[2], FEATHER, 0, BY, 0));
+    // fluffy tufts at the sides and the belly so the outline is not a perfect egg
+    [[-0.44, 0.30, 0.05, 0.4], [0.44, 0.30, 0.05, -0.4], [-0.36, 0.12, 0.12, 0.7],
+     [0.36, 0.12, 0.12, -0.7], [0, 0.0, 0.18, 0]].forEach(function (t) {
+      var tuft = add(body, CS.ball(0.11, 0.16, 0.10, FEATHER, t[0], t[1], t[2]));
+      tuft.rotation.z = t[3];
     });
 
-    // apron: the bib is now three stepped panels so it lies on the curve of
-    // the breast instead of floating off it as one flat sheet would
-    // rep keeps the squares square across both panels instead of letting each
-    // one stretch a single tile of the checker into a band
-    var CHECK = { color: 0xffffff, tex: 'checker', rep: [2, 1] };
-    add(body, CS.box(0.42, 0.15, 0.03, CHECK, 0, 0.385, 0.262));
-    add(body, CS.box(0.46, 0.34, 0.03, CHECK, 0, 0.215, 0.298));
-    add(body, CS.box(0.50, 0.09, 0.05, { color: 0xc23a2c }, 0, 0.045, 0.215));
-    add(body, CS.box(0.06, 0.22, 0.03, { color: 0xc23a2c }, -0.16, 0.52, 0.215));
-    add(body, CS.box(0.06, 0.22, 0.03, { color: 0xc23a2c }, 0.16, 0.52, 0.215));
-    add(body, CS.box(0.07, 0.12, 0.03, { color: 0xa82e22 }, -0.27, 0.05, 0.10));
-    add(body, CS.box(0.07, 0.12, 0.03, { color: 0xa82e22 }, 0.27, 0.05, 0.10));
+    // apron: a skirt and a bib cut from a shell that hugs the belly, with a
+    // blue piping round the hem and down the bib, and two pairs of buttons
+    var AP = 1.025;
+    var skirt = add(body, CS.shell(BR[0] * AP, BR[1] * AP, BR[2] * AP, WHITE, Math.PI / 2 - 0.95, 1.9, 1.45, 0.95));
+    skirt.position.y = BY;
+    var hem = add(body, CS.shell(BR[0] * 1.03, BR[1] * 1.03, BR[2] * 1.03, BLUE, Math.PI / 2 - 0.96, 1.92, 2.30, 0.07));
+    hem.position.y = BY;
+    var bib = add(body, CS.shell(BR[0] * AP, BR[1] * AP, BR[2] * AP, WHITE, Math.PI / 2 - 0.55, 1.1, 0.72, 0.8));
+    bib.position.y = BY;
+    [-0.55, 0.55].forEach(function (edge) {
+      var pipe = add(body, CS.shell(BR[0] * 1.03, BR[1] * 1.03, BR[2] * 1.03, BLUE,
+        Math.PI / 2 + edge - (edge > 0 ? 0.05 : 0), 0.05, 0.75, 0.75));
+      pipe.position.y = BY;
+    });
+    // apron strings belt and pocket with a little crest
+    var belt = add(body, CS.shell(BR[0] * 1.03, BR[1] * 1.03, BR[2] * 1.03, WHITE, Math.PI / 2 - 1.2, 2.4, 1.48, 0.06));
+    belt.position.y = BY;
+    var v = new THREE.Vector3();
+    [[-0.32, 1.02], [0.32, 1.02], [-0.32, 1.3], [0.32, 1.3]].forEach(function (b) {
+      onShell(BR[0] * 1.04, BR[1] * 1.04, BR[2] * 1.04, Math.PI / 2 + b[0], b[1], v);
+      add(body, CS.ball(0.032, 0.032, 0.02, BRASS, v.x, v.y + BY, v.z)).lookAt(v.x * 3, v.y * 3 + BY, v.z * 3);
+    });
+    onShell(BR[0] * 1.03, BR[1] * 1.03, BR[2] * 1.03, Math.PI / 2 + 0.3, 1.95, v);
+    var pocket = add(body, CS.box(0.15, 0.12, 0.025, WHITE, v.x, v.y + BY, v.z));
+    pocket.lookAt(v.x * 3, (v.y + BY) * 1.2, v.z * 3);
+    var crest = add(body, CS.ball(0.035, 0.035, 0.012, BLUE, v.x, v.y + BY + 0.01, v.z + 0.016));
+    crest.lookAt(v.x * 3, (v.y + BY) * 1.2, v.z * 3);
 
-    /* ---- wings: upper arm + primary feathers, pivot at the shoulder ---- */
+    /* ---- wings: soft rounded paddles with feather tips, pivot at shoulder ---- */
     ['wingL', 'wingR'].forEach(function (id, i) {
       var s = i ? 1 : -1;
       var w = new THREE.Group();
-      w.position.set(s * 0.33, 0.45, 0.01);
+      w.position.set(s * 0.43, 0.56, 0.02);
       body.add(w);
-      // a fuller wing that tapers down and back, so from the side it folds
-      // against the body instead of standing off it like a paddle
-      add(w, CS.box(0.10, 0.16, 0.26, PLUME, s * 0.015, -0.06, 0.03));
-      add(w, CS.box(0.10, 0.15, 0.29, PLUME, s * 0.035, -0.19, 0.00));
-      add(w, CS.box(0.08, 0.15, 0.28, QUILL, s * 0.05, -0.32, -0.03));   // primaries
-      add(w, CS.box(0.07, 0.07, 0.14, QUILL, s * 0.055, -0.41, -0.11));  // tip
+      var paddle = add(w, CS.ball(0.10, 0.22, 0.17, FEATHER, s * 0.04, -0.16, 0.02));
+      paddle.rotation.z = s * 0.25;
+      [-0.08, 0, 0.08].forEach(function (fz, k) {
+        var tip = add(w, CS.ball(0.05, 0.11, 0.05, FEATHER_L, s * (0.08 + k * 0.01), -0.36 + Math.abs(fz) * 0.4, fz));
+        tip.rotation.z = s * (0.35 + k * 0.1);
+      });
       parts[id] = w;
     });
 
-    /* ---- head ---- */
-    var head = new THREE.Group(); head.position.set(0, 0.61, 0.02); body.add(head);
-    parts.head = head;
-    add(head, CS.box(0.30, 0.16, 0.28, PLUME_D, 0, 0.02, 0));         // neck
-    // the skull gets the same slab treatment as the body: a round little head
-    slab(head, 0.38, 0.09, 0.34, PLUME_D, 0.09, 0.005);               // jowl
-    slab(head, 0.46, 0.15, 0.42, PLUME, 0.20, 0.01);                  // widest
-    slab(head, 0.44, 0.11, 0.40, PLUME, 0.31, 0.005);
-    slab(head, 0.34, 0.07, 0.31, PLUME, 0.39, 0);                     // crown
-    add(head, CS.box(0.15, 0.13, 0.15, PLUME, -0.15, 0.22, -0.11));   // cheek tufts
-    add(head, CS.box(0.15, 0.13, 0.15, PLUME, 0.15, 0.22, -0.11));
+    // the wooden spoon, carried in the right wing (hidden while she holds food)
+    var spoon = new THREE.Group();
+    spoon.position.set(0.10, -0.34, 0.12);
+    spoon.rotation.set(-0.35, 0, -0.15);
+    parts.wingR.add(spoon);
+    var WOOD = { color: 0xa9733f, rough: 0.6 };
+    add(spoon, CS.cyl(0.018, 0.022, 0.42, WOOD, 0, 0.12, 0, 10));
+    var bowl = add(spoon, CS.ball(0.07, 0.10, 0.03, WOOD, 0, 0.38, 0.0));
+    bowl.rotation.x = -0.15;
+    parts.spoon = spoon;
 
-    // eyes on their own group so they can blink
-    parts.eyes = new THREE.Group();
-    head.add(parts.eyes);
+    /* ---- tail: a perky little fan off the rump ---- */
+    parts.tail = new THREE.Group();
+    parts.tail.position.set(0, 0.36, -0.40);
+    body.add(parts.tail);
+    [-0.35, 0, 0.35].forEach(function (a) {
+      var f = add(parts.tail, CS.ball(0.06, 0.15, 0.05, FEATHER, Math.sin(a) * 0.08, 0.10, -0.04));
+      f.rotation.set(-0.6, 0, -a);
+    });
+
+    /* ---- neckerchief: a blue roll round the neck, knotted at the front ---- */
+    var scarf = add(body, CS.torus(0.37, 0.065, 0, BLUE, 0, 0.66, 0.0));
+    scarf.rotation.x = Math.PI / 2 + 0.12;
+    scarf.scale.set(1, 0.92, 1);
+    add(body, CS.ball(0.08, 0.065, 0.07, BLUE, 0, 0.62, 0.42));
     [-1, 1].forEach(function (s) {
-      add(parts.eyes, CS.box(0.11, 0.12, 0.02, { color: 0xf6f3ea }, s * 0.11, 0.23, 0.201));
-      add(parts.eyes, CS.box(0.07, 0.09, 0.02, { color: 0x161210 }, s * 0.115, 0.23, 0.211));
-      add(parts.eyes, CS.box(0.03, 0.03, 0.02, { color: 0xffffff }, s * 0.09, 0.26, 0.22));
+      var tailK = add(body, CS.cone(0.08, 0.20, BLUE, s * 0.07, 0.50, 0.44, 3));
+      tailK.rotation.set(0.25, 0, Math.PI + s * 0.35);
+      tailK.scale.set(1, 1, 0.35);
     });
 
-    // beak in two halves, with the lower one able to open
-    add(head, CS.box(0.19, 0.09, 0.16, BEAK, 0, 0.155, 0.255));
-    add(head, CS.box(0.13, 0.04, 0.12, BEAK_D, 0, 0.205, 0.285));     // ridge
-    parts.jaw = new THREE.Group(); parts.jaw.position.set(0, 0.11, 0.19); head.add(parts.jaw);
-    add(parts.jaw, CS.box(0.16, 0.05, 0.13, BEAK_D, 0, 0, 0.07));
-    // wattle under the beak
-    add(head, CS.box(0.09, 0.14, 0.07, COMB, -0.04, 0.01, 0.22));
-    add(head, CS.box(0.07, 0.10, 0.06, 0xb02a24, 0.05, 0.03, 0.22));
+    /* ---- head: the top of the same round bird, with a big face ---- */
+    var head = new THREE.Group(); head.position.set(0, 0.70, 0.02); body.add(head);
+    parts.head = head;
+    parts.headY = 0.70;
+    add(head, CS.ball(0.40, 0.35, 0.37, FEATHER, 0, 0.20, 0));
+    // cheek fluff and a couple of stray head feathers
+    [-1, 1].forEach(function (s) {
+      var c = add(head, CS.ball(0.12, 0.10, 0.10, FEATHER, s * 0.33, 0.10, 0.06));
+      c.rotation.z = s * 0.5;
+    });
+    var cow = add(head, CS.ball(0.04, 0.12, 0.04, FEATHER, -0.05, 0.56, 0.1));
+    cow.rotation.z = 0.5;
 
-    // the toque: band, stalk, puff, crown, plus a couple of fold ridges
-    var hat = new THREE.Group(); hat.position.set(0, 0.42, 0); head.add(hat);
+    // happy closed eyes: two little upward arcs, with rosy cheeks below
+    var face = new THREE.Group(); face.position.set(0, 0.25, 0); head.add(face);
+    [-1, 1].forEach(function (s) {
+      var eye = add(face, CS.torus(0.055, 0.014, Math.PI, INK, s * 0.15, 0, 0.34));
+      eye.rotation.y = s * 0.42;
+      var blush = add(face, CS.ball(0.065, 0.035, 0.02, { color: 0xff9c8e, rough: 0.9 }, s * 0.24, -0.11, 0.285));
+      blush.rotation.y = s * 0.65;
+    });
+    // blinking means nothing to closed eyes; game.js gets an empty pivot
+    parts.eyes = new THREE.Group(); head.add(parts.eyes);
+
+    // the beak, in two halves so it can open a crack when she is out of breath
+    var beak = add(head, CS.ball(0.13, 0.075, 0.12, BEAK, 0, 0.13, 0.36));
+    beak.rotation.x = 0.15;
+    parts.jaw = new THREE.Group(); parts.jaw.position.set(0, 0.09, 0.30); head.add(parts.jaw);
+    add(parts.jaw, CS.ball(0.10, 0.045, 0.09, BEAK_D, 0, 0, 0.05));
+
+    // the toque: band with a blue stripe and crest, then a big soft puff
+    var hat = new THREE.Group(); hat.position.set(0, 0.47, -0.02); head.add(hat);
+    hat.rotation.x = -0.08;
     parts.hat = hat;
-    add(hat, CS.box(0.50, 0.11, 0.46, { color: 0xeae7dc }, 0, 0.03, 0));   // brim band
-    add(hat, CS.box(0.44, 0.15, 0.41, { color: 0xf7f5ee }, 0, 0.15, 0));   // stalk
-    add(hat, CS.box(0.64, 0.26, 0.58, { color: 0xfdfcf8 }, 0, 0.35, 0));   // wide puff
-    add(hat, CS.box(0.54, 0.12, 0.50, { color: 0xffffff }, 0, 0.53, 0));   // crown
-    [-0.20, 0.0, 0.20].forEach(function (fx) {                             // fold ridges
-      add(hat, CS.box(0.06, 0.26, 0.03, { color: 0xe6e2d5 }, fx, 0.35, 0.30));
-    });
+    var HAT = { color: 0xfdfbf6, rough: 0.9 };
+    add(hat, CS.cyl(0.30, 0.31, 0.24, HAT, 0, 0.08, 0, 28));
+    add(hat, CS.cyl(0.312, 0.318, 0.035, BLUE, 0, 0.01, 0, 28));
+    var badge = add(hat, CS.cyl(0.06, 0.06, 0.02, BLUE, 0, 0.11, 0.30, 16));
+    badge.rotation.x = Math.PI / 2;
+    add(hat, CS.ball(0.36, 0.24, 0.34, HAT, 0, 0.36, 0));
+    [[0.2, 0.32, 0.12], [-0.2, 0.33, 0.1], [0.08, 0.36, -0.2], [-0.12, 0.38, -0.16], [0, 0.48, 0.02]]
+      .forEach(function (p, k) {
+        add(hat, CS.ball(0.19 + (k % 2) * 0.03, 0.17, 0.18, HAT, p[0], p[1], p[2]));
+      });
 
-    // where a carried item sits
+    // where a carried item sits, out in front of the belly
     parts.hands = new THREE.Object3D();
-    parts.hands.position.set(0, 0.42, 0.44);
+    parts.hands.position.set(0, 0.48, 0.56);
     body.add(parts.hands);
 
-    g.traverse(function (o) { if (o.isMesh) { o.castShadow = true; o.receiveShadow = false; } });
+    g.traverse(function (o) { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
     return { group: g, parts: parts };
   };
 
   /* -------------------------------------------------------- the customer
-     The queue is an assortment of small animals. Body, arms and legs are the
-     same chunky rig for every species -- which is what lets orders.js drive
-     one walk cycle for all of them -- and the species table in config.js
-     supplies the colours plus the ears, snout and tail bolted on top.
+     The queue is an assortment of small round animals: a big head on a
+     small body, stubby limbs and glossy eyes. Body, arms and legs are the
+     same rig for every species -- which is what lets orders.js drive one walk
+     cycle for all of them -- and the species table in config.js supplies the
+     colours plus the ears, snout and tail bolted on top.
 
      `parts` is the contract with orders.js: legL, legR, armL, armR, head,
      body, tail and mark. Keep those names if you add a species.             */
@@ -230,217 +366,253 @@ window.CS = window.CS || {};
     var C = CS.CRITTERS[speciesIdx % CS.CRITTERS.length];
     var g = new THREE.Group();
     var parts = { species: C };
-    var FUR = C.fur, BELLY = C.belly, SNOUT = C.snout;
-    var FUR_D = CS.shade(FUR, -26);
+    var FUR = { color: C.fur, tex: 'fluff', rough: 0.9 };
+    var FUR_D = { color: CS.shade(C.fur, -28), tex: 'fluff', rough: 0.9 };
+    var BELLY = { color: C.belly, tex: 'fluff', rough: 0.9 };
+    var SNOUT = { color: C.snout, rough: 0.8 };
+    var EYE = { color: 0x1e1828, rough: 0.15 };
+    var SHINE = { color: 0xffffff, rough: 0.2 };
 
-    /* ---- legs: stubby, with a paw ---- */
-    var hips = new THREE.Group(); hips.position.y = 0.30; g.add(hips);
+    /* ---- legs: stubby, with a round paw ---- */
+    var hips = new THREE.Group(); hips.position.y = 0.26; g.add(hips);
     ['legL', 'legR'].forEach(function (id, i) {
       var leg = new THREE.Group();
       leg.position.set(i ? 0.13 : -0.13, 0, 0);
       hips.add(leg);
-      add(leg, CS.box(0.17, 0.22, 0.17, FUR, 0, -0.11, 0));
-      add(leg, CS.box(0.19, 0.09, 0.23, FUR_D, 0, -0.245, 0.03));   // paw
+      add(leg, CS.ball(0.085, 0.12, 0.085, FUR, 0, -0.09, 0));
+      add(leg, CS.ball(0.10, 0.06, 0.13, FUR_D, 0, -0.20, 0.03));
       parts[id] = leg;
     });
 
-    /* ---- body: a pear, widest at the belly ---- */
-    var body = new THREE.Group(); body.position.y = 0.30; g.add(body); parts.body = body;
-    slab(body, 0.44, 0.10, 0.34, FUR, 0.05, 0);
-    slab(body, 0.52, 0.13, 0.40, FUR, 0.16, 0.005);
-    slab(body, 0.50, 0.13, 0.38, FUR, 0.29, 0);
-    slab(body, 0.44, 0.11, 0.33, FUR, 0.40, -0.005);
-    // a paler front, which is most of what makes an animal read as an animal
-    add(body, CS.box(0.30, 0.30, 0.03, BELLY, 0, 0.20, 0.196));
-    if (C.patch) add(body, CS.box(0.14, 0.13, 0.03, FUR_D, -0.13, 0.32, 0.197));
+    /* ---- body: a soft pear ---- */
+    var body = new THREE.Group(); body.position.y = 0.26; g.add(body); parts.body = body;
+    add(body, CS.ball(0.29, 0.29, 0.25, FUR, 0, 0.20, 0));
+    add(body, CS.ball(0.19, 0.20, 0.08, BELLY, 0, 0.17, 0.19));
+    if (C.patch) add(body, CS.ball(0.12, 0.10, 0.06, FUR_D, -0.16, 0.28, 0.14));
 
     /* ---- arms ---- */
     [['armL', -1], ['armR', 1]].forEach(function (a) {
       var arm = new THREE.Group();
-      arm.position.set(a[1] * 0.28, 0.38, 0);
+      arm.position.set(a[1] * 0.26, 0.32, 0);
       body.add(arm);
-      add(arm, CS.box(0.12, 0.26, 0.14, FUR, 0, -0.13, 0));
-      add(arm, CS.box(0.14, 0.10, 0.16, FUR_D, 0, -0.29, 0.01));    // paw
+      var up = add(arm, CS.ball(0.07, 0.15, 0.07, FUR, a[1] * 0.02, -0.12, 0));
+      up.rotation.z = a[1] * 0.2;
+      add(arm, CS.ball(0.075, 0.07, 0.075, FUR_D, a[1] * 0.04, -0.25, 0.01));
       parts[a[0]] = arm;
     });
 
     /* ---- tail: on its own pivot, so it can wag ---- */
     parts.tail = new THREE.Group();
-    parts.tail.position.set(0, 0.16, -0.20);
+    parts.tail.position.set(0, 0.14, -0.22);
     body.add(parts.tail);
     if (C.tail === 'up' || C.tail === 'wag') {
-      add(parts.tail, CS.box(0.10, 0.10, 0.20, FUR, 0, 0.04, -0.09));
-      add(parts.tail, CS.box(0.10, 0.22, 0.10, FUR, 0, 0.19, -0.16));
-      add(parts.tail, CS.box(0.10, 0.12, 0.10, C.tipped ? 0xf6eadd : FUR, 0, 0.34, -0.16));
+      var t1 = add(parts.tail, CS.ball(0.05, 0.20, 0.05, FUR, 0, 0.16, -0.06));
+      t1.rotation.x = -0.5;
+      add(parts.tail, CS.ball(0.06, 0.06, 0.06, C.tipped ? { color: 0xf6eadd } : FUR, 0, 0.33, -0.15));
       parts.tail.rotation.x = C.tail === 'wag' ? 0.25 : 0;
     } else if (C.tail === 'bush') {
-      add(parts.tail, CS.box(0.20, 0.20, 0.24, FUR, 0, 0.02, -0.12));
-      add(parts.tail, CS.box(0.22, 0.24, 0.20, FUR, 0, 0.20, -0.22));
-      add(parts.tail, CS.box(0.18, 0.16, 0.16, 0xf6eadd, 0, 0.38, -0.28));
+      var b1 = add(parts.tail, CS.ball(0.14, 0.24, 0.14, FUR, 0, 0.16, -0.12));
+      b1.rotation.x = -0.6;
+      add(parts.tail, CS.ball(0.10, 0.10, 0.10, { color: 0xf6eadd, tex: 'fluff' }, 0, 0.35, -0.25));
     } else if (C.tail === 'puff') {
-      add(parts.tail, CS.box(0.18, 0.18, 0.16, 0xffffff, 0, 0.02, -0.08));
+      add(parts.tail, CS.ball(0.10, 0.10, 0.10, { color: 0xffffff, tex: 'fluff' }, 0, 0.02, -0.03));
     } else if (C.tail === 'curl') {
-      add(parts.tail, CS.box(0.08, 0.08, 0.13, FUR, 0, 0.06, -0.07));
-      add(parts.tail, CS.box(0.08, 0.13, 0.08, FUR, 0, 0.15, -0.12));
-      add(parts.tail, CS.box(0.08, 0.08, 0.12, FUR, 0, 0.21, -0.07));
+      var curl = add(parts.tail, CS.torus(0.06, 0.022, 0, FUR, 0, 0.06, -0.04));
+      curl.rotation.y = Math.PI / 2;
     }
 
-    /* ---- head ---- */
-    var head = new THREE.Group(); head.position.set(0, 0.50, 0.01); body.add(head);
+    /* ---- head: big and round, the chibi bit ---- */
+    var head = new THREE.Group(); head.position.set(0, 0.52, 0.01); body.add(head);
     parts.head = head;
-    slab(head, 0.34, 0.09, 0.31, FUR, 0.07, 0);
-    slab(head, 0.42, 0.16, 0.38, FUR, 0.18, 0.005);
-    slab(head, 0.36, 0.09, 0.33, FUR, 0.29, 0);
+    add(head, CS.ball(0.31, 0.27, 0.28, FUR, 0, 0.20, 0));
 
     // ears. `eh` tracks how tall this species ends up, so the impatience mark
     // floats clear of a bunny's ears as well as a frog's flat head.
-    var eh = 0.36;
+    var eh = 0.48;
+    var INNER = { color: 0xf8bccb, rough: 0.9 };
     if (C.ears === 'point') {
       [-1, 1].forEach(function (s) {
-        add(head, CS.box(0.12, 0.13, 0.07, FUR, s * 0.13, 0.35, -0.01));
-        add(head, CS.box(0.07, 0.09, 0.05, C.stripes ? 0xf7cfae : FUR_D, s * 0.13, 0.42, 0.01));
+        var e = add(head, CS.cone(0.10, 0.20, FUR, s * 0.17, 0.48, -0.02));
+        e.rotation.z = -s * 0.3; e.scale.z = 0.55;
+        var ei = add(head, CS.cone(0.06, 0.13, C.stripes ? { color: 0xf7cfae } : INNER, s * 0.17, 0.46, 0.02));
+        ei.rotation.z = -s * 0.3; ei.scale.z = 0.4;
       });
-      eh = 0.48;
+      eh = 0.62;
     } else if (C.ears === 'tall') {
       [-1, 1].forEach(function (s) {
-        var e = add(head, CS.box(0.11, 0.40, 0.09, FUR, s * 0.12, 0.52, -0.02));
-        e.rotation.z = s * 0.16;
-        var inner = add(head, CS.box(0.06, 0.30, 0.06, 0xf6c9d2, s * 0.13, 0.52, 0.02));
-        inner.rotation.z = s * 0.16;
+        var e = add(head, CS.ball(0.075, 0.24, 0.05, FUR, s * 0.12, 0.62, -0.02));
+        e.rotation.z = s * -0.15;
+        var ei = add(head, CS.ball(0.045, 0.19, 0.02, INNER, s * 0.12, 0.62, 0.025));
+        ei.rotation.z = s * -0.15;
       });
-      eh = 0.76;
+      eh = 0.88;
     } else if (C.ears === 'round') {
-      var er = C.bigEars ? 0.20 : 0.15;
-      var ex = C.bigEars ? 0.20 : 0.16;
+      var er = C.bigEars ? 0.15 : 0.11, ex = C.bigEars ? 0.23 : 0.20;
       [-1, 1].forEach(function (s) {
-        add(head, CS.box(er, er, 0.07, FUR, s * ex, 0.34, -0.02));
-        add(head, CS.box(er * 0.6, er * 0.6, 0.05, BELLY, s * ex, 0.34, 0.02));
+        add(head, CS.ball(er, er, 0.05, FUR, s * ex, 0.43, -0.02));
+        add(head, CS.ball(er * 0.62, er * 0.62, 0.03, INNER, s * ex, 0.43, 0.02));
       });
-      eh = 0.46;
+      eh = 0.58;
     } else if (C.ears === 'droop') {
       [-1, 1].forEach(function (s) {
-        add(head, CS.box(0.10, 0.26, 0.13, FUR_D, s * 0.23, 0.18, -0.02));
-        add(head, CS.box(0.10, 0.09, 0.13, FUR_D, s * 0.23, 0.30, -0.02));
+        var e = add(head, CS.ball(0.08, 0.17, 0.06, FUR_D, s * 0.30, 0.18, 0));
+        e.rotation.z = s * 0.25;
       });
     } else if (C.ears === 'flop') {
       [-1, 1].forEach(function (s) {
-        var e = add(head, CS.box(0.15, 0.14, 0.06, FUR_D, s * 0.14, 0.33, 0.10));
-        e.rotation.x = 0.55;
+        var e = add(head, CS.ball(0.10, 0.08, 0.04, FUR_D, s * 0.18, 0.42, 0.10));
+        e.rotation.x = 0.7; e.rotation.z = -s * 0.3;
       });
-      eh = 0.42;
+      eh = 0.54;
     }
 
-    // eyes -- a frog's bulge off the top of the skull, everyone else's sit flat
+    // eyes: big and glossy, each with a catchlight. A frog's bulge off the
+    // top of the head; everyone else's sit on the face.
     parts.eyes = new THREE.Group(); head.add(parts.eyes);
     if (C.bigEyes) {
       [-1, 1].forEach(function (s) {
-        add(parts.eyes, CS.box(0.17, 0.16, 0.17, FUR, s * 0.14, 0.34, 0.02));
-        add(parts.eyes, CS.box(0.11, 0.11, 0.06, 0xffffff, s * 0.145, 0.35, 0.10));
-        add(parts.eyes, CS.box(0.07, 0.08, 0.04, 0x161210, s * 0.15, 0.35, 0.13));
+        add(parts.eyes, CS.ball(0.11, 0.11, 0.11, FUR, s * 0.15, 0.42, 0.06));
+        add(parts.eyes, CS.ball(0.065, 0.075, 0.04, EYE, s * 0.16, 0.44, 0.15));
+        add(parts.eyes, CS.ball(0.02, 0.02, 0.01, SHINE, s * 0.16 - 0.02, 0.47, 0.19));
       });
-      eh = 0.46;
+      eh = 0.58;
     } else {
       [-1, 1].forEach(function (s) {
-        add(parts.eyes, CS.box(0.08, 0.10, 0.02, 0xffffff, s * 0.10, 0.21, 0.191));
-        add(parts.eyes, CS.box(0.06, 0.08, 0.02, 0x161210, s * 0.105, 0.21, 0.201));
-        add(parts.eyes, CS.box(0.025, 0.03, 0.02, 0xffffff, s * 0.085, 0.235, 0.21));
+        add(parts.eyes, CS.ball(0.05, 0.065, 0.03, EYE, s * 0.115, 0.24, 0.255));
+        add(parts.eyes, CS.ball(0.02, 0.022, 0.01, SHINE, s * 0.115 - 0.015, 0.27, 0.283));
       });
     }
+    [-1, 1].forEach(function (s) {
+      var bl = add(head, CS.ball(0.05, 0.028, 0.015, { color: 0xff9db2, rough: 0.9 }, s * 0.19, 0.13, 0.24));
+      bl.rotation.y = s * 0.5;
+    });
 
     // snout and nose
     if (C.name === 'Piglet') {
-      add(head, CS.box(0.19, 0.15, 0.09, SNOUT, 0, 0.13, 0.215));
-      add(head, CS.box(0.04, 0.05, 0.03, C.nose, -0.045, 0.13, 0.262));
-      add(head, CS.box(0.04, 0.05, 0.03, C.nose, 0.045, 0.13, 0.262));
+      var sn = add(head, CS.cyl(0.08, 0.085, 0.07, SNOUT, 0, 0.13, 0.28));
+      sn.rotation.x = Math.PI / 2;
+      add(head, CS.ball(0.015, 0.025, 0.01, { color: C.nose }, -0.03, 0.13, 0.318));
+      add(head, CS.ball(0.015, 0.025, 0.01, { color: C.nose }, 0.03, 0.13, 0.318));
     } else if (C.bigEyes) {
-      add(head, CS.box(0.26, 0.04, 0.03, CS.shade(FUR, -40), 0, 0.10, 0.195));   // wide grin
+      var grin = add(head, CS.torus(0.11, 0.012, Math.PI, { color: CS.shade(C.fur, -60) }, 0, 0.16, 0.26));
+      grin.rotation.z = Math.PI;
     } else {
-      add(head, CS.box(0.17, 0.12, 0.11, SNOUT, 0, 0.12, 0.215));
-      add(head, CS.box(0.08, 0.06, 0.04, C.nose, 0, 0.16, 0.27));
-      add(head, CS.box(0.02, 0.04, 0.02, CS.shade(FUR, -45), 0, 0.09, 0.275));   // mouth
+      add(head, CS.ball(0.11, 0.075, 0.07, SNOUT, 0, 0.12, 0.24));
+      add(head, CS.ball(0.04, 0.03, 0.03, { color: C.nose, rough: 0.3 }, 0, 0.15, 0.30));
     }
     if (C.stripes) {
-      add(head, CS.box(0.06, 0.03, 0.10, FUR_D, -0.06, 0.305, -0.10));
-      add(head, CS.box(0.06, 0.03, 0.10, FUR_D, 0.06, 0.305, -0.10));
+      [-0.06, 0, 0.06].forEach(function (x) {
+        add(head, CS.ball(0.022, 0.06, 0.03, FUR_D, x, 0.42, 0.14));
+      });
     }
 
     /* A cap on some of them, picked off the seed, so two Bunnies standing in
        the same queue still read as two different customers. */
     if (seed % 5 > 2 && C.ears !== 'tall') {
-      var cap = [0x6a4f9c, 0x3f8a6b, 0x4f7fc4, 0xc0563f][seed % 4];
-      add(head, CS.box(0.40, 0.08, 0.36, cap, 0, 0.33, 0));
-      add(head, CS.box(0.30, 0.10, 0.28, CS.shade(cap, 18), 0, 0.42, 0));
-      eh = Math.max(eh, 0.52);
+      var cap = [0x6a4f9c, 0x3f8a6b, 0x2f4f96, 0xc0563f][seed % 4];
+      add(head, CS.shell(0.28, 0.20, 0.27, { color: cap }, 0, Math.PI * 2, 0, Math.PI / 2)).position.y = 0.32;
+      var brim = add(head, CS.cyl(0.17, 0.17, 0.025, { color: CS.shade(cap, -20) }, 0, 0.33, 0.20));
+      brim.scale.z = 0.8;
+      eh = Math.max(eh, 0.62);
     }
 
     // impatience mark, floating clear of whatever this species has on its head
     parts.mark = new THREE.Group();
-    parts.mark.position.set(0, 0.30 + 0.50 + eh + 0.34, 0);
+    parts.mark.position.set(0, 0.26 + 0.52 + eh + 0.30, 0);
     parts.mark.visible = false;
     g.add(parts.mark);
-    add(parts.mark, CS.box(0.10, 0.26, 0.10, CS.mat({ color: 0xff3b2e, basic: true }), 0, 0.16, 0));
-    add(parts.mark, CS.box(0.10, 0.10, 0.10, CS.mat({ color: 0xff3b2e, basic: true }), 0, -0.04, 0));
+    var RED = CS.mat({ color: 0xff3b2e, basic: true });
+    add(parts.mark, CS.ball(0.07, 0.15, 0.07, RED, 0, 0.16, 0));
+    add(parts.mark, CS.ball(0.06, 0.06, 0.06, RED, 0, -0.06, 0));
+    CS.noMirror(parts.mark);
 
     g.traverse(function (o) { if (o.isMesh) o.castShadow = true; });
     return { group: g, parts: parts, species: C };
   };
 
-  /* A tip coin, tossed on the counter when a customer is happy. */
+  /* A gold tip coin, tossed on the counter when a customer is happy. */
   CS.models.coin = function () {
     var g = new THREE.Group();
-    g.add(CS.box(0.16, 0.16, 0.04, CS.mat({ color: 0xf5c243 }), 0, 0, 0));
-    g.add(CS.box(0.09, 0.09, 0.055, CS.mat({ color: 0xffe89a }), 0, 0, 0));
+    var c = add(g, CS.cyl(0.09, 0.09, 0.025, { color: 0xf2bf3e, rough: 0.25, metal: 0.9 }, 0, 0, 0));
+    c.rotation.x = Math.PI / 2;
+    var f = add(g, CS.cyl(0.06, 0.06, 0.03, { color: 0xffde7a, rough: 0.3, metal: 0.8 }, 0, 0, 0));
+    f.rotation.x = Math.PI / 2;
     return g;
   };
 
-  /* ------------------------------------------------------------ the food */
-  var CHUNK_OFFSETS = [
-    [-0.14, 0.0, -0.10], [0.13, 0.01, -0.12], [-0.05, 0.02, 0.12],
-    [0.16, 0.0, 0.09], [-0.17, 0.01, 0.06], [0.03, 0.03, -0.02]
+  /* ------------------------------------------------------------ the food
+     Food is the thing you are staring at all shift, so it gets the most
+     care: plump rounded shapes, craggy golden crusts, glossy sauces, and a
+     touch of warm emissive so a fresh piece of chicken still glows a little
+     in the shadow of a counter. */
+  var WARM = 0x3a1a00;      // emissive lift for anything fresh out of the oil
+
+  var CRUMBS = [
+    [-0.13, -0.08, 0.075], [0.12, -0.10, 0.07], [-0.03, 0.12, 0.08], [0.15, 0.07, 0.06],
+    [-0.16, 0.06, 0.06], [0.02, -0.01, 0.09], [0.07, 0.15, 0.05], [-0.09, -0.16, 0.05],
+    [0.18, -0.02, 0.045], [-0.06, 0.04, 0.06]
   ];
 
-  function chickenPatty(texName, tint) {
+  /* A plump fillet: a squashed ellipsoid with a craggy crust of lumps. */
+  function chickenPatty(kind) {
     var g = new THREE.Group();
-    var m = { color: tint, tex: texName };
-    g.add(CS.box(0.46, 0.13, 0.42, m, 0, 0.065, 0));
-    CHUNK_OFFSETS.forEach(function (o, i) {
-      var s = 0.11 + (i % 3) * 0.03;
-      g.add(CS.box(s, 0.08, s, m, o[0] * 0.85, 0.12 + o[1], o[2] * 0.85));
+    var m, lumps = CRUMBS;
+    if (kind === 'raw') {
+      m = { color: 0xffffff, tex: 'rawMeat', rough: 0.35 };
+      lumps = CRUMBS.slice(0, 3);
+    } else if (kind === 'burnt') {
+      m = { color: 0xffffff, tex: 'charred', rough: 0.9 };
+    } else {
+      m = { color: 0xffffff, tex: 'breading', emissive: WARM, rough: 0.55 };
+    }
+    add(g, CS.ball(0.25, 0.085, 0.21, m, 0, 0.08, 0));
+    lumps.forEach(function (o, i) {
+      add(g, CS.ball(o[2], o[2] * 0.75, o[2], m, o[0], 0.12 + (i % 3) * 0.01, o[1]));
     });
     return g;
   }
 
-  function friesBundle(color, count) {
+  /* A splayed bundle of fries, each a slim rounded stick. */
+  function friesBundle(color, count, emissive) {
     var g = new THREE.Group();
+    var mb = { color: color, emissive: emissive, rough: 0.5 };
     for (var i = 0; i < count; i++) {
       var a = (i / count) * Math.PI * 2;
-      var f = CS.box(0.055, 0.30, 0.055, color,
-        Math.cos(a) * 0.075 + (i % 2) * 0.015, 0.16, Math.sin(a) * 0.075);
-      f.rotation.z = (i % 3 - 1) * 0.16;
-      f.rotation.x = ((i + 1) % 3 - 1) * 0.16;
-      g.add(f);
+      var r = 0.055 + (i % 2) * 0.025;
+      var h = 0.26 + (i % 3) * 0.04;
+      var f = add(g, CS.box(0.05, h, 0.05, mb, Math.cos(a) * r, h / 2, Math.sin(a) * r));
+      f.rotation.z = Math.cos(a) * 0.24;
+      f.rotation.x = -Math.sin(a) * 0.24;
     }
     return g;
   }
 
-  function friesCarton(color) {
+  /* The red carton, tapered, with a gold crest on the front and the fries
+     fanned out over the top. */
+  function friesCarton(burnt) {
     var g = new THREE.Group();
-    g.add(CS.box(0.26, 0.24, 0.20, 0xc0392b, 0, 0.12, 0));
-    g.add(CS.box(0.28, 0.06, 0.22, 0xe05a45, 0, 0.21, 0));
-    var f = friesBundle(color, 7); f.position.y = 0.12; f.scale.set(0.62, 0.72, 0.62);
+    var box = add(g, CS.cyl(0.17, 0.12, 0.25, { color: 0xd8382e, rough: 0.5 }, 0, 0.125, 0, 4));
+    box.rotation.y = Math.PI / 4;
+    var lip = add(g, CS.cyl(0.175, 0.17, 0.03, { color: 0xf0f0e8, rough: 0.6 }, 0, 0.235, 0, 4));
+    lip.rotation.y = Math.PI / 4;
+    add(g, CS.ball(0.04, 0.04, 0.012, { color: 0xf2c54a, rough: 0.3, metal: 0.6 }, 0, 0.14, 0.105));
+    var f = burnt ? friesBundle(0x3a2f26, 10) : friesBundle(0xffc63f, 10, WARM);
+    f.position.y = 0.10;
+    f.scale.set(1.15, 0.9, 0.9);
     g.add(f);
     return g;
   }
 
   function sauceCup(sauce) {
     var g = new THREE.Group();
-    var body = new THREE.Mesh(new THREE.CylinderGeometry(0.115, 0.09, 0.15, 8),
-      CS.mat({ color: 0xf6f3ea, tex: 'plate' }));
-    body.position.y = 0.075; body.castShadow = true; g.add(body);
+    add(g, CS.cyl(0.115, 0.09, 0.15, { color: 0xffffff, tex: 'plate', rough: 0.35 }, 0, 0.075, 0, 20));
+    add(g, CS.torus(0.112, 0.012, 0, { color: 0xf4efe4, rough: 0.35 }, 0, 0.15, 0)).rotation.x = Math.PI / 2;
     if (sauce) {
-      var top = new THREE.Mesh(new THREE.CylinderGeometry(0.10, 0.10, 0.03, 8),
-        CS.mat({ color: CS.ING[sauce].color }));
-      top.position.y = 0.145; g.add(top);
+      var col = CS.ING[sauce].color;
+      var S = { color: col, rough: 0.12 };
+      add(g, CS.cyl(0.104, 0.104, 0.02, S, 0, 0.148, 0, 20));
+      add(g, CS.ball(0.07, 0.04, 0.07, S, 0.01, 0.16, 0));          // a dollop on top
+      add(g, CS.ball(0.035, 0.035, 0.035, S, 0.015, 0.19, 0));
     }
     return g;
   }
@@ -449,50 +621,71 @@ window.CS = window.CS || {};
   /* Builds the stacked sandwich on a plate. Returns the height it consumed. */
   function buildSandwich(g, s, y) {
     var top = y;
-    g.add(CS.box(0.50, 0.10, 0.50, { color: 0xc78f47, tex: 'bun' }, 0, top + 0.05, 0));
-    top += 0.10;
+    var BUN = { color: 0xffffff, tex: 'bun', emissive: 0x1a0c00, rough: 0.45 };
+    add(g, CS.cyl(0.25, 0.24, 0.09, BUN, 0, top + 0.045, 0, 24));
+    top += 0.09;
 
-    s.sauces.forEach(function (id) {
-      g.add(CS.box(0.47, 0.035, 0.47, { color: CS.ING[id].color }, 0, top + 0.017, 0));
-      top += 0.035;
+    s.sauces.forEach(function (id, i) {
+      var c = { color: CS.ING[id].color, rough: 0.12 };
+      add(g, CS.cyl(0.255, 0.255, 0.025, c, 0, top + 0.012, 0, 24));
+      // a drip or two over the edge, so it looks squeezed on
+      add(g, CS.ball(0.03, 0.05, 0.03, c, Math.cos(i * 2 + 0.6) * 0.25, top - 0.02, Math.sin(i * 2 + 0.6) * 0.25));
+      add(g, CS.ball(0.025, 0.04, 0.025, c, Math.cos(i * 2 + 2.1) * 0.25, top - 0.015, Math.sin(i * 2 + 2.1) * 0.25));
+      top += 0.025;
     });
 
     if (s.chicken) {
-      var p = chickenPatty('breading', 0xffffff);
-      p.position.y = top; p.scale.set(1.02, 1, 1.02);
+      var p = chickenPatty('fried');
+      p.position.y = top - 0.02; p.scale.set(1.1, 1, 1.15);
       g.add(p);
-      top += 0.20;
+      top += 0.17;
     }
 
     s.toppings.forEach(function (id) {
       var c = CS.ING[id].color;
       if (id === 'lettuce') {
-        for (var i = 0; i < 4; i++) {
-          var lf = CS.box(0.30, 0.035, 0.22, { color: i % 2 ? c : CS.shade(c, 22) },
-            (i % 2 ? 0.10 : -0.10), top + 0.02, (i < 2 ? 0.11 : -0.11));
-          lf.rotation.y = i * 0.5; g.add(lf);
+        // a frilly leaf poking out past the bun all the way round
+        add(g, CS.cyl(0.27, 0.27, 0.02, { color: c, rough: 0.5 }, 0, top + 0.01, 0, 24));
+        for (var i = 0; i < 9; i++) {
+          var a = i / 9 * Math.PI * 2;
+          add(g, CS.ball(0.065, 0.025, 0.065, { color: i % 2 ? c : CS.shade(c, 22), rough: 0.5 },
+            Math.cos(a) * 0.26, top + 0.01 + (i % 2) * 0.012, Math.sin(a) * 0.26));
         }
-        top += 0.05;
+        top += 0.035;
       } else if (id === 'tomato') {
-        g.add(CS.box(0.22, 0.05, 0.22, { color: c }, -0.11, top + 0.025, -0.08));
-        g.add(CS.box(0.22, 0.05, 0.22, { color: CS.shade(c, 18) }, 0.11, top + 0.025, 0.08));
-        top += 0.05;
+        [[-0.10, -0.06], [0.11, 0.07], [0.08, -0.12]].forEach(function (p, i) {
+          add(g, CS.cyl(0.11, 0.11, 0.035, { color: c, rough: 0.25 }, p[0], top + 0.018 + i * 0.004, p[1], 18));
+          add(g, CS.cyl(0.07, 0.07, 0.037, { color: 0xff8c78, rough: 0.3 }, p[0], top + 0.019 + i * 0.004, p[1], 18));
+        });
+        top += 0.045;
       } else { // pickles
-        g.add(CS.box(0.16, 0.04, 0.16, { color: c }, -0.12, top + 0.02, 0.10));
-        g.add(CS.box(0.16, 0.04, 0.16, { color: CS.shade(c, -20) }, 0.13, top + 0.02, -0.05));
-        g.add(CS.box(0.16, 0.04, 0.16, { color: c }, 0.02, top + 0.02, -0.14));
-        top += 0.04;
+        [[-0.11, 0.09], [0.12, -0.04], [0.02, -0.13], [-0.04, 0.0]].forEach(function (p, i) {
+          add(g, CS.cyl(0.07, 0.07, 0.025, { color: i % 2 ? CS.shade(c, -14) : c, rough: 0.3 }, p[0], top + 0.013, p[1], 14));
+          add(g, CS.cyl(0.035, 0.035, 0.027, { color: CS.shade(c, 40), rough: 0.3 }, p[0], top + 0.014, p[1], 12));
+        });
+        top += 0.03;
       }
     });
 
-    // crown bun with sesame
-    g.add(CS.box(0.50, 0.14, 0.50, { color: 0xd9a458, tex: 'bun' }, 0, top + 0.07, 0));
-    g.add(CS.box(0.42, 0.06, 0.42, { color: 0xe2b268 }, 0, top + 0.16, 0));
-    [[-0.12, 0.07], [0.10, -0.09], [0.02, 0.13], [-0.14, -0.10]].forEach(function (p) {
-      g.add(CS.box(0.045, 0.02, 0.045, 0xf6e8c8, p[0], top + 0.195, p[1]));
+    // crown bun: a dome with a sheen and sesame seeds
+    add(g, CS.cyl(0.26, 0.26, 0.04, BUN, 0, top + 0.02, 0, 24));
+    add(g, CS.shell(0.265, 0.17, 0.265, BUN, 0, Math.PI * 2, 0, Math.PI / 2)).position.y = top + 0.035;
+    [[-0.12, 0.07], [0.10, -0.10], [0.03, 0.14], [-0.14, -0.07], [0.15, 0.05],
+     [-0.03, -0.15], [0.06, 0.03], [-0.06, -0.02]].forEach(function (p, i) {
+      var d = Math.sqrt(p[0] * p[0] + p[1] * p[1]) / 0.265;
+      var hY = 0.17 * Math.sqrt(Math.max(0, 1 - d * d));
+      var seed = add(g, CS.ball(0.022, 0.01, 0.013, { color: 0xfff3d6, rough: 0.6 }, p[0], top + 0.035 + hY, p[1]));
+      seed.rotation.y = i * 0.8;
     });
-    return top + 0.21;
+    return top + 0.22;
   }
+
+  /* White glazed plate with a blue rim, like the good crockery. */
+  function dish(g) {
+    add(g, CS.cyl(0.44, 0.36, 0.05, { color: 0x3a5aa6, rough: 0.3 }, 0, 0.025, 0, 32));
+    add(g, CS.cyl(0.40, 0.36, 0.056, { color: 0xffffff, tex: 'plate', rough: 0.25 }, 0, 0.028, 0, 32));
+  }
+  CS.models.dish = dish;
 
   /* item -> THREE.Group. `item` is the plain data object from interact.js */
   CS.models.item = function (item) {
@@ -500,19 +693,16 @@ window.CS = window.CS || {};
     if (!item) return g;
 
     switch (item.k) {
-      case 'rawChicken':   g.add(chickenPatty('feathers', 0xe7a99e)); break;
-      case 'friedChicken': g.add(chickenPatty('breading', 0xffffff)); break;
-      case 'burntChicken': g.add(chickenPatty('charred', 0xffffff)); break;
-      case 'rawFries':     g.add(friesBundle({ color: 0xf0e2ad }, 8)); break;
-      case 'cookedFries':  g.add(friesCarton({ color: 0xf0b53c })); break;
-      case 'burntFries':   g.add(friesCarton({ color: 0x3a2f26 })); break;
+      case 'rawChicken':   g.add(chickenPatty('raw')); break;
+      case 'friedChicken': g.add(chickenPatty('fried')); break;
+      case 'burntChicken': g.add(chickenPatty('burnt')); break;
+      case 'rawFries':     g.add(friesBundle(0xfbe9b8, 10)); break;
+      case 'cookedFries':  g.add(friesCarton(false)); break;
+      case 'burntFries':   g.add(friesCarton(true)); break;
       case 'cup':          g.add(sauceCup(item.sauce)); break;
       case 'plate': {
-        var dish = new THREE.Mesh(new THREE.CylinderGeometry(0.44, 0.38, 0.055, 12),
-          CS.mat({ color: 0xf2efe6, tex: 'plate' }));
-        dish.position.y = 0.028; dish.castShadow = true; dish.receiveShadow = true;
-        g.add(dish);
-        var y = 0.055;
+        dish(g);
+        var y = 0.056;
         if (item.sandwich) {
           var sg = new THREE.Group();
           buildSandwich(sg, item.sandwich, 0);
@@ -521,8 +711,8 @@ window.CS = window.CS || {};
           g.add(sg);
         }
         if (item.fries) {
-          var fc = friesCarton({ color: 0xf0b53c });
-          fc.position.set(item.sandwich ? 0.26 : 0, y, item.sandwich ? 0.16 : 0);
+          var fc = friesCarton(false);
+          fc.position.set(item.sandwich ? 0.24 : 0, y, item.sandwich ? 0.16 : 0);
           g.add(fc);
         }
         item.cups.forEach(function (s, i) {
@@ -539,12 +729,28 @@ window.CS = window.CS || {};
     return g;
   };
 
+  /* ------------------------------------------------------------ steam
+     The soft puff every steam and smoke particle is drawn with. */
+  var puffTex = null;
+  CS.models.puffTexture = function () {
+    if (puffTex) return puffTex;
+    var c = document.createElement('canvas'); c.width = c.height = 64;
+    var x = c.getContext('2d');
+    var grd = x.createRadialGradient(32, 32, 0, 32, 32, 31);
+    grd.addColorStop(0, 'rgba(255,255,255,1)');
+    grd.addColorStop(0.45, 'rgba(255,255,255,0.7)');
+    grd.addColorStop(1, 'rgba(255,255,255,0)');
+    x.fillStyle = grd; x.fillRect(0, 0, 64, 64);
+    puffTex = CS.srgb(new THREE.CanvasTexture(c));
+    return puffTex;
+  };
+
   /* -------------------------------------------------- floating progress bar */
   CS.models.bar = function (width) {
     width = width || 0.9;
     var g = new THREE.Group();
-    var bg = CS.box(width + 0.08, 0.16, 0.05, CS.mat({ color: 0x1a120b, basic: true }), 0, 0, 0);
-    var fill = CS.box(width, 0.10, 0.02, CS.mat({ color: 0x6fbf3a, basic: true }), 0, 0, 0.03);
+    var bg = CS.box(width + 0.10, 0.18, 0.05, CS.mat({ color: 0x1d2442, basic: true }), 0, 0, 0);
+    var fill = CS.box(1, 0.10, 0.02, CS.mat({ color: 0x6fbf3a, basic: true }), 0, 0, 0.03);
     fill.scale.x = width;
     g.add(bg); g.add(fill);
     g.userData.set = function (t, color) {
@@ -553,240 +759,351 @@ window.CS = window.CS || {};
       fill.position.x = -(width * (1 - t)) / 2;
       fill.material = CS.mat({ color: color, basic: true });
     };
-    return g;
+    return CS.noMirror(g);
   };
 
   /* --------------------------------------------- canvas-drawn signage
-     Small plaques over each station and bigger boards on the walls. Text is
-     drawn to a canvas and sampled with NearestFilter so it stays pixel-crisp. */
+     Plaques over each station and boards on the walls. Text is drawn to a
+     canvas once and shown on an unlit plane. */
   function textPlane(draw, cw, ch, worldW) {
     var c = document.createElement('canvas');
     c.width = cw; c.height = ch;
     var x = c.getContext('2d');
-    x.imageSmoothingEnabled = false;
     draw(x, cw, ch);
-    var t = new THREE.CanvasTexture(c);
-    // text stays legible at this camera distance with linear sampling
-    t.magFilter = t.minFilter = THREE.LinearFilter;
-    t.generateMipmaps = false;
-    var m = new THREE.Mesh(new THREE.PlaneGeometry(worldW, worldW * ch / cw),
+    var t = CS.srgb(new THREE.CanvasTexture(c));
+    t.magFilter = THREE.LinearFilter;
+    t.minFilter = THREE.LinearMipmapLinearFilter;
+    t.anisotropy = 4;
+    return new THREE.Mesh(new THREE.PlaneGeometry(worldW, worldW * ch / cw),
       new THREE.MeshBasicMaterial({ map: t, transparent: true }));
-    return m;
   }
 
-  /* The plaque canvas is drawn at 2x the old size so it stays crisp however
-     large the caller hangs it -- a phone wants a noticeably bigger board than
-     a desktop, and the old 256x64 sheet went soft when stretched. */
+  function roundRect(x, px, py, w, h, r) {
+    x.beginPath();
+    x.moveTo(px + r, py);
+    x.arcTo(px + w, py, px + w, py + h, r);
+    x.arcTo(px + w, py + h, px, py + h, r);
+    x.arcTo(px, py + h, px, py, r);
+    x.arcTo(px, py, px + w, py, r);
+    x.closePath();
+  }
+
+  var SERIF = 'Georgia, "Times New Roman", serif';
+
+  /* A parchment plaque with a coloured ribbon edge. */
   CS.models.label = function (text, accent, worldW) {
     var W = 512, H = 128;
-    return textPlane(function (x) {
-      x.fillStyle = '#f4e4c1'; x.fillRect(0, 0, W, H);
-      x.fillStyle = accent || '#8a5a2b';
-      x.fillRect(0, 0, W, 14); x.fillRect(0, H - 14, W, 14);
-      x.fillRect(0, 0, 14, H); x.fillRect(W - 14, 0, 14, H);
-      x.fillStyle = '#2c1c10';
-      var size = text.length > 8 ? 60 : 76;
-      x.font = 'bold ' + size + 'px "Courier New", monospace';
+    var plaque = textPlane(function (x) {
+      roundRect(x, 6, 6, W - 12, H - 12, 34);
+      x.fillStyle = accent || '#2f4f96'; x.fill();
+      roundRect(x, 18, 18, W - 36, H - 36, 24);
+      var g = x.createLinearGradient(0, 18, 0, H - 18);
+      g.addColorStop(0, '#fbf3df'); g.addColorStop(1, '#ecdcb8');
+      x.fillStyle = g; x.fill();
+      x.fillStyle = '#3a2a1e';
+      var size = text.length > 8 ? 54 : 66;
+      x.font = 'bold ' + size + 'px ' + SERIF;
       x.textAlign = 'center'; x.textBaseline = 'middle';
-      x.fillText(text.toUpperCase(), W / 2, H / 2 + 4);
+      x.fillText(text, W / 2, H / 2 + 4);
     }, W, H, worldW || 2.08);
+    return CS.noMirror(plaque);
+  };
+
+  /* Pennant banner: royal blue cloth with a gold border and a little gold
+     bird crest, cut to a point at the bottom. */
+  CS.models.banner = function (worldW) {
+    var W = 256, H = 384;
+    return textPlane(function (x) {
+      x.beginPath();
+      x.moveTo(8, 8); x.lineTo(W - 8, 8); x.lineTo(W - 8, H - 90); x.lineTo(W / 2, H - 8);
+      x.lineTo(8, H - 90); x.closePath();
+      x.fillStyle = '#e2b347'; x.fill();
+      x.beginPath();
+      x.moveTo(22, 22); x.lineTo(W - 22, 22); x.lineTo(W - 22, H - 100); x.lineTo(W / 2, H - 30);
+      x.lineTo(22, H - 100); x.closePath();
+      var g = x.createLinearGradient(0, 0, W, 0);
+      g.addColorStop(0, '#22397a'); g.addColorStop(0.5, '#2f4f96'); g.addColorStop(1, '#22397a');
+      x.fillStyle = g; x.fill();
+      // the crest: a plump little bird in gold
+      x.fillStyle = '#e8bb4c';
+      x.beginPath(); x.ellipse(W / 2, 190, 52, 46, 0, 0, Math.PI * 2); x.fill();
+      x.beginPath(); x.ellipse(W / 2 + 6, 126, 34, 32, 0, 0, Math.PI * 2); x.fill();
+      x.beginPath(); x.moveTo(W / 2 + 36, 120); x.lineTo(W / 2 + 66, 132); x.lineTo(W / 2 + 36, 140); x.fill();
+      x.beginPath(); x.ellipse(W / 2 - 30, 178, 30, 18, -0.6, 0, Math.PI * 2); x.fillStyle = '#c99a32'; x.fill();
+      x.fillStyle = '#22397a';
+      x.beginPath(); x.arc(W / 2 + 16, 120, 6, 0, Math.PI * 2); x.fill();
+    }, W, H, worldW || 1.1);
   };
 
   CS.models.signBoard = function (lines, worldW) {
-    var W = 300, H = 72 + lines.length * 51;
+    var W = 320, H = 80 + lines.length * 52;
     return textPlane(function (x) {
-      x.fillStyle = '#c99a5c'; x.fillRect(0, 0, W, H);
-      for (var i = 0; i < H; i += 12) {                      // plank grain
-        x.fillStyle = i % 24 === 0 ? '#bd8e51' : '#c4955a';
-        x.fillRect(0, i, W, 6);
-      }
-      x.fillStyle = '#7a4a26';
-      x.fillRect(0, 0, W, 9); x.fillRect(0, H - 9, W, 9);
-      x.fillRect(0, 0, 9, H); x.fillRect(W - 9, 0, 9, H);
-      x.fillStyle = '#2c1c10';
+      roundRect(x, 4, 4, W - 8, H - 8, 22);
+      x.fillStyle = '#7a4f2c'; x.fill();
+      roundRect(x, 16, 16, W - 32, H - 32, 14);
+      x.fillStyle = '#2e3a36'; x.fill();                      // chalkboard
+      x.fillStyle = '#f4efe2';
       x.textAlign = 'center'; x.textBaseline = 'middle';
       lines.forEach(function (ln, i) {
-        x.font = 'bold ' + (ln.length > 9 ? 33 : 40) + 'px "Courier New", monospace';
-        x.fillText(ln.toUpperCase(), W / 2, 50 + i * 51);
+        x.font = 'italic bold ' + (ln.length > 9 ? 34 : 40) + 'px ' + SERIF;
+        x.fillText(ln, W / 2, 54 + i * 52);
       });
-      x.fillStyle = '#c0392b';                                // little pixel heart
-      var hx = W / 2 - 15, hy = H - 42;
-      [[0, 0], [6, 0], [18, 0], [24, 0], [0, 6], [6, 6], [12, 6], [18, 6], [24, 6],
-       [6, 12], [12, 12], [18, 12], [12, 18]].forEach(function (p) {
-        x.fillRect(hx + p[0], hy + p[1], 6, 6);
-      });
+      x.strokeStyle = '#e8bb4c'; x.lineWidth = 4;                // a little leaf flourish
+      x.beginPath(); x.moveTo(W / 2 - 40, H - 34); x.quadraticCurveTo(W / 2, H - 52, W / 2 + 40, H - 34); x.stroke();
     }, W, H, worldW || 1.9);
   };
 
-  /* A pixel view of the outdoors, straight off the reference art: blue sky,
-     blocky clouds, a grass horizon and a chunky tree. */
-  CS.models.skyPane = function (worldW) {
-    var W = 96, H = 72;
+  /* The view through the arched window: a soft sky, distant hills and a
+     white castle with blue spires. */
+  CS.models.skyPane = function (worldW, worldH) {
+    var W = 384, H = Math.round(384 * (worldH || worldW * 0.6) / worldW);
     return textPlane(function (x) {
-      x.fillStyle = '#74b8ea'; x.fillRect(0, 0, W, H);
-      x.fillStyle = '#8fcbf2'; x.fillRect(0, 0, W, 14);
-      // clouds
-      x.fillStyle = '#ffffff';
-      [[8, 10, 18, 6], [14, 6, 10, 4], [58, 16, 22, 6], [64, 12, 12, 4], [36, 6, 12, 5]]
-        .forEach(function (r) { x.fillRect(r[0], r[1], r[2], r[3]); });
-      // ground
-      x.fillStyle = '#4e8f34'; x.fillRect(0, 48, W, H - 48);
-      x.fillStyle = '#5faa3d'; x.fillRect(0, 48, W, 6);
-      x.fillStyle = '#69ba45';
-      for (var i = 0; i < W; i += 6) x.fillRect(i, 48, 3, 3);
-      // tree
-      x.fillStyle = '#6b4526'; x.fillRect(22, 34, 8, 18);
-      x.fillStyle = '#3f7d2b'; x.fillRect(10, 16, 32, 20);
-      x.fillStyle = '#4e9634'; x.fillRect(14, 12, 24, 8);
-      x.fillStyle = '#5faa3d'; x.fillRect(18, 18, 8, 6); x.fillRect(30, 24, 8, 6);
-      // distant hill
-      x.fillStyle = '#457f30'; x.fillRect(66, 40, 26, 10);
+      var g = x.createLinearGradient(0, 0, 0, H);
+      g.addColorStop(0, '#7fb6ea'); g.addColorStop(0.7, '#cfe6f7'); g.addColorStop(1, '#f2eadb');
+      x.fillStyle = g; x.fillRect(0, 0, W, H);
+      x.fillStyle = 'rgba(255,255,255,0.85)';
+      [[60, 60, 40], [100, 52, 30], [290, 80, 44], [330, 70, 30], [200, 40, 24]].forEach(function (c) {
+        x.beginPath(); x.arc(c[0], c[1], c[2], 0, Math.PI * 2); x.fill();
+      });
+      // castle
+      var base = H * 0.72;
+      x.fillStyle = '#e6e8f2';
+      [[150, 70, 14], [182, 110, 18], [222, 92, 16], [250, 60, 12]].forEach(function (t) {
+        x.fillRect(t[0] - t[2], base - t[1], t[2] * 2, t[1]);
+      });
+      x.fillRect(130, base - 46, 140, 46);
+      x.fillStyle = '#5a7cc4';
+      [[150, 70, 14], [182, 110, 18], [222, 92, 16], [250, 60, 12]].forEach(function (t) {
+        x.beginPath(); x.moveTo(t[0] - t[2] - 3, base - t[1]); x.lineTo(t[0], base - t[1] - t[2] * 2.6);
+        x.lineTo(t[0] + t[2] + 3, base - t[1]); x.fill();
+      });
+      x.fillStyle = '#b9c2dc';
+      [[160, base - 30], [200, base - 60], [240, base - 40]].forEach(function (w) { x.fillRect(w[0], w[1], 6, 10); });
+      // hills
+      x.fillStyle = '#8fbf72';
+      x.beginPath(); x.moveTo(0, H); x.lineTo(0, base); x.quadraticCurveTo(W * 0.3, base - 30, W * 0.55, base + 4);
+      x.quadraticCurveTo(W * 0.8, base - 26, W, base - 6); x.lineTo(W, H); x.fill();
+      x.fillStyle = '#6fa45a';
+      x.beginPath(); x.moveTo(0, H); x.lineTo(0, base + 24); x.quadraticCurveTo(W * 0.5, base, W, base + 30); x.lineTo(W, H); x.fill();
     }, W, H, worldW || 3.0);
   };
 
-  /* Framed food picture for the wall — drumstick, tomato or lettuce. */
+  /* Framed food picture for the wall -- drumstick, tomato or lettuce. */
   CS.models.foodFrame = function (kind, worldW) {
-    var W = 48, H = 48;
+    var W = 128, H = 128;
     return textPlane(function (x) {
-      x.fillStyle = '#5a3a1c'; x.fillRect(0, 0, W, H);          // frame
-      x.fillStyle = '#7a4f26'; x.fillRect(3, 3, W - 6, H - 6);
-      x.fillStyle = '#2a1d14'; x.fillRect(7, 7, W - 14, H - 14); // mount
-      function px(c, cells) {
-        x.fillStyle = c;
-        cells.forEach(function (p) { x.fillRect(12 + p[0] * 4, 12 + p[1] * 4, 4, 4); });
-      }
+      roundRect(x, 2, 2, W - 4, H - 4, 10); x.fillStyle = '#b8862e'; x.fill();
+      roundRect(x, 12, 12, W - 24, H - 24, 6); x.fillStyle = '#f6eedc'; x.fill();
+      var cx = W / 2, cy = H / 2;
       if (kind === 'drumstick') {
-        px('#d9862a', [[1, 0], [2, 0], [0, 1], [1, 1], [2, 1], [3, 1], [0, 2], [1, 2], [2, 2], [3, 2], [1, 3], [2, 3]]);
-        px('#f0b45c', [[1, 0], [1, 1]]);
-        px('#f2e6cf', [[3, 4], [2, 4], [3, 5]]);
+        x.fillStyle = '#f2e6cf';
+        x.beginPath(); x.ellipse(cx + 20, cy + 22, 9, 9, 0, 0, Math.PI * 2); x.fill();
+        x.fillRect(cx + 4, cy + 6, 14, 10);
+        x.fillStyle = '#d9862a';
+        x.beginPath(); x.ellipse(cx - 6, cy - 6, 28, 22, -0.7, 0, Math.PI * 2); x.fill();
+        x.fillStyle = '#f2b45e';
+        x.beginPath(); x.ellipse(cx - 12, cy - 12, 12, 8, -0.7, 0, Math.PI * 2); x.fill();
       } else if (kind === 'tomato') {
-        px('#c8342a', [[1, 1], [2, 1], [3, 1], [0, 2], [1, 2], [2, 2], [3, 2], [4, 2],
-                       [0, 3], [1, 3], [2, 3], [3, 3], [4, 3], [1, 4], [2, 4], [3, 4]]);
-        px('#e05a45', [[1, 1], [1, 2]]);
-        px('#4e9634', [[2, 0], [1, 0], [3, 0]]);
+        x.fillStyle = '#d6402f';
+        x.beginPath(); x.arc(cx, cy + 6, 30, 0, Math.PI * 2); x.fill();
+        x.fillStyle = '#ff8a78';
+        x.beginPath(); x.ellipse(cx - 12, cy - 4, 8, 5, -0.6, 0, Math.PI * 2); x.fill();
+        x.fillStyle = '#4e9634';
+        x.beginPath(); x.ellipse(cx, cy - 24, 16, 6, 0, 0, Math.PI * 2); x.fill();
       } else {
-        px('#4e9634', [[1, 1], [2, 1], [3, 1], [0, 2], [1, 2], [2, 2], [3, 2], [4, 2],
-                       [1, 3], [2, 3], [3, 3]]);
-        px('#6fbf3a', [[2, 1], [1, 2], [3, 2], [2, 3]]);
+        x.fillStyle = '#4e9634';
+        x.beginPath(); x.arc(cx, cy, 30, 0, Math.PI * 2); x.fill();
+        x.strokeStyle = '#8fd065'; x.lineWidth = 3;
+        x.beginPath(); x.moveTo(cx, cy + 26); x.lineTo(cx, cy - 22); x.stroke();
       }
     }, W, H, worldW || 0.9);
   };
 
-  /* Soft blob under the chef — reads much better than a cast shadow alone. */
+  /* Soft blob under the chef -- reads much better than a cast shadow alone. */
   CS.models.blobShadow = function () {
     var c = document.createElement('canvas'); c.width = c.height = 64;
     var x = c.getContext('2d');
     var grd = x.createRadialGradient(32, 32, 2, 32, 32, 30);
-    grd.addColorStop(0, 'rgba(30,18,8,0.55)');
-    grd.addColorStop(0.6, 'rgba(30,18,8,0.28)');
-    grd.addColorStop(1, 'rgba(30,18,8,0)');
+    grd.addColorStop(0, 'rgba(50,34,24,0.45)');
+    grd.addColorStop(0.6, 'rgba(50,34,24,0.22)');
+    grd.addColorStop(1, 'rgba(50,34,24,0)');
     x.fillStyle = grd; x.fillRect(0, 0, 64, 64);
-    var t = new THREE.CanvasTexture(c);
+    var t = CS.srgb(new THREE.CanvasTexture(c));
     var m = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 1.5),
       new THREE.MeshBasicMaterial({ map: t, transparent: true, depthWrite: false }));
     m.rotation.x = -Math.PI / 2;
     m.renderOrder = 2;
+    CS.noMirror(m);
     return m;
   };
 
   /* ------------------------------------------------------------ the staff
-     Your hires are the ingredients themselves, grown legs and an apron. They
-     are built on the same chunky two-block body as a customer so they read at
-     a glance from the overview camera, but squatter, and each one keeps the
-     silhouette of what it does: a tomato is round with a leafy crown, a
-     potato is a lumpy oval. `hold` is an empty slot their cargo gets parented
-     to, so whatever they are carrying rides in front of them. */
+     Your hires are the ingredients themselves, grown legs and an apron:
+     round little veggies with big glossy eyes. A tomato is shiny and red
+     with a leafy crown; a potato is lumpy and wears a paper cap. `hold` is
+     an empty slot their cargo gets parented to, so whatever they are
+     carrying rides in front of them. */
   CS.models.assistant = function (kind) {
     var g = new THREE.Group();
     var parts = { kind: kind };
 
     var spud = kind === 'potato';
-    var skin = spud ? { color: 0xc99a5c } : { color: 0xd6402f };
-    var dark = spud ? { color: 0xa87a42 } : { color: 0xa82b1f };
-    var apron = { color: 0xf7e9cd };
+    var SKIN = spud ? { color: 0xd9a868, tex: 'fluff', rough: 0.85 } : { color: 0xe8392b, rough: 0.28 };
+    var SKIN_D = spud ? { color: 0xb98a4e, rough: 0.85 } : { color: 0xc22a20, rough: 0.3 };
+    var EYE = { color: 0x1e1828, rough: 0.15 };
+    var SHINE = { color: 0xffffff, rough: 0.2 };
 
     var body = new THREE.Group();
-    body.position.y = 0.52;
+    body.position.y = 0.30;
     g.add(body);
     parts.body = body;
 
+    var BY = 0.40;
     if (spud) {
-      add(body, CS.box(0.52, 0.46, 0.44, skin, 0, 0, 0));
-      add(body, CS.box(0.42, 0.14, 0.38, skin, 0.04, 0.26, 0));     // knobbly crown
-      add(body, CS.box(0.14, 0.09, 0.09, dark, -0.21, 0.08, 0.16)); // eyes of the spud
-      add(body, CS.box(0.10, 0.08, 0.08, dark, 0.20, -0.09, 0.14));
-    } else {
-      add(body, CS.box(0.54, 0.48, 0.50, skin, 0, 0, 0));
-      add(body, CS.box(0.44, 0.10, 0.44, dark, 0, 0.26, 0));
-      // a little green crown of leaves, splayed out
-      [[-0.14, -0.10], [0.15, -0.09], [-0.09, 0.15], [0.12, 0.14]].forEach(function (p) {
-        add(body, CS.box(0.17, 0.07, 0.17, { color: 0x4e9b2f }, p[0], 0.33, p[1]));
+      add(body, CS.ball(0.33, 0.39, 0.30, SKIN, 0, BY, 0));
+      [[0.22, 0.55, 0.12, 0.10], [-0.25, 0.30, 0.10, 0.11], [0.10, 0.16, 0.20, 0.09]].forEach(function (b) {
+        add(body, CS.ball(b[3], b[3] * 0.9, b[3], SKIN, b[0], b[1], b[2] * 0.5));
       });
-      add(body, CS.box(0.07, 0.12, 0.07, { color: 0x3d7a24 }, 0, 0.40, 0));
+      [[0.24, 0.24, 0.20], [-0.20, 0.55, 0.18], [0.05, 0.70, 0.17]].forEach(function (s) {
+        add(body, CS.ball(0.025, 0.02, 0.02, SKIN_D, s[0], s[1], s[2]));
+      });
+      // paper cap with a blue band
+      add(body, CS.cyl(0.20, 0.22, 0.12, { color: 0xfbf8f1 }, 0, BY + 0.40, -0.02, 20));
+      add(body, CS.cyl(0.222, 0.225, 0.025, { color: 0x2f4f96 }, 0, BY + 0.35, -0.02, 20));
+      add(body, CS.ball(0.20, 0.08, 0.18, { color: 0xfbf8f1 }, 0, BY + 0.47, -0.02));
+    } else {
+      add(body, CS.ball(0.38, 0.34, 0.37, SKIN, 0, BY, 0));
+      add(body, CS.ball(0.10, 0.06, 0.04, { color: 0xffb9ab, rough: 0.2 }, -0.17, BY + 0.17, 0.30)).rotation.z = 0.5;
+      // leafy crown: a star of leaves round a little stalk
+      for (var i = 0; i < 5; i++) {
+        var a = i / 5 * Math.PI * 2;
+        var lf = add(body, CS.ball(0.06, 0.02, 0.13, { color: 0x4fae3a, rough: 0.6 },
+          Math.sin(a) * 0.09, BY + 0.33, Math.cos(a) * 0.09));
+        lf.rotation.y = a;
+        lf.rotation.x = 0.35;
+      }
+      add(body, CS.cyl(0.02, 0.025, 0.10, { color: 0x3d8a2a }, 0, BY + 0.38, 0, 8));
     }
 
-    // apron bib, so they read as staff and not as loose produce
-    add(body, CS.box(0.34, 0.26, 0.03, apron, 0, -0.08, spud ? 0.23 : 0.26));
-    add(body, CS.box(0.30, 0.04, 0.03, { color: 0xc0392b }, 0, 0.07, spud ? 0.235 : 0.265));
+    // apron bib in white with blue piping, so they read as staff
+    var R = spud ? [0.33, 0.39, 0.30] : [0.38, 0.34, 0.37];
+    var apron = add(body, CS.shell(R[0] * 1.03, R[1] * 1.03, R[2] * 1.03, { color: 0xfbf8f1 },
+      Math.PI / 2 - 0.6, 1.2, 1.55, 0.8));
+    apron.position.y = BY;
+    var pipe = add(body, CS.shell(R[0] * 1.04, R[1] * 1.04, R[2] * 1.04, { color: 0x2f4f96 },
+      Math.PI / 2 - 0.62, 1.24, 2.30, 0.06));
+    pipe.position.y = BY;
 
-    // face
-    var fz = spud ? 0.225 : 0.255;
-    add(body, CS.box(0.09, 0.11, 0.03, { color: 0x1d1309 }, -0.12, 0.09, fz));
-    add(body, CS.box(0.09, 0.11, 0.03, { color: 0x1d1309 }, 0.12, 0.09, fz));
-    add(body, CS.box(0.05, 0.05, 0.03, { color: 0xffffff }, -0.10, 0.12, fz + 0.01));
-    add(body, CS.box(0.05, 0.05, 0.03, { color: 0xffffff }, 0.14, 0.12, fz + 0.01));
+    // the face: big glossy eyes with catchlights, rosy cheeks, a little smile
+    var FZ = R[2] * 0.93;
+    [-1, 1].forEach(function (s) {
+      add(body, CS.ball(0.06, 0.08, 0.03, EYE, s * 0.12, BY + 0.10, FZ));
+      add(body, CS.ball(0.022, 0.026, 0.01, SHINE, s * 0.12 - 0.02, BY + 0.14, FZ + 0.03));
+      add(body, CS.ball(0.055, 0.03, 0.015, { color: 0xff9db2, rough: 0.9 }, s * 0.22, BY + 0.0, FZ - 0.04)).rotation.y = s * 0.5;
+    });
+    var smile = add(body, CS.torus(0.05, 0.012, Math.PI, { color: 0x5a1a1a }, 0, BY + 0.02, FZ + 0.02));
+    smile.rotation.z = Math.PI;
 
-    // stubby arms and legs, pivoting at the shoulder/hip like the customers
-    var LIMB = { color: spud ? 0xa87a42 : 0xa82b1f };
-    var BOOT = { color: 0x3d2a18 };
+    // stubby arms and legs, pivoting at the shoulder and hip
+    var LIMB = SKIN_D, GLOVE = { color: 0xfbf8f1 }, BOOT = { color: 0x2f4f96, rough: 0.5 };
     [-1, 1].forEach(function (s, i) {
       var arm = new THREE.Group();
-      arm.position.set(s * 0.31, 0.04, 0);
-      add(arm, CS.box(0.12, 0.26, 0.12, LIMB, 0, -0.13, 0));
+      arm.position.set(s * (R[0] - 0.02), BY - 0.02, 0);
+      add(arm, CS.ball(0.05, 0.11, 0.05, LIMB, s * 0.02, -0.09, 0));
+      add(arm, CS.ball(0.06, 0.055, 0.06, GLOVE, s * 0.03, -0.20, 0));
       body.add(arm);
       parts[i ? 'armR' : 'armL'] = arm;
 
       var leg = new THREE.Group();
-      leg.position.set(s * 0.14, -0.24, 0);
-      add(leg, CS.box(0.14, 0.20, 0.14, LIMB, 0, -0.10, 0));
-      add(leg, CS.box(0.17, 0.08, 0.21, BOOT, 0, -0.23, 0.03));
+      leg.position.set(s * 0.13, BY - R[1] + 0.06, 0);
+      add(leg, CS.ball(0.05, 0.09, 0.05, LIMB, 0, -0.06, 0));
+      add(leg, CS.ball(0.08, 0.05, 0.11, BOOT, 0, -0.15, 0.03));
       body.add(leg);
       parts[i ? 'legR' : 'legL'] = leg;
     });
 
     // where their cargo rides
     var hold = new THREE.Object3D();
-    hold.position.set(0, 0.62, 0.34);
+    hold.position.set(0, 0.62, R[2] + 0.16);
     g.add(hold);
     parts.hold = hold;
 
     // "..." over the head while they have nothing to do, so an idle hire is
     // visibly idle rather than looking broken
     parts.mark = new THREE.Group();
-    parts.mark.position.set(0, 1.32, 0);
+    parts.mark.position.set(0, 1.42, 0);
     parts.mark.visible = false;
     g.add(parts.mark);
     [-0.14, 0, 0.14].forEach(function (x) {
-      add(parts.mark, CS.box(0.09, 0.09, 0.09,
-        CS.mat({ color: 0xf0d79a, basic: true }), x, 0, 0));
+      add(parts.mark, CS.ball(0.05, 0.05, 0.05, CS.mat({ color: 0xffffff, basic: true }), x, 0, 0));
     });
+    CS.noMirror(parts.mark);
 
+    g.traverse(function (o) { if (o.isMesh) o.castShadow = true; });
     return { group: g, parts: parts };
   };
 
-  /* Outlined square that marks the station you are pointing at. */
-  CS.models.highlight = function () {
-    var c = document.createElement('canvas'); c.width = c.height = 16;
+  /* A round thought bubble that floats over a hand with the thing they are
+     working on inside it. The caller billboards `group` to the camera and
+     puts the icon in `icon`; setAlert() turns the bubble amber when they are
+     stood waiting with nowhere to put something down. */
+  function bubbleTexture(fill, edge) {
+    var c = document.createElement('canvas'); c.width = c.height = 128;
     var x = c.getContext('2d');
-    x.fillStyle = '#ffd464'; x.fillRect(0, 0, 16, 16);
-    x.clearRect(2, 2, 12, 12);
-    x.fillStyle = '#ffd46466'; x.fillRect(2, 2, 12, 12);
-    var t = new THREE.CanvasTexture(c);
-    t.magFilter = t.minFilter = THREE.NearestFilter;
+    x.fillStyle = edge;
+    x.beginPath(); x.arc(64, 60, 54, 0, Math.PI * 2); x.fill();
+    x.beginPath(); x.arc(36, 116, 10, 0, Math.PI * 2); x.fill();
+    x.fillStyle = fill;
+    x.beginPath(); x.arc(64, 60, 47, 0, Math.PI * 2); x.fill();
+    x.beginPath(); x.arc(36, 116, 6, 0, Math.PI * 2); x.fill();
+    return CS.srgb(new THREE.CanvasTexture(c));
+  }
+  var BUBBLE_TEX = null;
+
+  CS.models.thoughtBubble = function () {
+    if (!BUBBLE_TEX) {
+      BUBBLE_TEX = {
+        calm: bubbleTexture('#fffaf0', '#2f4f96'),
+        alert: bubbleTexture('#fff3c4', '#e8902a')
+      };
+    }
+    var group = new THREE.Group();
+    var mat = new THREE.MeshBasicMaterial({ map: BUBBLE_TEX.calm, transparent: true, depthWrite: false });
+    group.add(new THREE.Mesh(new THREE.PlaneGeometry(0.95, 0.95), mat));
+    var icon = new THREE.Group();
+    icon.position.set(0, 0.0, 0.3);
+    icon.rotation.x = 0.55;
+    var inner = new THREE.Group();
+    inner.position.y = -0.12;
+    icon.add(inner);
+    group.add(icon);
+    CS.noMirror(group);
+    var alert = false;
+    return {
+      group: group, icon: inner, pop: 0,
+      setAlert: function (on) {
+        if (on === alert) return;
+        alert = on;
+        mat.map = on ? BUBBLE_TEX.alert : BUBBLE_TEX.calm;
+        mat.needsUpdate = true;
+      }
+    };
+  };
+
+  /* A soft glowing ring that marks the station you are pointing at. */
+  CS.models.highlight = function () {
+    var c = document.createElement('canvas'); c.width = c.height = 128;
+    var x = c.getContext('2d');
+    x.strokeStyle = '#ffd464'; x.lineWidth = 10;
+    roundRect(x, 10, 10, 108, 108, 26); x.stroke();
+    x.fillStyle = 'rgba(255,212,100,0.22)';
+    roundRect(x, 10, 10, 108, 108, 26); x.fill();
+    var t = CS.srgb(new THREE.CanvasTexture(c));
     var m = new THREE.Mesh(new THREE.PlaneGeometry(1, 1),
-      new THREE.MeshBasicMaterial({ map: t, transparent: true, opacity: 0.85, depthWrite: false }));
+      new THREE.MeshBasicMaterial({ map: t, transparent: true, opacity: 0.9, depthWrite: false }));
     m.rotation.x = -Math.PI / 2;
     m.renderOrder = 5;
+    CS.noMirror(m);
     return m;
   };
 })(window.CS);

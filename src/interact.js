@@ -62,6 +62,8 @@ window.CS = window.CS || {};
     if (r.what === 'chicken') plate.sandwich.chicken = true;
     else if (r.what === 'fries') plate.fries = true;
     else plate.cups.push(item.sauce);
+    // the plate keeps steaming for as long as the hot thing on it would
+    if (item.hotAt) plate.hotAt = Math.max(plate.hotAt || 0, item.hotAt);
     return true;
   };
 

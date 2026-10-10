@@ -89,7 +89,8 @@ window.CS = window.CS || {};
       out += '<div class="buyrow hired"><div class="buyname">' +
         def.name + ' &#183; ' + def.role +
         '<span>on ' + terms + ' &#183; makes ' +
-        jobWords(crew.jobs) + '</span></div><button class="buy off" disabled>HIRED</button></div>';
+        jobWords(crew.jobs) + ', and saves any basket about to burn' +
+        '</span></div><button class="buy off" disabled>HIRED</button></div>';
       (CS.TRAINING[kind] || []).forEach(function (t) {
         var done = crew.training.indexOf(t.id) >= 0;
         var can = done ? { ok: false, why: 'TRAINED' }
@@ -104,6 +105,7 @@ window.CS = window.CS || {};
     return jobs.map(function (j) {
       if (j === 'fries') return 'fries';
       if (j === 'chicken') return 'fried chicken';
+      if (j === 'plate') return 'bun plates';
       return CS.ING[j.slice(4)].label.toLowerCase() + ' cups';
     }).join(', ');
   }

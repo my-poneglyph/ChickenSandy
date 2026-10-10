@@ -294,7 +294,7 @@ window.CS = window.CS || {};
       var stars = CS.econ.stars(L);
       var starRow = '';
       for (var j = 0; j < 3; j++) {
-        starRow += '<span style="color:' + (j < stars ? 'var(--gold)' : '#5a4630') + '">&#9733;</span>';
+        starRow += '<span style="color:' + (j < stars ? 'var(--gold)' : '#4a5068') + '">&#9733;</span>';
       }
 
       function line(label, n, cls) {
@@ -358,7 +358,7 @@ window.CS = window.CS || {};
         '<button class="btn" id="pPix">PIXEL</button>' +
         '</div>' +
         '<button class="big" id="resumeBtn">RESUME</button>' +
-        '<button class="big" id="quitBtn" style="margin-left:10px;background:#5a381c;border-color:#2e1c0f;box-shadow:inset 0 3px 0 #8a5a2b,0 5px 0 #2e1c0f">END RUN</button>');
+        '<button class="big" id="quitBtn" style="margin-left:10px;background:#23345e;border-color:#14203d;box-shadow:inset 0 3px 0 #3f5a96,0 5px 0 #14203d">END RUN</button>');
       c.querySelector('#resumeBtn').onclick = onResume;
       c.querySelector('#quitBtn').onclick = onQuit;
       // settings live here on phones, where the corner buttons are hidden

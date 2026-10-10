@@ -254,6 +254,8 @@ window.CS = window.CS || {};
       heldMesh.position.set(0, 0, 0.14);
       chef.parts.hands.add(heldMesh);
     }
+    // she puts the wooden spoon away while her wings are full
+    if (chef.parts.spoon) chef.parts.spoon.visible = !S.held;
     CS.ui.setHeld(S.held);
     setInspectItem(S.held);
   }
@@ -379,7 +381,7 @@ window.CS = window.CS || {};
       if (st.glow) {
         var want = cooking ? (st.cook.stage === 'burnt' ? 0.55 : 0.30 + Math.sin(performance.now() / 160) * 0.10) : 0.0;
         st.glow.material.opacity += (want - st.glow.material.opacity) * Math.min(1, dt * 6);
-        st.glow.material.color.setHex(cooking && st.cook.stage === 'burnt' ? 0x3a2a1e : 0xff9a2e);
+        st.glow.material.color.copy(CS.linear(cooking && st.cook.stage === 'burnt' ? 0x3a2a1e : 0xff9a2e));
       }
       if (st.coals) {
         // coals breathe gently, and flare up while the pan is working
@@ -391,15 +393,29 @@ window.CS = window.CS || {};
       var c = st.cook, d = c.def;
       c.t += dt;
 
+      // the pan sits proud of the wall, and its slot follows it out
+      var px = st.slot.position.x, pz = st.slot.position.z;
       if (c.stage === 'cooking') {
         if (c.t >= d.cook) {
           c.stage = 'done';
-          setStationItem(st, { k: d.done });
+          setStationItem(st, { k: d.done, hotAt: clock.elapsedTime });
           CS.audio.ding();
-          CS.fx.burst(st.x, st.topY + 0.4, st.z, 10, { color: 0xfff0b0, life: 0.7, vy: 1.8 });
-        } else if (Math.random() < dt * 14) {
-          CS.fx.spawn(st.x + (Math.random() - 0.5) * 1.2, st.topY + 0.1, st.z + (Math.random() - 0.5) * 1.2,
-            { color: 0xffd9a0, life: 0.5, vy: 1.0, size: 0.07, g: -0.4 });
+          CS.fx.burst(px, st.topY + 0.4, pz, 12, { color: 0xfff0b0, life: 0.7, vy: 1.8 });
+          for (var b = 0; b < 5; b++) {
+            CS.steam.puff(px + (Math.random() - 0.5) * 0.8, st.topY + 0.3, pz + (Math.random() - 0.5) * 0.8,
+              { size: 0.42, life: 1.4, rise: 1.6, opacity: 0.7 });
+          }
+        } else {
+          // sizzle: oil spatter low down, and a steady column of steam that
+          // thickens as the basket gets closer to done
+          if (Math.random() < dt * 10) {
+            CS.fx.spawn(px + (Math.random() - 0.5) * 1.1, st.topY + 0.05, pz + (Math.random() - 0.5) * 1.1,
+              { color: 0xffe08a, life: 0.4, vy: 1.1, size: 0.06, g: -3.0 });
+          }
+          if (Math.random() < dt * (6 + 8 * (c.t / d.cook))) {
+            CS.steam.puff(px + (Math.random() - 0.5) * 0.9, st.topY + 0.15, pz + (Math.random() - 0.5) * 0.9,
+              { size: 0.42, life: 1.8, rise: 1.0, opacity: 0.85 });
+          }
         }
       } else if (c.stage === 'done') {
         if (c.t >= d.cook + d.grace) {
@@ -408,13 +424,17 @@ window.CS = window.CS || {};
           CS.econ.ledger.burnt++;
           CS.audio.burn();
           CS.ui.toast('Something is burning!', 'bad');
-        } else if (Math.random() < dt * 5) {
-          CS.fx.spawn(st.x + (Math.random() - 0.5) * 0.9, st.topY + 0.3, st.z + (Math.random() - 0.5) * 0.9,
-            { color: 0xdad2c4, life: 0.9, vy: 1.3, size: 0.08, g: -0.2 });
+        } else if (Math.random() < dt * 7) {
+          // still steaming, and it starts to go grey as the grace runs out
+          var over = (c.t - d.cook) / d.grace;
+          var grey = Math.round(255 - over * 90);
+          CS.steam.puff(px + (Math.random() - 0.5) * 0.8, st.topY + 0.3, pz + (Math.random() - 0.5) * 0.8,
+            { size: 0.44, life: 1.7, rise: 1.1, opacity: 0.8 + over * 0.15,
+              color: (grey << 16) | (grey << 8) | grey });
         }
       } else if (Math.random() < dt * 8) {
-        CS.fx.spawn(st.x + (Math.random() - 0.5) * 1.0, st.topY + 0.4, st.z + (Math.random() - 0.5) * 1.0,
-          { color: 0x4a423a, life: 1.2, vy: 1.6, size: 0.1, g: -0.1 });
+        CS.steam.puff(px + (Math.random() - 0.5) * 0.8, st.topY + 0.35, pz + (Math.random() - 0.5) * 0.8,
+          { color: 0x3c3548, size: 0.38, life: 2.0, rise: 1.4, opacity: 0.7, grow: 2.6 });
       }
 
       // floating progress bar
@@ -429,6 +449,40 @@ window.CS = window.CS || {};
       else if (c.stage === 'done') st.bar.userData.set(1 - (c.t - d.cook) / d.grace, 0xf0a63c);
       else st.bar.userData.set(1, 0xc0392b);
     }
+  }
+
+  /* --------------------------------------------------------------- steam
+     Anything fresh out of the oil steams for a while afterwards, wherever it
+     ends up: on a counter, on a plate, in the chef's wings or a hand's arms.
+     The plume thins out as it cools. */
+  var HOT_FOR = 14;
+  var steamAt = new THREE.Vector3();
+
+  function steamFrom(item, x, y, z, dt) {
+    if (!item || !item.hotAt) return;
+    var age = clock.elapsedTime - item.hotAt;
+    if (age < 0 || age > HOT_FOR) return;
+    var k = 1 - age / HOT_FOR;
+    if (Math.random() < dt * (1.0 + 4.0 * k)) {
+      CS.steam.puff(x + (Math.random() - 0.5) * 0.35, y, z + (Math.random() - 0.5) * 0.35,
+        { size: 0.26 + 0.12 * k, life: 1.6, rise: 0.75, opacity: 0.45 + 0.4 * k, grow: 1.8 });
+    }
+  }
+
+  function updateSteam(dt) {
+    for (var i = 0; i < stations.length; i++) {
+      var st = stations[i];
+      if (!st.item || st.type === 'fryer') continue;
+      steamFrom(st.item, st.slot.position.x, st.topY + 0.45, st.slot.position.z, dt);
+    }
+    if (S.held && heldMesh) {
+      heldMesh.getWorldPosition(steamAt);
+      steamFrom(S.held, steamAt.x, steamAt.y + 0.35, steamAt.z, dt);
+    }
+    CS.staff.carried(function (item, mesh) {
+      mesh.getWorldPosition(steamAt);
+      steamFrom(item, steamAt.x, steamAt.y + 0.3, steamAt.z, dt);
+    });
   }
 
   /* --------------------------------------------------------- chef rig
@@ -510,7 +564,7 @@ window.CS = window.CS || {};
     var idle = 1 - run;
     pt.head.rotation.x = Math.sin(P.walk * 4) * 0.06 * run + Math.sin(t * 1.7) * 0.035 * idle - P.lean * 0.8;
     pt.head.rotation.y = Math.sin(t * 0.9) * 0.16 * idle;
-    pt.head.position.y = 0.60 + Math.sin(t * 2.3) * 0.012 * idle;
+    pt.head.position.y = (pt.headY || 0.60) + Math.sin(t * 2.3) * 0.012 * idle;
 
     // tail counter-sways, and lifts in the air
     pt.tail.rotation.x = (air ? -0.35 : 0) + Math.sin(P.walk * 2 + 0.6) * 0.14 * run;
@@ -679,6 +733,7 @@ window.CS = window.CS || {};
     CS.staff.spawn();
     CS.ui.clearTickets();
     CS.fx.clear();
+    CS.steam.clear();
     placePlayer(CS.SPAWN.col, CS.SPAWN.row);
   }
 
@@ -881,7 +936,8 @@ window.CS = window.CS || {};
 
       var progress = 1 - S.time / S.level.seconds;
       CS.orders.update(dt, progress, onExpire);
-      CS.staff.update(dt, stations);
+      CS.staff.update(dt, stations, camera);
+      updateSteam(dt);
       CS.ui.renderTickets(CS.orders.list);
 
       S.time -= dt;
@@ -900,6 +956,7 @@ window.CS = window.CS || {};
     }
 
     CS.fx.update(dt);
+    CS.steam.update(dt);
     CS.world.tick(clock.elapsedTime);
 
     // ---- camera
@@ -970,6 +1027,7 @@ window.CS = window.CS || {};
     var dt = Math.min(0.05, clock.getDelta());
     update(dt);
     if (inspect.obj) inspect.obj.rotation.y += dt * 0.7;
+    CS.mirror.render(renderer, scene, camera);
     renderer.render(scene, camera);
     renderInspect();
   }
@@ -977,17 +1035,22 @@ window.CS = window.CS || {};
   /* ------------------------------------------------------------- startup */
   function init() {
     var host = document.getElementById('app');
-    renderer = new THREE.WebGLRenderer({ antialias: false, powerPreference: 'high-performance' });
-    // No sRGB output encode: colours are authored as they should appear, and
-    // re-encoding them was washing every red and orange out to pastel.
+    renderer = new THREE.WebGLRenderer({ antialias: !CS.platform.mobile, powerPreference: 'high-performance' });
+    // Colour-managed and tone-mapped: every colour is authored in sRGB and
+    // converted to linear on the way in (CS.linear), lit in linear light, then
+    // filmic-tone-mapped back out -- which is what gives the soft, warm light.
+    renderer.outputEncoding = THREE.sRGBEncoding;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 0.92;
     var lowSpec = CS.platform.mobile;
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = lowSpec ? THREE.PCFShadowMap : THREE.PCFSoftShadowMap;
-    renderer.setClearColor(0x1a1009);
+    renderer.setClearColor(0x2a2638);
     host.appendChild(renderer.domElement);
 
     scene = new THREE.Scene();
     camera = new THREE.PerspectiveCamera(45, 1, 0.5, 140);
+    camera.layers.enable(1);      // layer 1 is "seen, but not in the floor": see mirror.js
     clock = new THREE.Clock();
 
     // The save has to land before the world is built: it is what decides how
@@ -999,6 +1062,8 @@ window.CS = window.CS || {};
     stations.forEach(function (st) { st.group.userData.station = st; });
 
     CS.fx.init(scene);
+    CS.steam.init(scene);
+    CS.mirror.auto(lowSpec);
     CS.orders.init(scene);
     CS.staff.init(scene);
 
@@ -1055,6 +1120,7 @@ window.CS = window.CS || {};
     puff: puff,
     toast: function (m, t) { CS.ui.toast(m, t); },
     state: S,
+    player: P,
 
     /* ---- entry points shared by the keyboard and the on-screen controls ---- */
     setMoveAxis: function (x, y) { touchX = x; touchY = y; },
