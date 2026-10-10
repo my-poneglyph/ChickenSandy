@@ -7,6 +7,7 @@ window.CS = window.CS || {};
   CS.TILE = 2.2;          // world units per map tile
   CS.WALL_H = 2.9;        // height of a plain wall block
   CS.LOW_WALL_H = 1.05;   // south wall is short so it never hides the kitchen
+  CS.SIDE_WALL_H = 1.35;  // so are the side walls, or they hide the stoves on them
 
   /* Kitchen layout.
      #  wall          .  floor         C  counter (free slot)
@@ -217,9 +218,10 @@ window.CS = window.CS || {};
   };
 
   /* --------------------------------------------------------------- staff
-     Each assistant runs one tight loop and ignores everything else, which is
-     what makes them readable: you always know what the potato is going to do.
-     `jobs` is what they will make. Training widens it.
+     `jobs` is what each hand will *make* when the tickets call for it, and
+     training widens it. On top of their trade every hand will also pull a
+     basket before it burns and bin anything burnt (see staff.js), and they
+     put finished food straight onto a plate when a ticket wants it there.
 
      A flat daily wage punished exactly the days you could least afford it: a
      slow shift still owed the full amount. So a wage is a *share of the day's
@@ -231,17 +233,17 @@ window.CS = window.CS || {};
       name: 'Spud', role: 'Fry Cook', hire: 85,
       wageShare: 0.07, wageMin: 1.50, wageMax: 22.00,
       tint: 0xd8a860,
-      blurb: 'Cuts, fries and plates chips. Will not touch anything else.',
+      blurb: 'Fries chips and drops them straight onto your plates. Pulls any basket before it burns.',
       jobs: ['fries'],
-      speed: 2.0, act: 0.55
+      speed: 4.2, act: 0.38
     },
     tomato: {
-      name: 'Dollop', role: 'Sauce Hand', hire: 65,
+      name: 'Dollop', role: 'Prep Hand', hire: 65,
       wageShare: 0.05, wageMin: 1.00, wageMax: 16.00,
       tint: 0xd6402f,
-      blurb: 'Fills sauce cups and leaves them on a prep counter.',
-      jobs: ['cup:ketchup'],
-      speed: 2.2, act: 0.45
+      blurb: 'Sets out plates with the bun on, fills ketchup cups and adds them to your plates.',
+      jobs: ['plate', 'cup:ketchup'],
+      speed: 4.4, act: 0.32
     }
   };
 
@@ -341,20 +343,20 @@ window.CS = window.CS || {};
   CS.CRITTERS = [
     { name: 'Cat',    fur: 0xf0a24a, belly: 0xfbe6c8, snout: 0xfbe6c8, nose: 0xe0736b,
       ears: 'point', tail: 'up',   stripes: true,  tint: 0xf0a24a },
-    { name: 'Pup',    fur: 0xb9834e, belly: 0xf1ddbf, snout: 0xf1ddbf, nose: 0x2a201a,
-      ears: 'droop', tail: 'wag',  patch: true,   tint: 0xb9834e },
+    { name: 'Pup',    fur: 0xf7c26b, belly: 0xfff1d8, snout: 0xfff1d8, nose: 0x2a201a,
+      ears: 'droop', tail: 'wag',  patch: true,   tint: 0xf7c26b },
     { name: 'Bunny',  fur: 0xf2eee6, belly: 0xffffff, snout: 0xffffff, nose: 0xe89aa8,
       ears: 'tall',  tail: 'puff', tint: 0xe6dfd2 },
-    { name: 'Bear',   fur: 0x8d6240, belly: 0xc9a179, snout: 0xc9a179, nose: 0x2a201a,
-      ears: 'round', tail: 'none', tint: 0x8d6240 },
+    { name: 'Bear',   fur: 0xb7a2ee, belly: 0xefe6ff, snout: 0xefe6ff, nose: 0x2a201a,
+      ears: 'round', tail: 'none', tint: 0xb7a2ee },
     { name: 'Piglet', fur: 0xf0a3ae, belly: 0xffd0d6, snout: 0xffb6c1, nose: 0xd4737f,
       ears: 'flop',  tail: 'curl', tint: 0xf0a3ae },
     { name: 'Fox',    fur: 0xd9622c, belly: 0xf6eadd, snout: 0xf6eadd, nose: 0x2a201a,
       ears: 'point', tail: 'bush', tipped: true,  tint: 0xd9622c },
     { name: 'Frog',   fur: 0x74b84a, belly: 0xd3e8a8, snout: 0xd3e8a8, nose: 0x3e6b25,
       ears: 'none',  tail: 'none', bigEyes: true, tint: 0x74b84a },
-    { name: 'Mouse',  fur: 0x9aa3ad, belly: 0xdfe4e9, snout: 0xdfe4e9, nose: 0xe08fa0,
-      ears: 'round', tail: 'none', bigEars: true, tint: 0x9aa3ad }
+    { name: 'Mouse',  fur: 0xa9bde0, belly: 0xeef3fb, snout: 0xeef3fb, nose: 0xe08fa0,
+      ears: 'round', tail: 'none', bigEars: true, tint: 0xa9bde0 }
   ];
 
   /* Where the dining room's front door is. world.js cuts the hole here and

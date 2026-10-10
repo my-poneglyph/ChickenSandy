@@ -134,8 +134,8 @@ window.CS = window.CS || {};
         try { tg.ready(); } catch (e) {}
         try { tg.expand(); } catch (e) {}
         try { tg.disableVerticalSwipes && tg.disableVerticalSwipes(); } catch (e) {}
-        try { tg.setHeaderColor && tg.setHeaderColor('#1a1009'); } catch (e) {}
-        try { tg.setBackgroundColor && tg.setBackgroundColor('#1a1009'); } catch (e) {}
+        try { tg.setHeaderColor && tg.setHeaderColor('#1a1d2e'); } catch (e) {}
+        try { tg.setBackgroundColor && tg.setBackgroundColor('#1a1d2e'); } catch (e) {}
         try { tg.onEvent('viewportChanged', onReady); } catch (e) {}
 
         /* Go edge-to-edge. requestFullscreen is Bot API 8.0 and phone-only —
