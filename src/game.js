@@ -391,7 +391,7 @@ window.CS = window.CS || {};
   function earnXP(n) {
     var ups = CS.econ.gainXP(n);
     if (ups) {
-      CS.audio.fanfare();
+      CS.audio.levelUp();
       CS.fx.burst(P.x, P.y + 1.6, P.z, 22, { color: 0xffe27a, life: 1.0, vy: 2.6 });
       setTimeout(function () {
         CS.ui.toast('LEVEL UP!  Sandy is level ' + CS.econ.state.chef.level +
@@ -665,7 +665,7 @@ window.CS = window.CS || {};
     if (FR.t > 0 || FR.cd > 0) { CS.audio.error(); return; }
     FR.t = len;
     FR.cd = CS.FRENZY.cooldown;
-    CS.audio.fanfare();
+    CS.audio.spell();
     CS.ui.toast('FEATHER FRENZY!', 'tip');
     for (var i = 0; i < 14; i++) {
       CS.fx.spawn(P.x + (Math.random() - 0.5) * 1.2, P.y + 0.4 + Math.random() * 0.8, P.z + (Math.random() - 0.5) * 1.2,
@@ -880,7 +880,7 @@ window.CS = window.CS || {};
     S.day = day;
     S.level = CS.levelFor(day);
     S.phase = 'intro';
-    CS.audio.stopMusic();
+    CS.audio.startMusic('calm');       // the town theme carries on under the day card
     CS.ui.setLevel(S.level);
     CS.ui.showLevelIntro(S.level, function () { startDay(); });
   }
@@ -892,7 +892,7 @@ window.CS = window.CS || {};
     CS.ui.setHudVisible(true);
     CS.ui.setLevel(S.level);
     CS.audio.resume();
-    CS.audio.startMusic();
+    CS.audio.startMusic('shift');
     CS.ui.toast('DAY ' + S.day + ' -- ' + S.level.name, 'good');
   }
 
@@ -923,7 +923,7 @@ window.CS = window.CS || {};
     if (CS.econ.takings() >= CS.econ.ledger.rent + CS.econ.wages()) earnXP(CS.XP.perDay);
 
     var L = CS.econ.settle();
-    CS.audio[L.passed ? 'fanfare' : 'over']();
+    CS.audio[L.passed ? 'victory' : 'over']();
     CS.ui.showLevelResult(S.level, L,
       function () { CS.econ.advance(); openShop(); },   // on to tomorrow
       function () { openShop(); });                     // run today again
@@ -934,7 +934,9 @@ window.CS = window.CS || {};
      into the kitchen. The editor hands control straight back. */
   function openShop() {
     S.phase = 'shop';
-    CS.audio.stopMusic();
+    // back in the shop the town theme plays on, gently; the first tap on
+    // START is also what lets the browser make sound at all
+    CS.audio.startMusic('calm');
     rebuildKitchen();
     CS.shop.show(
       function () { showIntro(CS.econ.state.day); },
@@ -949,7 +951,7 @@ window.CS = window.CS || {};
 
   function quitRun() {
     S.phase = 'over';
-    CS.audio.stopMusic();
+    CS.audio.startMusic('calm');
     CS.staff.clear();
     CS.ui.showQuit(openShop, function () {
       CS.econ.reset();
@@ -1102,7 +1104,7 @@ window.CS = window.CS || {};
     CS.fx.update(dt);
     CS.steam.update(dt);
     CS.world.tick(clock.elapsedTime);
-    CS.grounds.update(dt);       // strollers keep walking behind menus too
+    CS.grounds.update(dt, camera);   // strollers keep walking behind menus too
 
     // ---- camera
     var cm = CAMS[camMode];

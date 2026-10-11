@@ -408,6 +408,17 @@ window.CS = window.CS || {};
     return out;
   }
 
+  var ear = null;      // the camera, for how loud a stroller sounds
+
+  /* A stroller who stops to wave says hello in their own voice, quieter
+     the further they are from where the camera is looking. */
+  function greet(w) {
+    if (!ear) return;
+    var d = Math.hypot(w.x - ear.position.x, w.z - ear.position.z);
+    var v = CS.clamp(1 - (d - 14) / 32, 0, 1) * 0.75;
+    if (v > 0.08) CS.audio.voice(w.parts.species.look, v);
+  }
+
   function updateWalkers(dt) {
     var i, w;
     for (i = 0; i < walkers.length; i++) {
@@ -424,7 +435,7 @@ window.CS = window.CS || {};
       } else {
         w.s += w.dir * w.speed * dt;
         w.nextPause -= dt;
-        if (w.nextPause <= 0) w.pause = 2 + Math.random() * 4;
+        if (w.nextPause <= 0) { w.pause = 2 + Math.random() * 4; greet(w); }
       }
       placeOf(w, tmp);
       // pushes from bumping into someone fade back to the lane
@@ -579,7 +590,8 @@ window.CS = window.CS || {};
       plots.forEach(function (p) { p.mesh.visible = p.test(b); });
     },
 
-    update: function (dt) {
+    update: function (dt, camera) {
+      ear = camera || ear;
       if (!root) return;
       updateWalkers(dt);
     }

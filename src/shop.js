@@ -179,7 +179,7 @@ window.CS = window.CS || {};
     var res;
     if (key.indexOf('skill:') === 0) {
       res = CS.econ.learn(key.slice(6));
-      if (res.ok) { CS.audio.fanfare(); CS.ui.toast('Skill learnt!', 'good'); render(); return; }
+      if (res.ok) { CS.audio.levelUp(); CS.ui.toast('Skill learnt!', 'good'); render(); return; }
     } else if (key.indexOf('hire:') === 0) res = CS.econ.hire(key.slice(5));
     else if (key.indexOf('train:') === 0) {
       var bits = key.split(':');
