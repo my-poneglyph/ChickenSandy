@@ -642,7 +642,7 @@ window.CS = window.CS || {};
     var key = h.carry ? JSON.stringify(h.carry) : '';
     if (key === h.carryKey) return;
     h.carryKey = key;
-    if (h.carryMesh) { h.parts.hold.remove(h.carryMesh); h.carryMesh = null; }
+    if (h.carryMesh) { h.parts.hold.remove(h.carryMesh); CS.dispose(h.carryMesh); h.carryMesh = null; }
     if (!h.carry) return;
     var m = CS.models.item(h.carry);
     m.scale.setScalar(0.8);
@@ -659,7 +659,7 @@ window.CS = window.CS || {};
     var key = want ? JSON.stringify(want) : '';
     if (key !== h.iconKey) {
       h.iconKey = key;
-      while (b.icon.children.length) b.icon.remove(b.icon.children[0]);
+      while (b.icon.children.length) { CS.dispose(b.icon.children[0]); b.icon.remove(b.icon.children[0]); }
       if (want) {
         var m = CS.models.item(want);
         m.scale.setScalar(want.k === 'plate' ? 0.48 : 0.62);
@@ -812,6 +812,7 @@ window.CS = window.CS || {};
     clear: function () {
       hands.forEach(function (h) {
         scene.remove(h.group);
+        CS.dispose(h.group);
         scene.remove(h.bubble.group);
       });
       hands.length = 0;

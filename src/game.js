@@ -256,7 +256,7 @@ window.CS = window.CS || {};
   /* ------------------------------------------------------- item rendering */
   function setStationItem(st, item) {
     st.item = item;
-    while (st.slot.children.length) st.slot.remove(st.slot.children[0]);
+    while (st.slot.children.length) { CS.dispose(st.slot.children[0]); st.slot.remove(st.slot.children[0]); }
     if (item) {
       var m = CS.models.item(item, { inPan: st.type === 'fryer' });
       m.scale.setScalar(1.5);            // oversized so the food reads from here
@@ -266,7 +266,7 @@ window.CS = window.CS || {};
   }
 
   function refreshHeld() {
-    if (heldMesh) { chef.parts.hands.remove(heldMesh); heldMesh = null; }
+    if (heldMesh) { chef.parts.hands.remove(heldMesh); CS.dispose(heldMesh); heldMesh = null; }
     if (S.held) {
       heldMesh = CS.models.item(S.held);
       heldMesh.scale.setScalar(1.15);
@@ -299,7 +299,7 @@ window.CS = window.CS || {};
 
   function setInspectItem(item) {
     if (!inspect.scene) return;
-    if (inspect.obj) { inspect.scene.remove(inspect.obj); inspect.obj = null; }
+    if (inspect.obj) { inspect.scene.remove(inspect.obj); CS.dispose(inspect.obj); inspect.obj = null; }
     if (!item) { inspect.el.classList.add('hidden'); return; }
     inspect.el.classList.remove('hidden');
     var g = CS.models.item(item);
@@ -800,15 +800,25 @@ window.CS = window.CS || {};
     CS.ui.setMuteLabel(CS.audio.isMuted());
   }
 
+  /* The kitchen's meshes are merged by material at build time, so a click
+     cannot be traced back to a station through the mesh it hit. Instead the
+     ray is met with the plane of the worktops (y = 1) and the click goes to
+     whichever station is nearest that point. */
+  var pickPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -1.0);
+  var pickAt = new THREE.Vector3();
+
   function handleClick() {
     pendingClick = null;
     raycaster.setFromCamera(mouse, camera);
-    var hits = raycaster.intersectObjects(scene.children, true);
-    for (var i = 0; i < hits.length; i++) {
-      var o = hits[i].object;
-      while (o && !o.userData.station) o = o.parent;
-      if (!o) continue;
-      var st = o.userData.station;
+    if (!raycaster.ray.intersectPlane(pickPlane, pickAt)) return;
+    var best = null, bestD = T * 0.75;
+    for (var i = 0; i < stations.length; i++) {
+      var s = stations[i];
+      var dd = Math.hypot(s.x - pickAt.x, s.z - pickAt.z);
+      if (dd < bestD) { bestD = dd; best = s; }
+    }
+    if (best) {
+      var st = best;
       var d = Math.hypot(st.x - P.x, st.z - P.z);
       if (d > REACH + 0.4) { CS.ui.toast('Too far away', 'info'); return; }
       var res = CS.resolve(st, S.held);

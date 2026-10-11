@@ -91,8 +91,8 @@ window.CS = window.CS || {};
     init: function (sc) { scene = sc; this.level = CS.levelFor(1); },
 
     reset: function (level) {
-      this.list.forEach(function (o) { scene.remove(o.cust.group); });
-      this.leaving.forEach(function (c) { scene.remove(c.group); });
+      this.list.forEach(function (o) { scene.remove(o.cust.group); CS.dispose(o.cust.group); });
+      this.leaving.forEach(function (c) { scene.remove(c.group); CS.dispose(c.group); });
       this.coins.forEach(function (c) { scene.remove(c.m); });
       this.list.length = 0;
       this.leaving.length = 0;
@@ -385,6 +385,7 @@ window.CS = window.CS || {};
         // gone through the door, or stuck long enough that something is wrong
         if (!lc.path.length || lc.t > 14) {
           scene.remove(lg);
+          CS.dispose(lg);
           this.leaving.splice(j, 1);
         }
       }

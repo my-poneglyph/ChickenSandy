@@ -572,6 +572,26 @@ function of its own, and `scheduleStep` decides what plays on which sixteenth.
 `CS.audio.debug()` returns the live `AudioContext` and gain nodes so the mix can be
 metered with an `AnalyserNode` instead of judged by ear.
 
+### Draw calls
+
+Phones are limited by how many separate meshes they draw per frame, so the game
+merges meshes wherever it can (see the top of `src/models.js`):
+
+* **`CS.batchStatic`** runs at the end of every kitchen build and merges every
+  opaque mesh that shares a material into one, wherever it sits. The only things it
+  skips are the fryer glow and coals and the hearth flames, which animate. The
+  kitchen went from ~600 meshes to under 100.
+* **`CS.bake`** merges meshes that share a parent and a material. The chef,
+  customers, helpers and every food item go through it. Each limb is still its own
+  pivot and keeps its own materials, so nothing looks or animates any differently.
+* Baked geometry is not shared, so **`CS.dispose`** returns it to the GPU wherever a
+  model is thrown away: a plate served, a customer gone, the kitchen rebuilt.
+* Because the kitchen's meshes are merged, a mouse click no longer raycasts to a
+  station's mesh. It is met with the worktop plane (y = 1) and goes to the nearest
+  station instead.
+
+Altogether a phone frame went from about 1,200 draw calls to about 270.
+
 ### A note on colour
 
 The renderer deliberately does **not** apply an sRGB output encode. Every colour in
