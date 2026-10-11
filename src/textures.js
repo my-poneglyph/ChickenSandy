@@ -242,6 +242,24 @@ window.CS = window.CS || {};
         blot: [0xc2937a, 0x946a52] }), 1);
     },
 
+    /* The castle lawn outside: soft painted patches with a scatter of
+       short blades, so it reads as grass from the kitchen camera. */
+    grass: function () {
+      var s = 256, k = canvas(s), x = k.x;
+      x.fillStyle = hex(0x6d9c46);
+      x.fillRect(0, 0, s, s);
+      blotches(x, s, [0x82b356, 0x5a8738, 0x78a84c, 0x93c062], 28, 18, 64, 0.38, 61);
+      var rng = rngFrom(62);
+      x.lineWidth = 1.5;
+      for (var i = 0; i < 700; i++) {
+        var px = rng() * s, py = rng() * s, len = 3 + rng() * 5, lean = (rng() - 0.5) * 3;
+        x.strokeStyle = rgba(rng() < 0.5 ? 0x9ccf6a : 0x4c7a30, 0.55);
+        x.beginPath(); x.moveTo(px, py); x.lineTo(px + lean, py - len); x.stroke();
+      }
+      grain(x, s, 12, 63);
+      return finish(k.c, 1);
+    },
+
     /* Hearth and stove stone: a cooler grey so the fire glows against it. */
     stone: function () {
       return finish(masonry({ size: 128, seed: 191, rowH: 32, minW: 34, maxW: 64,
