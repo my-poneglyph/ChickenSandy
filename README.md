@@ -547,30 +547,73 @@ airborne and flapping.
 
 ### The music
 
-`src/audio.js` synthesises everything; there are no audio files. The music is four
-bars of **Am7 - Dm7 - G7 - Cmaj7** at 82bpm played by four voices — a swelling pad
-behind a slowly-breathing lowpass, a plucked bass that walks a semitone into each
-chord change, an off-beat electric-piano figure and a sparse melody on the C major
-pentatonic, with a dotted-eighth delay on the two lead voices. The pad and bass are
-fixed; the piano and melody are chosen per bar with rests and a random walk, so the
-loop never lands the same way twice, and the melody sits out the first time round so
-the shift opens quietly.
+`src/audio.js` synthesises everything; there are no audio files. The music is
+**Castle Town**, an original eight-bar piece written in the style of a 16-bit
+fantasy RPG town theme. The tune is new; only the style is borrowed:
+
+* a **harp** running rising arpeggios across two octaves, each half-bar starting a
+  chord tone higher so the bar climbs rather than repeats;
+* a breathy **flute** carrying the melody, with a slow-onset vibrato and a puff of
+  breath noise on each note;
+* **pizzicato bass** and a soft, detuned **string pad**;
+* a progression that leans on major sevenths and the Lydian colour of IV(add9):
+  **Cmaj7 - F(add9) - Em7 - Am7 - Dm7 - G7 - Abmaj7 - Bbmaj7**. It turns home through
+  the **bVI - bVII - I** cadence, the move that makes anything sound like a victory;
+* a **glockenspiel** doubling the melody an octave up on alternate passes.
+
+It has two moods and never restarts when switching between them. **Calm** plays in
+the shop, on the day card and at the menus: no brushes, and the flute sits out every
+other pass. **Shift** plays during the day and adds everything, including a light
+brushed backbeat. The first time round the flute rests, so each shift opens quietly.
 
 Notes are queued ahead against `ctx.currentTime` by a lookahead scheduler rather than
 fired one at a time from `setInterval`, which is what keeps the timing steady — and
 the queue is 1.4s deep so a backgrounded tab, where timers are throttled to roughly
 one tick a second, does not punch holes in the loop.
 
-The one-shots are synthesised the same way. `doorbell()` is the brass bell over the
-shop door, rung by each arrival; `cash()` is the till — a key press, the bell inside
-the drawer, the drawer hitting its stop and change rattling in — played when a
-customer pays; `coins()` is the loose change of a tip landing on the counter.
+### The castle grounds' sound
 
-To retune the music, `PROG` is the chord progression, `PENT` the melody's note pool
-and `BPM` the tempo; each voice (`pad`, `bass`, `keys`, `melody`, `brush`) is a short
-function of its own, and `scheduleStep` decides what plays on which sixteenth.
-`CS.audio.debug()` returns the live `AudioContext` and gain nodes so the mix can be
-metered with an `AnalyserNode` instead of judged by ear.
+Under the music, on its own quiet bus, the grounds have an ambience: the **fountain**
+trickling (looped, band-limited noise that slowly breathes), the odd **droplet**, and
+**birdsong**, phrases of two to five chirps every few seconds.
+
+Every kind of customer has a **voice**:
+
+| Character | Call |
+| --- | --- |
+| Chocobo | "kweh!" |
+| Moogle | "kupo" |
+| Cactuar | a "pew pew" |
+| Tonberry | the glint of a knife |
+| Bomb | a fizzing fuse |
+| Black Mage | a crackle of fire magic |
+| White Mage | a gentle healing chime |
+| Cait Sith | a meow |
+| Mandragora | a squeak |
+
+A stroller calls out when they stop to wave at the shop, quieter the further they
+are from the camera. A served customer calls out happily as they leave. Calls are
+rate-limited, so a crowd never turns into a choir.
+
+### Jingles
+
+The one-shots are synthesised the same way:
+
+* `doorbell()` is the brass bell over the shop door, rung by each arrival.
+* `cash()` is the till: a key press, the bell inside the drawer, the drawer hitting
+  its stop and change rattling in. It plays when a customer pays.
+* `coins()` is the loose change of a tip landing on the counter.
+* `victory()` ends a day that paid its way: a quick climb, a held chord, then the
+  bVII - I turn home.
+* `levelUp()` is a harp glissando and a bell, for a level-up or a skill learnt.
+* `spell()` is a rising rush of air under shimmering bells, for Feather Frenzy.
+
+To retune the music, `PROG` is the progression, `TUNE` the flute's melody and `BPM`
+the tempo; each instrument (`strings`, `harp`, `pizz`, `flute`, `glock`, `brush`) is
+a short function of its own, and `scheduleStep` decides what plays on which
+sixteenth. The voices are in `VOICES`. `CS.audio.debug()` returns the live
+`AudioContext` and gain nodes so the mix can be metered with an `AnalyserNode`
+instead of judged by ear.
 
 ### Draw calls
 

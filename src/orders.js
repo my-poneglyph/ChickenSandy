@@ -244,6 +244,8 @@ window.CS = window.CS || {};
       c.t = 0;
       c.state = 'leave';
       c.cheer = happy ? 0.6 : 0;
+      if (happy) CS.audio.voice(order.critter.look, 0.8);     // a happy kweh, kupo...
+
       c.speed = happy ? WALK : HURRY;
       c.path = [
         { x: EXIT_X, z: c.group.position.z },
