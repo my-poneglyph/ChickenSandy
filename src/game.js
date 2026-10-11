@@ -5,8 +5,9 @@ window.CS = window.CS || {};
 
   var T = CS.TILE;
   var PLAYER_R = 0.42;
-  var SPEED = 6.4;
-  var REACH = 2.9;
+  var HAND_R = 0.40;
+  var BASE_SPEED = 6.4, SPEED = BASE_SPEED;
+  var BASE_REACH = 2.9, REACH = BASE_REACH;
 
   var renderer, scene, camera, clock;
   var world, stations, chef, heldMesh = null, highlight, chefShadow;
@@ -21,11 +22,29 @@ window.CS = window.CS || {};
   var GRAVITY = 24;
   var JUMP_V = 7.0;         // ~1.0 units of hop, enough to clear a counter
   var FLAP_V = 5.2;
-  var MAX_FLAPS = 2;
+  var MAX_FLAPS = 2;      // raised by the Extra Flap skill, see applySkills()
   var GLIDE_FALL = 2.3;     // holding jump turns a fall into a flutter
   var DASH_SPEED = 17;
   var DASH_TIME = 0.20;
-  var DASH_CD = 0.95;
+  var BASE_DASH_CD = 0.95, DASH_CD = BASE_DASH_CD;
+
+  /* Feather Frenzy, the chef's one active power: `t` counts down while it
+     is running, `cd` while it recharges. */
+  var FR = { t: 0, cd: 0 };
+
+  /* Re-read Sandy's skills into the movement constants. Called whenever a
+     day starts, since the shop between days is where ranks are bought. */
+  function applySkills() {
+    var E = CS.econ;
+    SPEED = BASE_SPEED * (1 + E.skill('feet'));
+    DASH_CD = BASE_DASH_CD / (1 + E.skill('dash'));
+    MAX_FLAPS = 2 + E.skill('flap');
+    REACH = BASE_REACH + E.skill('reach');
+  }
+  function frenzyLength() {
+    var r = CS.econ.skillRank('frenzy');
+    return r ? CS.FRENZY.base + CS.econ.skill('frenzy') : 0;
+  }
 
   var P = {
     x: 0, z: 0, y: 0, vx: 0, vz: 0, vy: 0,
@@ -319,7 +338,10 @@ window.CS = window.CS || {};
   function setHeld(item) { S.held = item; refreshHeld(); }
 
   /* ---------------------------------------------------------- the till */
-  function serve(plate) {
+  /* `hand` is the helper doing the serving, if it was not the chef -- a
+     runner carries plates out of the window too, and their plate is in
+     their own arms rather than Sandy's wings. */
+  function serve(plate, hand) {
     var o = CS.orders.findMatch(plate);
     if (!o) {
       CS.audio.error();
@@ -333,10 +355,16 @@ window.CS = window.CS || {};
     var left = o.left / o.limit;
     S.combo = Math.min(CS.COMBO.max, S.combo + CS.COMBO.step);
     S.bestCombo = Math.max(S.bestCombo, S.combo);
-    setHeld(null);
+    if (!hand) setHeld(null);
     CS.orders.complete(o, true);
     CS.audio.cash();
-    CS.ui.toast(CS.money(took) + '   ORDER #' + String(o.id).padStart(2, '0') + ' UP!', 'good');
+    CS.ui.toast(CS.money(took) + '   ORDER #' + String(o.id).padStart(2, '0') + ' UP!' +
+      (hand ? '  (' + hand.name + ')' : ''), 'good');
+
+    // every order out of the window is experience for the chef
+    var extras = o.sandwich ? o.sandwich.toppings.length + o.sandwich.sauces.length : 0;
+    extras += (o.fries ? 1 : 0) + o.cups.length;
+    earnXP(CS.XP.perOrder + extras * CS.XP.perExtra);
 
     var sv = stations.filter(function (s) { return s.type === 'serve'; })[0];
     if (sv) CS.fx.burst(sv.x, sv.topY + 0.5, sv.z, 16, { color: 0xffd464, life: 0.8, vy: 2.2 });
@@ -348,8 +376,9 @@ window.CS = window.CS || {};
        the reward for a shop that keeps ahead of its queue, not a lottery. */
     var T = CS.TIP;
     if (left > T.minLeft && Math.random() < (left - T.minLeft) / (1 - T.minLeft) * T.chance) {
-      var tip = Math.round(o.price * T.share * left * S.combo * 100) / 100;
+      var tip = Math.round(o.price * T.share * left * S.combo * (1 + CS.econ.skill('tips')) * 100) / 100;
       if (tip < 0.05) tip = 0.05;
+      earnXP(CS.XP.perTip);
       var nCoins = tip >= T.bigTip ? 3 : (tip >= T.bigTip / 2 ? 2 : 1);
       CS.econ.tip(tip);
       if (sv) CS.orders.tipBurst(sv.x, sv.topY, sv.z, nCoins);
@@ -357,6 +386,19 @@ window.CS = window.CS || {};
         CS.ui.toast(CS.money(tip) + '   ' + o.critter.name.toUpperCase() + ' LEFT A TIP', 'tip');
       }, 260);
     }
+  }
+
+  function earnXP(n) {
+    var ups = CS.econ.gainXP(n);
+    if (ups) {
+      CS.audio.fanfare();
+      CS.fx.burst(P.x, P.y + 1.6, P.z, 22, { color: 0xffe27a, life: 1.0, vy: 2.6 });
+      setTimeout(function () {
+        CS.ui.toast('LEVEL UP!  Sandy is level ' + CS.econ.state.chef.level +
+          ' -- spend the skill point in the shop', 'tip');
+      }, 500);
+    }
+    CS.ui.setChef(CS.econ.state.chef);
   }
 
   function onExpire(o) {
@@ -437,11 +479,13 @@ window.CS = window.CS || {};
           { color: 0x3c3548, size: 0.38, life: 2.0, rise: 1.4, opacity: 0.7, grow: 2.6 });
       }
 
-      // floating progress bar
+      // floating progress bar. It lives in the kitchen's own root group, not
+      // the scene: the kitchen is torn down and rebuilt between days, and a
+      // bar hung on the scene outlived its fryer and floated there for good.
       if (!st.bar) {
         st.bar = CS.models.bar(1.1);
         st.bar.position.set(st.x, st.topY + 1.5, st.z);
-        scene.add(st.bar);
+        world.root.add(st.bar);
       }
       st.bar.visible = true;
       st.bar.quaternion.copy(camera.quaternion);
@@ -612,6 +656,69 @@ window.CS = window.CS || {};
     }
   }
 
+  /* Feather Frenzy: a burst of speed, and for as long as it lasts the queue
+     forgets to be impatient. Long recharge, so it is for the moment the rail
+     fills up rather than for every ticket. */
+  function tryFrenzy() {
+    var len = frenzyLength();
+    if (!len) { CS.ui.toast('Learn Feather Frenzy in the shop first', 'info'); CS.audio.error(); return; }
+    if (FR.t > 0 || FR.cd > 0) { CS.audio.error(); return; }
+    FR.t = len;
+    FR.cd = CS.FRENZY.cooldown;
+    CS.audio.fanfare();
+    CS.ui.toast('FEATHER FRENZY!', 'tip');
+    for (var i = 0; i < 14; i++) {
+      CS.fx.spawn(P.x + (Math.random() - 0.5) * 1.2, P.y + 0.4 + Math.random() * 0.8, P.z + (Math.random() - 0.5) * 1.2,
+        { color: i % 2 ? 0xffe27a : 0xfaf8f1, life: 1.1, vy: 1.6, size: 0.1, g: -1.0 });
+    }
+  }
+
+  /* -------------------------------------------------------- collisions
+     Sandy and her helpers are solid to each other. Every overlapping pair is
+     pushed apart, half each, plus a little sideways slip so two of them
+     meeting head-on in a one-tile aisle step round each other instead of
+     wedging. Helpers are kept off solid tiles; the chef's own tile collision
+     runs straight after. While she is up in the air she sails over them. */
+  function solidAt(x, z) {
+    return CS.isSolid(Math.floor((x - CS.OX) / T), Math.floor((z - CS.OZ) / T));
+  }
+
+  function nudgeHand(h, dx, dz) {
+    var l = Math.hypot(dx, dz);
+    if (l < 1e-6) return;
+    var ex = dx / l * HAND_R * 0.75, ez = dz / l * HAND_R * 0.75;
+    if (!solidAt(h.x + dx + ex, h.z + dz + ez)) { h.x += dx; h.z += dz; return; }
+    if (!solidAt(h.x + dx + ex, h.z)) h.x += dx;
+    else if (!solidAt(h.x, h.z + dz + ez)) h.z += dz;
+  }
+
+  function separateCharacters() {
+    var hs = CS.staff.hands, bodies = [], i, j;
+    for (i = 0; i < hs.length; i++) bodies.push({ h: hs[i], r: HAND_R });
+    if (P.y < 0.7) bodies.push({ h: null, r: PLAYER_R });
+    var chefMoved = false;
+    for (i = 0; i < bodies.length; i++) {
+      for (j = i + 1; j < bodies.length; j++) {
+        var a = bodies[i], b = bodies[j];
+        var ax = a.h ? a.h.x : P.x, az = a.h ? a.h.z : P.z;
+        var bx = b.h ? b.h.x : P.x, bz = b.h ? b.h.z : P.z;
+        var dx = bx - ax, dz = bz - az, d = Math.hypot(dx, dz), min = a.r + b.r;
+        if (d >= min) continue;
+        if (d < 1e-4) { dx = 1; dz = 0; d = 1; }
+        var nx = dx / d, nz = dz / d, over = min - d;
+        var px = nx * over * 0.5 - nz * over * 0.25;
+        var pz = nz * over * 0.5 + nx * over * 0.25;
+        if (a.h) nudgeHand(a.h, -px, -pz); else { P.x -= px; P.z -= pz; chefMoved = true; }
+        if (b.h) nudgeHand(b.h, px, pz); else { P.x += px; P.z += pz; chefMoved = true; }
+      }
+    }
+    if (chefMoved) { resolveAxis('x'); resolveAxis('z'); }
+    for (i = 0; i < hs.length; i++) {
+      hs[i].group.position.x = hs[i].x;
+      hs[i].group.position.z = hs[i].z;
+    }
+  }
+
   function tryDash() {
     if (P.dashCd > 0 || P.dashT > 0) return;
     var dx = Math.sin(P.yaw), dz = Math.cos(P.yaw);
@@ -663,6 +770,7 @@ window.CS = window.CS || {};
         if (k === 'e' || k === 'f' || k === 'enter') interact();
         if (k === ' ') tryJump();
         if (k === 'shift') tryDash();
+        if (k === 'q') tryFrenzy();
       }
     });
     window.addEventListener('keyup', function (e) { keys[e.key.toLowerCase()] = false; });
@@ -720,6 +828,9 @@ window.CS = window.CS || {};
   function reset() {
     S.level = S.level || CS.levelFor(S.day);
     S.time = S.level.seconds;
+    applySkills();
+    FR.t = 0; FR.cd = 0;
+    CS.ui.setChef(CS.econ.state.chef);
     S.combo = 1; S.bestCombo = 1;
     S.target = null;
     setHeld(null);
@@ -793,7 +904,12 @@ window.CS = window.CS || {};
     stations.forEach(function (st) {
       if (st.item) { CS.econ.waste(st.item); setStationItem(st, null); }
       st.cook = null;
+      if (st.bar) st.bar.visible = false;
     });
+    FR.t = 0; CS.orders.frozen = false;
+
+    // a day that paid its way is worth a chunk of experience on top
+    if (CS.econ.takings() >= CS.econ.ledger.rent + CS.econ.wages()) earnXP(CS.XP.perDay);
 
     var L = CS.econ.settle();
     CS.audio[L.passed ? 'fanfare' : 'over']();
@@ -863,7 +979,8 @@ window.CS = window.CS || {};
             { color: 0xd8c39a, life: 0.35, vy: 0.8, size: 0.09, g: -1.2 });
         }
       } else {
-        var targetVx = mx * SPEED, targetVz = mz * SPEED;
+        var sp = SPEED * (FR.t > 0 ? CS.FRENZY.speed : 1);
+        var targetVx = mx * sp, targetVz = mz * sp;
         var airK = P.grounded ? 1 : 0.55;        // less bite in the air
         var accel = (len > 0 ? 18 : 22) * airK;
         P.vx += (targetVx - P.vx) * Math.min(1, dt * accel);
@@ -934,9 +1051,23 @@ window.CS = window.CS || {};
 
       updateFryers(dt);
 
+      // Feather Frenzy: a running burst, then a long recharge
+      if (FR.t > 0) {
+        FR.t -= dt;
+        if (Math.random() < dt * 14) {
+          CS.fx.spawn(P.x + (Math.random() - 0.5) * 0.8, P.y + 0.3 + Math.random() * 0.9, P.z + (Math.random() - 0.5) * 0.8,
+            { color: 0xffe27a, life: 0.6, vy: 0.9, size: 0.08, g: -0.6 });
+        }
+        if (FR.t <= 0) CS.ui.toast('Frenzy over', 'info');
+      } else if (FR.cd > 0) {
+        FR.cd -= dt;
+      }
+      CS.orders.frozen = FR.t > 0;
+
       var progress = 1 - S.time / S.level.seconds;
       CS.orders.update(dt, progress, onExpire);
       CS.staff.update(dt, stations, camera);
+      separateCharacters();
       updateSteam(dt);
       CS.ui.renderTickets(CS.orders.list);
 
@@ -949,6 +1080,8 @@ window.CS = window.CS || {};
       CS.ui.setTarget(took, CS.econ.ledger.rent + CS.econ.wagesFor(took));
       CS.ui.setFryers(fryerRows());
       CS.ui.setMoves(1 - P.dashCd / DASH_CD, P.grounded ? MAX_FLAPS : P.flaps, MAX_FLAPS, !P.grounded);
+      CS.ui.setPower(frenzyLength() > 0,
+        FR.t > 0 ? FR.t / frenzyLength() : 1 - FR.cd / CS.FRENZY.cooldown, FR.t > 0);
       if (S.time <= 0) endDay();
     } else {
       // keep the kitchen alive behind menus
@@ -1139,6 +1272,7 @@ window.CS = window.CS || {};
       if (what === 'use') interact();
       else if (what === 'jump') tryJump();
       else if (what === 'dash') tryDash();
+      else if (what === 'power') tryFrenzy();
     },
     /* debug helpers: CS.game.teleport(col, row) drops the chef on a tile,
        CS.game.debug exposes the three.js objects for poking from the console */

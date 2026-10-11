@@ -394,169 +394,314 @@ window.CS = window.CS || {};
   };
 
   /* -------------------------------------------------------- the customer
-     The queue is an assortment of small round animals: a big head on a
-     small body, stubby limbs and glossy eyes. Body, arms and legs are the
-     same rig for every species -- which is what lets orders.js drive one walk
-     cycle for all of them -- and the species table in config.js supplies the
-     colours plus the ears, snout and tail bolted on top.
+     The queue is a parade of fantasy-RPG regulars on their lunch break:
+     moogles, chocobos, cactuars, tonberries, bombs, mages and the rest. All
+     of them are built on the same chibi rig -- a big head on a small body,
+     stubby limbs -- which is what lets orders.js drive one walk cycle for
+     every one of them. `C.look` picks the costume bolted on top.
 
      `parts` is the contract with orders.js: legL, legR, armL, armR, head,
-     body, tail and mark. Keep those names if you add a species.             */
+     body, tail and mark. Keep those names if you add a look.               */
   CS.models.customer = function (speciesIdx, seed) {
     var C = CS.CRITTERS[speciesIdx % CS.CRITTERS.length];
+    var look = C.look;
     var g = new THREE.Group();
     var parts = { species: C };
     var FUR = { color: C.fur, tex: 'fluff', rough: 0.9 };
     var FUR_D = { color: CS.shade(C.fur, -28), tex: 'fluff', rough: 0.9 };
     var BELLY = { color: C.belly, tex: 'fluff', rough: 0.9 };
-    var SNOUT = { color: C.snout, rough: 0.8 };
+    var TRIM = { color: C.trim, rough: 0.7 };
     var EYE = { color: 0x1e1828, rough: 0.15 };
     var SHINE = { color: 0xffffff, rough: 0.2 };
+    var BLUSH = { color: 0xff9db2, rough: 0.9 };
+    var GLOW = CS.mat({ color: 0xffe04a, basic: true });
+    var GOLD = { color: 0xf2bf3e, rough: 0.3, metal: 0.8 };
 
-    /* ---- legs: stubby, with a round paw ---- */
+    var robed = look === 'blackmage' || look === 'whitemage' || look === 'tonberry';
+    var smooth = look === 'cactuar' || look === 'bomb' || look === 'mandragora';
+
+    // what each part of the rig is made of, before the costume goes on
+    var BODY = smooth ? { color: C.fur, rough: 0.55 } : FUR;
+    var HEAD = BODY, LEG = BODY, FOOT = FUR_D, ARM = BODY, PAW = FUR_D;
+    if (look === 'blackmage') {
+      BODY = ARM = { color: C.fur, rough: 0.85 };
+      HEAD = { color: 0x15111c, rough: 0.95 };
+      LEG = FOOT = PAW = { color: 0x5a3a22, rough: 0.8 };
+    } else if (look === 'whitemage') {
+      BODY = ARM = { color: C.fur, rough: 0.85 };
+      HEAD = PAW = { color: C.skin, rough: 0.8 };
+      LEG = FOOT = { color: 0xb08a5a, rough: 0.8 };
+    } else if (look === 'tonberry') {
+      BODY = ARM = { color: C.trim, tex: 'fluff', rough: 0.95 };
+      HEAD = LEG = FOOT = PAW = FUR;
+    } else if (look === 'chocobo') {
+      LEG = FOOT = TRIM;
+    } else if (smooth) {
+      FOOT = PAW = { color: CS.shade(C.fur, -30), rough: 0.6 };
+    }
+
+    /* ---- legs ---- */
     var hips = new THREE.Group(); hips.position.y = 0.26; g.add(hips);
     ['legL', 'legR'].forEach(function (id, i) {
       var leg = new THREE.Group();
       leg.position.set(i ? 0.13 : -0.13, 0, 0);
       hips.add(leg);
-      add(leg, CS.ball(0.085, 0.12, 0.085, FUR, 0, -0.09, 0));
-      add(leg, CS.ball(0.10, 0.06, 0.13, FUR_D, 0, -0.20, 0.03));
+      if (look === 'chocobo') {
+        add(leg, CS.ball(0.045, 0.13, 0.045, LEG, 0, -0.09, 0));
+        [-0.05, 0, 0.05].forEach(function (tx) {
+          add(leg, CS.ball(0.025, 0.02, 0.09, FOOT, tx, -0.21, 0.06));
+        });
+      } else {
+        add(leg, CS.ball(0.085, 0.12, 0.085, LEG, 0, -0.09, 0));
+        add(leg, CS.ball(0.10, 0.06, 0.13, FOOT, 0, -0.20, 0.03));
+      }
       parts[id] = leg;
     });
 
-    /* ---- body: a soft pear ---- */
+    /* ---- body ---- */
     var body = new THREE.Group(); body.position.y = 0.26; g.add(body); parts.body = body;
-    add(body, CS.ball(0.29, 0.29, 0.25, FUR, 0, 0.20, 0));
-    add(body, CS.ball(0.19, 0.20, 0.08, BELLY, 0, 0.17, 0.19));
-    if (C.patch) add(body, CS.ball(0.12, 0.10, 0.06, FUR_D, -0.16, 0.28, 0.14));
+    if (robed) {
+      // a long robe flaring out over the boots
+      add(body, CS.cyl(0.17, 0.34, 0.54, BODY, 0, 0.15, 0, 20));
+      if (look === 'whitemage') {
+        // the red triangle trim round the hem
+        for (var hi = 0; hi < 10; hi++) {
+          var ha = hi / 10 * Math.PI * 2;
+          var tri = add(body, CS.cone(0.07, 0.13, TRIM, Math.sin(ha) * 0.315, -0.05, Math.cos(ha) * 0.315, 3));
+          tri.rotation.y = ha; tri.scale.z = 0.3;
+        }
+      } else if (look === 'blackmage') {
+        add(body, CS.cyl(0.215, 0.225, 0.05, { color: 0x5a3a22 }, 0, 0.30, 0, 18));
+      } else {
+        // a tonberry's cloak has a pale belly showing at the front
+        add(body, CS.ball(0.13, 0.16, 0.06, BELLY, 0, 0.16, 0.22));
+      }
+    } else if (look === 'bomb') {
+      add(body, CS.ball(0.20, 0.18, 0.19, BODY, 0, 0.12, 0));
+    } else if (look === 'cactuar') {
+      add(body, CS.ball(0.24, 0.38, 0.21, BODY, 0, 0.26, 0));
+      // ridges and a scatter of little spines
+      [-0.12, 0, 0.12].forEach(function (rx) {
+        add(body, CS.ball(0.035, 0.32, 0.03, { color: CS.shade(C.fur, -18), rough: 0.6 }, rx, 0.26, 0.19));
+      });
+      [[0.18, 0.4], [-0.2, 0.18], [0.16, 0.05], [-0.1, 0.5]].forEach(function (p) {
+        var sp = add(body, CS.cone(0.012, 0.06, { color: 0xf3ecc8 }, p[0], p[1], 0.17, 5));
+        sp.rotation.x = Math.PI / 2;
+      });
+    } else {
+      add(body, CS.ball(0.29, 0.29, 0.25, BODY, 0, 0.20, 0));
+      add(body, CS.ball(0.19, 0.20, 0.08, BELLY, 0, 0.17, 0.19));
+    }
+
+    // things worn on the back
+    if (look === 'moogle') {
+      // little purple bat wings
+      [-1, 1].forEach(function (s) {
+        var w = add(body, CS.cone(0.12, 0.22, TRIM, s * 0.14, 0.40, -0.22, 3));
+        w.rotation.z = -s * 1.1; w.rotation.y = s * 0.4; w.scale.z = 0.25;
+      });
+    } else if (look === 'caitsith') {
+      var cape = add(body, CS.shell(0.33, 0.36, 0.30, { color: C.trim, rough: 0.8, side: true },
+        Math.PI * 1.1, Math.PI * 0.8, 0.5, 1.6));
+      cape.position.y = 0.22;
+    }
 
     /* ---- arms ---- */
     [['armL', -1], ['armR', 1]].forEach(function (a) {
+      var s = a[1];
       var arm = new THREE.Group();
-      arm.position.set(a[1] * 0.26, 0.32, 0);
+      arm.position.set(s * (look === 'bomb' ? 0.19 : (look === 'cactuar' ? 0.22 : 0.26)), 0.32, 0);
       body.add(arm);
-      var up = add(arm, CS.ball(0.07, 0.15, 0.07, FUR, a[1] * 0.02, -0.12, 0));
-      up.rotation.z = a[1] * 0.2;
-      add(arm, CS.ball(0.075, 0.07, 0.075, FUR_D, a[1] * 0.04, -0.25, 0.01));
+      if (look === 'chocobo') {
+        // stubby wings rather than arms
+        var wg = add(arm, CS.ball(0.06, 0.16, 0.13, FUR, s * 0.03, -0.10, -0.02));
+        wg.rotation.z = s * 0.35;
+      } else if (look === 'cactuar') {
+        // the famous pose: one arm up, one arm down
+        var pose = new THREE.Group();
+        pose.rotation.z = s > 0 ? 2.5 : -0.25;
+        arm.add(pose);
+        add(pose, CS.ball(0.06, 0.16, 0.06, BODY, 0, -0.13, 0));
+      } else {
+        var up = add(arm, CS.ball(0.07, 0.15, 0.07, ARM, s * 0.02, -0.12, 0));
+        up.rotation.z = s * 0.2;
+        add(arm, CS.ball(0.065, 0.06, 0.065, PAW, s * 0.04, -0.25, 0.01));
+      }
       parts[a[0]] = arm;
     });
 
-    /* ---- tail: on its own pivot, so it can wag ---- */
+    // a tonberry never goes anywhere without its lantern and its little knife
+    if (look === 'tonberry') {
+      var lantern = new THREE.Group();
+      lantern.position.set(0.05, -0.33, 0.06);
+      parts.armR.add(lantern);
+      add(lantern, CS.cyl(0.05, 0.05, 0.10, { color: 0x3a3330, rough: 0.5, metal: 0.6 }, 0, 0, 0, 6));
+      add(lantern, CS.ball(0.04, 0.05, 0.04, GLOW, 0, 0, 0));
+      add(lantern, CS.torus(0.03, 0.006, Math.PI, { color: 0x3a3330 }, 0, 0.06, 0));
+      var knife = add(parts.armL, CS.cone(0.02, 0.14, { color: 0xdfe4ea, rough: 0.2, metal: 0.9 }, -0.04, -0.30, 0.10, 4));
+      knife.rotation.x = Math.PI / 2;
+    }
+
+    /* ---- tail: on its own pivot, so it can sway ---- */
     parts.tail = new THREE.Group();
     parts.tail.position.set(0, 0.14, -0.22);
     body.add(parts.tail);
-    if (C.tail === 'up' || C.tail === 'wag') {
-      var t1 = add(parts.tail, CS.ball(0.05, 0.20, 0.05, FUR, 0, 0.16, -0.06));
+    if (look === 'chocobo') {
+      [-0.5, 0, 0.5].forEach(function (a) {
+        var f = add(parts.tail, CS.cone(0.05, 0.24, FUR, a * 0.12, 0.10, -0.08));
+        f.rotation.x = -1.0; f.rotation.z = a;
+      });
+    } else if (look === 'caitsith') {
+      var t1 = add(parts.tail, CS.ball(0.04, 0.22, 0.04, FUR, 0, 0.16, -0.06));
       t1.rotation.x = -0.5;
-      add(parts.tail, CS.ball(0.06, 0.06, 0.06, C.tipped ? { color: 0xf6eadd } : FUR, 0, 0.33, -0.15));
-      parts.tail.rotation.x = C.tail === 'wag' ? 0.25 : 0;
-    } else if (C.tail === 'bush') {
-      var b1 = add(parts.tail, CS.ball(0.14, 0.24, 0.14, FUR, 0, 0.16, -0.12));
-      b1.rotation.x = -0.6;
-      add(parts.tail, CS.ball(0.10, 0.10, 0.10, { color: 0xf6eadd, tex: 'fluff' }, 0, 0.35, -0.25));
-    } else if (C.tail === 'puff') {
-      add(parts.tail, CS.ball(0.10, 0.10, 0.10, { color: 0xffffff, tex: 'fluff' }, 0, 0.02, -0.03));
-    } else if (C.tail === 'curl') {
-      var curl = add(parts.tail, CS.torus(0.06, 0.022, 0, FUR, 0, 0.06, -0.04));
-      curl.rotation.y = Math.PI / 2;
+      add(parts.tail, CS.ball(0.045, 0.05, 0.045, BELLY, 0, 0.34, -0.15));
+    } else if (look === 'tonberry') {
+      var tt = add(parts.tail, CS.cone(0.06, 0.18, FUR, 0, -0.04, -0.06));
+      tt.rotation.x = -2.2;
     }
 
     /* ---- head: big and round, the chibi bit ---- */
     var head = new THREE.Group(); head.position.set(0, 0.52, 0.01); body.add(head);
     parts.head = head;
-    add(head, CS.ball(0.31, 0.27, 0.28, FUR, 0, 0.20, 0));
-
-    // ears. `eh` tracks how tall this species ends up, so the impatience mark
-    // floats clear of a bunny's ears as well as a frog's flat head.
-    var eh = 0.48;
-    var INNER = { color: 0xf8bccb, rough: 0.9 };
-    if (C.ears === 'point') {
-      [-1, 1].forEach(function (s) {
-        var e = add(head, CS.cone(0.10, 0.20, FUR, s * 0.17, 0.48, -0.02));
-        e.rotation.z = -s * 0.3; e.scale.z = 0.55;
-        var ei = add(head, CS.cone(0.06, 0.13, C.stripes ? { color: 0xf7cfae } : INNER, s * 0.17, 0.46, 0.02));
-        ei.rotation.z = -s * 0.3; ei.scale.z = 0.4;
-      });
-      eh = 0.62;
-    } else if (C.ears === 'tall') {
-      [-1, 1].forEach(function (s) {
-        var e = add(head, CS.ball(0.075, 0.24, 0.05, FUR, s * 0.12, 0.62, -0.02));
-        e.rotation.z = s * -0.15;
-        var ei = add(head, CS.ball(0.045, 0.19, 0.02, INNER, s * 0.12, 0.62, 0.025));
-        ei.rotation.z = s * -0.15;
-      });
-      eh = 0.88;
-    } else if (C.ears === 'round') {
-      var er = C.bigEars ? 0.15 : 0.11, ex = C.bigEars ? 0.23 : 0.20;
-      [-1, 1].forEach(function (s) {
-        add(head, CS.ball(er, er, 0.05, FUR, s * ex, 0.43, -0.02));
-        add(head, CS.ball(er * 0.62, er * 0.62, 0.03, INNER, s * ex, 0.43, 0.02));
-      });
-      eh = 0.58;
-    } else if (C.ears === 'droop') {
-      [-1, 1].forEach(function (s) {
-        var e = add(head, CS.ball(0.08, 0.17, 0.06, FUR_D, s * 0.30, 0.18, 0));
-        e.rotation.z = s * 0.25;
-      });
-    } else if (C.ears === 'flop') {
-      [-1, 1].forEach(function (s) {
-        var e = add(head, CS.ball(0.10, 0.08, 0.04, FUR_D, s * 0.18, 0.42, 0.10));
-        e.rotation.x = 0.7; e.rotation.z = -s * 0.3;
-      });
-      eh = 0.54;
-    }
-
-    // eyes: big and glossy, each with a catchlight. A frog's bulge off the
-    // top of the head; everyone else's sit on the face.
     parts.eyes = new THREE.Group(); head.add(parts.eyes);
-    if (C.bigEyes) {
+    var eh = 0.48;      // how far up this head's tallest feature reaches
+
+    function glossyEyes(y, z, sp) {
       [-1, 1].forEach(function (s) {
-        add(parts.eyes, CS.ball(0.11, 0.11, 0.11, FUR, s * 0.15, 0.42, 0.06));
-        add(parts.eyes, CS.ball(0.065, 0.075, 0.04, EYE, s * 0.16, 0.44, 0.15));
-        add(parts.eyes, CS.ball(0.02, 0.02, 0.01, SHINE, s * 0.16 - 0.02, 0.47, 0.19));
-      });
-      eh = 0.58;
-    } else {
-      [-1, 1].forEach(function (s) {
-        add(parts.eyes, CS.ball(0.05, 0.065, 0.03, EYE, s * 0.115, 0.24, 0.255));
-        add(parts.eyes, CS.ball(0.02, 0.022, 0.01, SHINE, s * 0.115 - 0.015, 0.27, 0.283));
+        add(parts.eyes, CS.ball(0.05, 0.065, 0.03, EYE, s * sp, y, z));
+        add(parts.eyes, CS.ball(0.02, 0.022, 0.01, SHINE, s * sp - 0.015, y + 0.03, z + 0.028));
       });
     }
-    [-1, 1].forEach(function (s) {
-      var bl = add(head, CS.ball(0.05, 0.028, 0.015, { color: 0xff9db2, rough: 0.9 }, s * 0.19, 0.13, 0.24));
-      bl.rotation.y = s * 0.5;
-    });
+    function cheeks(y, z) {
+      [-1, 1].forEach(function (s) {
+        add(head, CS.ball(0.05, 0.028, 0.015, BLUSH, s * 0.19, y, z)).rotation.y = s * 0.5;
+      });
+    }
 
-    // snout and nose
-    if (C.name === 'Piglet') {
-      var sn = add(head, CS.cyl(0.08, 0.085, 0.07, SNOUT, 0, 0.13, 0.28));
-      sn.rotation.x = Math.PI / 2;
-      add(head, CS.ball(0.015, 0.025, 0.01, { color: C.nose }, -0.03, 0.13, 0.318));
-      add(head, CS.ball(0.015, 0.025, 0.01, { color: C.nose }, 0.03, 0.13, 0.318));
-    } else if (C.bigEyes) {
-      var grin = add(head, CS.torus(0.11, 0.012, Math.PI, { color: CS.shade(C.fur, -60) }, 0, 0.16, 0.26));
+    if (look === 'moogle') {
+      add(head, CS.ball(0.31, 0.27, 0.28, HEAD, 0, 0.20, 0));
+      // happy closed eyes, a big red nose, little ears and the pompom
+      [-1, 1].forEach(function (s) {
+        add(parts.eyes, CS.torus(0.04, 0.011, Math.PI, EYE, s * 0.11, 0.22, 0.262));
+        var e = add(head, CS.cone(0.07, 0.12, HEAD, s * 0.2, 0.44, -0.02));
+        e.rotation.z = -s * 0.35; e.scale.z = 0.6;
+      });
+      add(head, CS.ball(0.065, 0.06, 0.06, { color: C.nose, rough: 0.35 }, 0, 0.13, 0.27));
+      cheeks(0.12, 0.24);
+      add(head, CS.cyl(0.012, 0.012, 0.22, { color: 0x2a2028 }, 0, 0.55, -0.02, 6));
+      add(head, CS.ball(0.08, 0.08, 0.08, { color: 0xd8263a, tex: 'fluff', rough: 0.9 }, 0, 0.70, -0.02));
+      eh = 0.80;
+    } else if (look === 'chocobo') {
+      add(head, CS.ball(0.27, 0.27, 0.27, HEAD, 0, 0.22, 0.03));
+      var beak = add(head, CS.cone(0.085, 0.22, TRIM, 0, 0.15, 0.36));
+      beak.rotation.x = Math.PI / 2; beak.scale.x = 1.2;
+      glossyEyes(0.27, 0.25, 0.13);
+      cheeks(0.14, 0.23);
+      [-0.08, 0, 0.08].forEach(function (x, i) {
+        var cr = add(head, CS.cone(0.045, 0.24, HEAD, x, 0.50, -0.06 - i % 2 * 0.03));
+        cr.rotation.x = -0.7; cr.rotation.z = -x * 2.5;
+      });
+      eh = 0.66;
+    } else if (look === 'cactuar') {
+      // the head is just the top of the cactus; the face is three dark holes
+      add(head, CS.ball(0.22, 0.20, 0.20, HEAD, 0, 0.06, 0));
+      var HOLE = { color: 0x203018, rough: 0.9 };
+      [-1, 1].forEach(function (s) { add(parts.eyes, CS.ball(0.035, 0.05, 0.02, HOLE, s * 0.08, 0.12, 0.19)); });
+      add(head, CS.ball(0.04, 0.055, 0.02, HOLE, 0, 0.0, 0.195));
+      [-0.07, 0, 0.07].forEach(function (x) {
+        var sp = add(head, CS.cone(0.03, 0.10, { color: CS.shade(C.fur, 20), rough: 0.6 }, x, 0.28, 0));
+        sp.rotation.z = -x * 4;
+      });
+      eh = 0.36;
+    } else if (look === 'tonberry') {
+      add(head, CS.ball(0.29, 0.26, 0.27, HEAD, 0, 0.18, 0.02));
+      // a brown hood over the top and back, and two lamp-yellow eyes
+      var hood = add(head, CS.shell(0.33, 0.31, 0.32, { color: C.trim, tex: 'fluff', rough: 0.95, side: true },
+        Math.PI / 2 + 1.0, Math.PI * 2 - 2.0, 0, 2.0));
+      hood.position.y = 0.19;
+      var hp = add(head, CS.cone(0.10, 0.22, { color: C.trim, tex: 'fluff', rough: 0.95 }, 0, 0.36, -0.20));
+      hp.rotation.x = -1.2;
+      [-1, 1].forEach(function (s) { add(parts.eyes, CS.ball(0.045, 0.055, 0.02, GLOW, s * 0.1, 0.22, 0.27)); });
+      add(head, CS.ball(0.10, 0.06, 0.07, { color: CS.shade(C.fur, 15), rough: 0.7 }, 0, 0.10, 0.25));
+      eh = 0.52;
+    } else if (look === 'bomb') {
+      // a bomb is mostly head: a glowing ball with a fire on top and a grin
+      add(head, CS.ball(0.36, 0.34, 0.34, { color: C.fur, rough: 0.45, emissive: 0x5a1a00 }, 0, 0.10, 0));
+      var WHITE = { color: 0xfff6e6, rough: 0.3 };
+      [-1, 1].forEach(function (s) {
+        add(parts.eyes, CS.ball(0.075, 0.07, 0.03, WHITE, s * 0.13, 0.18, 0.30));
+        add(parts.eyes, CS.ball(0.035, 0.04, 0.02, EYE, s * 0.12, 0.17, 0.325));
+        var brow = add(head, CS.box(0.13, 0.03, 0.03, EYE, s * 0.13, 0.28, 0.31));
+        brow.rotation.z = s * 0.35;
+      });
+      var grin = add(head, CS.torus(0.13, 0.022, Math.PI, EYE, 0, 0.04, 0.30));
       grin.rotation.z = Math.PI;
-    } else {
-      add(head, CS.ball(0.11, 0.075, 0.07, SNOUT, 0, 0.12, 0.24));
-      add(head, CS.ball(0.04, 0.03, 0.03, { color: C.nose, rough: 0.3 }, 0, 0.15, 0.30));
-    }
-    if (C.stripes) {
-      [-0.06, 0, 0.06].forEach(function (x) {
-        add(head, CS.ball(0.022, 0.06, 0.03, FUR_D, x, 0.42, 0.14));
+      [[0, 0.52, 0xffd23c, 0.11, 0.30], [-0.10, 0.46, 0xff8a1e, 0.08, 0.22], [0.10, 0.46, 0xff6a14, 0.08, 0.22]]
+        .forEach(function (f) {
+          add(head, CS.cone(f[3], f[4], CS.mat({ color: f[2], basic: true }), f[0], f[1], 0));
+        });
+      eh = 0.62;
+    } else if (look === 'blackmage') {
+      // a face that is only shadow and two glowing eyes, under a big straw hat
+      add(head, CS.ball(0.26, 0.25, 0.25, HEAD, 0, 0.18, 0));
+      [-1, 1].forEach(function (s) { add(parts.eyes, CS.ball(0.05, 0.065, 0.02, GLOW, s * 0.1, 0.20, 0.245)); });
+      add(head, CS.cyl(0.30, 0.31, 0.10, BODY, 0, 0.02, 0, 18));       // high collar
+      var STRAW = { color: C.trim, tex: 'fluff', rough: 0.9 };
+      add(head, CS.cyl(0.44, 0.44, 0.03, STRAW, 0, 0.36, 0, 24));
+      add(head, CS.cyl(0.25, 0.26, 0.06, { color: 0x5a3a22 }, 0, 0.40, 0, 20));
+      var hat = add(head, CS.cone(0.25, 0.56, STRAW, 0, 0.66, -0.04, 16));
+      hat.rotation.x = -0.22;
+      eh = 0.95;
+    } else if (look === 'whitemage') {
+      add(head, CS.ball(0.27, 0.25, 0.25, HEAD, 0, 0.18, 0.02));
+      glossyEyes(0.20, 0.255, 0.1);
+      cheeks(0.10, 0.23);
+      var HOOD = { color: C.fur, rough: 0.85, side: true };
+      var wh = add(head, CS.shell(0.31, 0.30, 0.30, HOOD, Math.PI / 2 + 0.95, Math.PI * 2 - 1.9, 0, 2.1));
+      wh.position.y = 0.19;
+      // the hood's little cat ears, and the red trim round its face
+      [-1, 1].forEach(function (s) {
+        var e = add(head, CS.cone(0.08, 0.17, { color: C.fur, rough: 0.85 }, s * 0.17, 0.48, -0.02));
+        e.rotation.z = -s * 0.3; e.scale.z = 0.6;
+        var t = add(head, CS.cone(0.05, 0.09, TRIM, s * 0.25, 0.04, 0.17, 3));
+        t.rotation.x = Math.PI; t.scale.z = 0.3;
       });
+      eh = 0.66;
+    } else if (look === 'caitsith') {
+      add(head, CS.ball(0.31, 0.27, 0.28, HEAD, 0, 0.20, 0));
+      add(head, CS.ball(0.17, 0.12, 0.08, BELLY, 0, 0.12, 0.23));
+      glossyEyes(0.24, 0.255, 0.115);
+      add(head, CS.ball(0.03, 0.022, 0.02, { color: 0xe0736b }, 0, 0.16, 0.30));
+      cheeks(0.12, 0.24);
+      [-1, 1].forEach(function (s) {
+        var e = add(head, CS.cone(0.10, 0.20, HEAD, s * 0.19, 0.46, -0.02));
+        e.rotation.z = -s * 0.35; e.scale.z = 0.55;
+      });
+      // a little gold crown, and the megaphone-free version of the cape
+      add(head, CS.cyl(0.11, 0.12, 0.07, GOLD, 0, 0.47, 0, 12));
+      for (var ci = 0; ci < 5; ci++) {
+        var ca = ci / 5 * Math.PI * 2;
+        add(head, CS.cone(0.025, 0.07, GOLD, Math.sin(ca) * 0.1, 0.54, Math.cos(ca) * 0.1, 5));
+      }
+      eh = 0.66;
+    } else if (look === 'mandragora') {
+      add(head, CS.ball(0.29, 0.27, 0.27, HEAD, 0, 0.18, 0));
+      glossyEyes(0.22, 0.25, 0.11);
+      add(head, CS.ball(0.05, 0.035, 0.02, { color: 0x5a1a1a }, 0, 0.10, 0.26));
+      cheeks(0.12, 0.23);
+      // a tuft of leaves bursting out of the top
+      for (var li = 0; li < 5; li++) {
+        var la = li / 5 * Math.PI * 2;
+        var lf = add(head, CS.ball(0.06, 0.20, 0.025, TRIM, Math.sin(la) * 0.08, 0.58, Math.cos(la) * 0.08));
+        lf.rotation.x = Math.cos(la) * 0.5; lf.rotation.z = -Math.sin(la) * 0.5;
+      }
+      eh = 0.76;
+    } else {
+      add(head, CS.ball(0.31, 0.27, 0.28, HEAD, 0, 0.20, 0));
+      glossyEyes(0.24, 0.255, 0.115);
     }
 
-    /* A cap on some of them, picked off the seed, so two Bunnies standing in
-       the same queue still read as two different customers. */
-    if (seed % 5 > 2 && C.ears !== 'tall') {
-      var cap = [0x6a4f9c, 0x3f8a6b, 0x2f4f96, 0xc0563f][seed % 4];
-      add(head, CS.shell(0.28, 0.20, 0.27, { color: cap }, 0, Math.PI * 2, 0, Math.PI / 2)).position.y = 0.32;
-      var brim = add(head, CS.cyl(0.17, 0.17, 0.025, { color: CS.shade(cap, -20) }, 0, 0.33, 0.20));
-      brim.scale.z = 0.8;
-      eh = Math.max(eh, 0.62);
-    }
-
-    // impatience mark, floating clear of whatever this species has on its head
+    // impatience mark, floating clear of whatever this one has on its head
     parts.mark = new THREE.Group();
     parts.mark.position.set(0, 0.26 + 0.52 + eh + 0.30, 0);
     parts.mark.visible = false;
@@ -565,6 +710,10 @@ window.CS = window.CS || {};
     add(parts.mark, CS.ball(0.07, 0.15, 0.07, RED, 0, 0.16, 0));
     add(parts.mark, CS.ball(0.06, 0.06, 0.06, RED, 0, -0.06, 0));
     CS.noMirror(parts.mark);
+
+    // a touch of variety, so two moogles in one queue are not twins
+    var sz = 0.94 + (seed % 7) * 0.02;
+    g.scale.setScalar(sz);
 
     g.traverse(function (o) { if (o.isMesh) o.castShadow = true; });
     return { group: g, parts: parts, species: C };
@@ -782,6 +931,15 @@ window.CS = window.CS || {};
       case 'cookedFries':  g.add(inPan ? friesPile(0xffc63f, 16, WARM) : friesCarton(false)); break;
       case 'burntFries':   g.add(inPan ? friesPile(0x3a2f26, 16) : friesCarton(true)); break;
       case 'cup':          g.add(sauceCup(item.sauce)); break;
+      case 'garnish': {
+        // a pinch of topping or a dollop of sauce on its way to a sandwich
+        var ing = CS.ING[item.ing];
+        var gm = { color: ing ? ing.color : 0xffffff, rough: ing && ing.kind === 'sauce' ? 0.25 : 0.7 };
+        [[0, 0.06, 0], [0.07, 0.05, 0.03], [-0.06, 0.05, 0.04], [0.01, 0.1, -0.03]].forEach(function (p) {
+          g.add(CS.ball(0.07, 0.05, 0.07, gm, p[0], p[1], p[2]));
+        });
+        break;
+      }
       case 'plate': {
         dish(g);
         var y = 0.056;
@@ -1030,8 +1188,15 @@ window.CS = window.CS || {};
     var parts = { kind: kind };
 
     var spud = kind === 'potato';
-    var SKIN = spud ? { color: 0xd9a868, tex: 'fluff', rough: 0.85 } : { color: 0xe8392b, rough: 0.28 };
-    var SKIN_D = spud ? { color: 0xb98a4e, rough: 0.85 } : { color: 0xc22a20, rough: 0.3 };
+    var LOOKS = {
+      potato:   [{ color: 0xd9a868, tex: 'fluff', rough: 0.85 }, { color: 0xb98a4e, rough: 0.85 }],
+      tomato:   [{ color: 0xe8392b, rough: 0.28 }, { color: 0xc22a20, rough: 0.3 }],
+      egg:      [{ color: 0xf6efe0, rough: 0.4 }, { color: 0xe8dcc0, rough: 0.5 }],
+      lettuce:  [{ color: 0x7fcc48, tex: 'fluff', rough: 0.75 }, { color: 0x4f9a2e, rough: 0.7 }],
+      mushroom: [{ color: 0xf3e6cf, rough: 0.8 }, { color: 0xd9c6a4, rough: 0.8 }]
+    };
+    var look = LOOKS[kind] || LOOKS.tomato;
+    var SKIN = look[0], SKIN_D = look[1];
     var EYE = { color: 0x1e1828, rough: 0.15 };
     var SHINE = { color: 0xffffff, rough: 0.2 };
 
@@ -1053,6 +1218,39 @@ window.CS = window.CS || {};
       add(body, CS.cyl(0.20, 0.22, 0.12, { color: 0xfbf8f1 }, 0, BY + 0.40, -0.02, 20));
       add(body, CS.cyl(0.222, 0.225, 0.025, { color: 0x2f4f96 }, 0, BY + 0.35, -0.02, 20));
       add(body, CS.ball(0.20, 0.08, 0.18, { color: 0xfbf8f1 }, 0, BY + 0.47, -0.02));
+    } else if (kind === 'egg') {
+      // a tall egg with a zig-zag of cracked shell still sat on top as a hat
+      add(body, CS.ball(0.31, 0.40, 0.30, SKIN, 0, BY + 0.02, 0));
+      for (var ei = 0; ei < 8; ei++) {
+        var ea = ei / 8 * Math.PI * 2;
+        var sh = add(body, CS.cone(0.07, 0.12, { color: 0xfffaf0, rough: 0.35 },
+          Math.sin(ea) * 0.2, BY + 0.38, Math.cos(ea) * 0.2, 4));
+        sh.rotation.y = ea;
+      }
+      add(body, CS.ball(0.21, 0.07, 0.21, { color: 0xfffaf0, rough: 0.35 }, 0, BY + 0.34, 0));
+      add(body, CS.ball(0.10, 0.10, 0.04, { color: 0xffc83a, rough: 0.3 }, 0.19, BY + 0.22, 0.20));
+    } else if (kind === 'lettuce') {
+      // a round head of lettuce, frilly leaves curling up round it
+      add(body, CS.ball(0.36, 0.34, 0.34, SKIN, 0, BY, 0));
+      for (var li = 0; li < 7; li++) {
+        var la = li / 7 * Math.PI * 2;
+        if (Math.abs(Math.sin(la / 2)) < 0.5) continue;      // keep the face clear
+        var lf = add(body, CS.ball(0.17, 0.22, 0.05, SKIN_D,
+          Math.sin(la) * 0.3, BY + 0.06, Math.cos(la) * 0.3));
+        lf.rotation.y = la; lf.rotation.x = -0.25;
+      }
+      add(body, CS.ball(0.20, 0.10, 0.20, { color: 0xb6e384, rough: 0.7 }, 0, BY + 0.30, 0));
+    } else if (kind === 'mushroom') {
+      // a pale stalk under a big red cap with white spots
+      add(body, CS.ball(0.29, 0.34, 0.28, SKIN, 0, BY - 0.04, 0));
+      var CAP = { color: 0xd8423a, rough: 0.35 };
+      add(body, CS.shell(0.46, 0.34, 0.46, CAP, 0, Math.PI * 2, 0, Math.PI / 2)).position.y = BY + 0.22;
+      add(body, CS.cyl(0.46, 0.40, 0.04, { color: 0xf3e6cf }, 0, BY + 0.21, 0, 24));
+      [[0, 0.30, 0.10], [0.25, 0.16, 0.14], [-0.24, 0.18, 0.12], [0.1, 0.22, -0.3], [-0.2, 0.12, -0.3]]
+        .forEach(function (p) {
+          var dy = Math.sqrt(Math.max(0, 1 - (p[0] * p[0] + p[2] * p[2]) / 0.21)) * 0.34;
+          add(body, CS.ball(0.07, 0.03, 0.07, { color: 0xfffaf0 }, p[0], BY + 0.22 + dy * 0.95, p[2]));
+        });
     } else {
       add(body, CS.ball(0.38, 0.34, 0.37, SKIN, 0, BY, 0));
       add(body, CS.ball(0.10, 0.06, 0.04, { color: 0xffb9ab, rough: 0.2 }, -0.17, BY + 0.17, 0.30)).rotation.z = 0.5;
@@ -1068,7 +1266,8 @@ window.CS = window.CS || {};
     }
 
     // apron bib in white with blue piping, so they read as staff
-    var R = spud ? [0.33, 0.39, 0.30] : [0.38, 0.34, 0.37];
+    var R = { potato: [0.33, 0.39, 0.30], egg: [0.31, 0.40, 0.30], lettuce: [0.36, 0.34, 0.34],
+      mushroom: [0.29, 0.34, 0.28] }[kind] || [0.38, 0.34, 0.37];
     var apron = add(body, CS.shell(R[0] * 1.03, R[1] * 1.03, R[2] * 1.03, { color: 0xfbf8f1 },
       Math.PI / 2 - 0.6, 1.2, 1.55, 0.8));
     apron.position.y = BY;
