@@ -70,6 +70,13 @@
   .tgt{height:6px;background:#14203d;border:2px solid #14203d;margin-top:4px;}
   .tgt i{display:block;height:100%;background:var(--gold);width:0%;transition:width .3s ease-out;}
   .tgt.done i{background:var(--green);}
+  .tgt.xp i{background:#b58cff;}
+  #moves .mv.hidden, .tbtn.hidden{display:none;}
+  #moves .m.live i{background:#ff9a3c;}
+  .tbtn.power{grid-column:1 / span 2;grid-row:3;justify-self:center;width:72px;height:44px;border-radius:22px;
+    font-size:10px;background:#7a4fb8;border-color:#3f2668;box-shadow:inset 0 3px 0 #a07ade,0 4px 0 rgba(0,0,0,.45);}
+  .tbtn.power.live{background:#e8892a;border-color:#8a4a12;}
+  .skillpts{color:#b58cff;}
   #tgtLabel{font-size:8px;color:#d9c9a2;margin-top:3px;}
 
   /* fryer gauges — so you always know what is in the oil, in any camera mode */
@@ -528,6 +535,10 @@
       <div id="tgtLabel">rent $18.00</div>
     </div>
     <div class="panel stat"><div class="k">Combo</div><div class="v" id="combo">x1</div></div>
+    <div class="panel stat" id="chefwrap">
+      <div class="k">Chef</div><div class="v" id="chefLv">Lv 1</div>
+      <div class="tgt xp" id="xpBar"><i></i></div>
+    </div>
   </div>
 
   <div id="tickets"></div>
@@ -542,6 +553,7 @@
     <div class="panel" id="moves">
       <div class="mv"><div class="k">Dash &#183; Shift</div><div class="m ready" id="dashBar"><i></i></div></div>
       <div class="mv"><div class="k">Flap &#183; Space</div><div class="pips" id="flapPips"></div></div>
+      <div class="mv hidden" id="powerWrap"><div class="k">Frenzy &#183; Q</div><div class="m" id="powerBar"><i></i></div></div>
     </div>
   </div>
 
@@ -564,6 +576,7 @@
       <button class="tbtn jump" id="tJump">JUMP</button>
       <button class="tbtn dash" id="tDash">DASH</button>
       <button class="tbtn use" id="tUse">USE</button>
+      <button class="tbtn power hidden" id="tPower">POWER</button>
     </div>
   </div>
 </div>
@@ -869,49 +882,105 @@ window.CS = window.CS || {};
      Inside a day the pressure also ramps: `spawn` and `limit` are [start, end]
      pairs interpolated across the shift, and ticket complexity grows with it.
      So it gets harder both as the clock runs AND as the days go by.         */
-  CS.FIRST_SPAWN = 2.5;        // grace before the first customer of a day
+  CS.FIRST_SPAWN = 4.0;        // grace before the first customer of a day
+
+  /* The menu grows one idea at a time, so the early days are about learning
+     to cook rather than surviving. `tops`, `sauces` and `cups` say which
+     ingredients a ticket may ask for today -- lettuce arrives before tomato,
+     ketchup before the other dips -- and `grace` stretches how long a cooked
+     basket sits before it burns, easing back to 1 as you settle in. Each day
+     also carries a `howto`: one line on how to make whatever is new. */
+  var ALL_TOPS = ['lettuce', 'tomato', 'pickle'];
+  var ALL_SAUCES = ['mayo', 'bbq', 'hot'];
+  var ALL_CUPS = ['bbq', 'hot', 'ketchup'];
 
   CS.LEVELS = [
-    { name: 'Opening Day', tag: 'Plain sandwiches. Find your feet.',
-      seconds: 120, rent: 5, maxOrders: 2,
-      spawn: [10.0, 8.5], limit: [80, 70],
+    { name: 'Opening Day', tag: 'One customer at a time. Enjoy the sizzle.',
+      seconds: 150, rent: 4, maxOrders: 1, grace: 2.0,
+      spawn: [13.0, 12.0], limit: [120, 110],
       friesChance: 0, cupChance: 0, twoCupChance: 0, maxTop: 0, maxSauce: 0,
-      unlocks: ['Plate', 'Bun', 'Fried chicken'] },
+      tops: [], sauces: [], cups: [],
+      howto: 'Plate, then bun, then fried chicken. Carry it to the window.',
+      unlocks: ['Plain chicken sandwiches'] },
 
-    { name: 'Fries Are Up', tag: 'A second fryer is lit.',
-      seconds: 140, rent: 7, maxOrders: 2,
-      spawn: [9.5, 8.0], limit: [78, 68],
-      friesChance: 0.5, cupChance: 0, twoCupChance: 0, maxTop: 0, maxSauce: 0,
+    { name: 'Finding Your Feet', tag: 'Two tickets on the rail now.',
+      seconds: 150, rent: 6, maxOrders: 2, grace: 1.8,
+      spawn: [12.0, 10.5], limit: [110, 100],
+      friesChance: 0, cupChance: 0, twoCupChance: 0, maxTop: 0, maxSauce: 0,
+      tops: [], sauces: [], cups: [],
+      howto: 'Drop the next chicken in the fryer while you plate the last one.',
+      unlocks: ['A second ticket'] },
+
+    { name: 'Fries Are Up', tag: 'A basket of golden fries on the side.',
+      seconds: 160, rent: 8, maxOrders: 2, grace: 1.6,
+      spawn: [11.5, 10.0], limit: [105, 95],
+      friesChance: 0.45, cupChance: 0, twoCupChance: 0, maxTop: 0, maxSauce: 0,
+      tops: [], sauces: [], cups: [],
+      howto: 'Potatoes from the bin fry too. Add the fries to the plate.',
       unlocks: ['French fries'] },
 
-    { name: 'Garden Fresh', tag: 'The topping trays open up.',
-      seconds: 150, rent: 10, maxOrders: 3,
-      spawn: [9.0, 7.4], limit: [76, 64],
-      friesChance: 0.45, cupChance: 0, twoCupChance: 0, maxTop: 1, maxSauce: 0,
-      unlocks: ['Lettuce', 'Tomato', 'Pickles'] },
+    { name: 'Garden Fresh', tag: 'The lettuce tray opens up.',
+      seconds: 160, rent: 10, maxOrders: 2, grace: 1.5,
+      spawn: [11.0, 9.5], limit: [100, 92],
+      friesChance: 0.4, cupChance: 0, twoCupChance: 0, maxTop: 1, maxSauce: 0,
+      tops: ['lettuce'], sauces: [], cups: [],
+      howto: 'Hold a plate with a bun on it at the lettuce tray and USE it.',
+      unlocks: ['Lettuce'] },
 
-    { name: 'Sauce Boss', tag: 'Squeeze bottles on the back wall.',
-      seconds: 160, rent: 13, maxOrders: 3,
-      spawn: [8.4, 6.9], limit: [74, 62],
-      friesChance: 0.45, cupChance: 0, twoCupChance: 0, maxTop: 1, maxSauce: 1,
-      unlocks: ['Mayo', 'BBQ sauce', 'Hot sauce'] },
+    { name: 'Salad Days', tag: 'Tomato and pickles join the lettuce.',
+      seconds: 165, rent: 12, maxOrders: 3, grace: 1.4,
+      spawn: [10.5, 9.0], limit: [96, 88],
+      friesChance: 0.4, cupChance: 0, twoCupChance: 0, maxTop: 2, maxSauce: 0,
+      tops: ALL_TOPS, sauces: [], cups: [],
+      howto: 'Toppings go on in any order. Just match the ticket.',
+      unlocks: ['Tomato', 'Pickles', 'A third ticket'] },
 
-    { name: 'Sides Please', tag: 'Cups of sauce to go.',
-      seconds: 170, rent: 17, maxOrders: 3,
-      spawn: [7.8, 6.3], limit: [72, 60],
-      friesChance: 0.5, cupChance: 0.45, twoCupChance: 0.12, maxTop: 2, maxSauce: 1,
-      unlocks: ['Sauce cups: BBQ, hot sauce, ketchup'] },
+    { name: 'Sauce Boss', tag: 'Mayo and BBQ bottles on the back wall.',
+      seconds: 170, rent: 14, maxOrders: 3, grace: 1.3,
+      spawn: [10.0, 8.6], limit: [92, 84],
+      friesChance: 0.45, cupChance: 0, twoCupChance: 0, maxTop: 2, maxSauce: 1,
+      tops: ALL_TOPS, sauces: ['mayo', 'bbq'], cups: [],
+      howto: 'Squeeze a bottle onto a sandwich just like adding a topping.',
+      unlocks: ['Mayo', 'BBQ sauce'] },
+
+    { name: 'Turn Up the Heat', tag: 'Hot sauce, for the brave.',
+      seconds: 170, rent: 16, maxOrders: 3, grace: 1.2,
+      spawn: [9.5, 8.2], limit: [90, 80],
+      friesChance: 0.45, cupChance: 0, twoCupChance: 0, maxTop: 2, maxSauce: 2,
+      tops: ALL_TOPS, sauces: ALL_SAUCES, cups: [],
+      howto: 'Some sandwiches want two sauces now. Read the ticket twice.',
+      unlocks: ['Hot sauce'] },
+
+    { name: 'Sides Please', tag: 'Ketchup cups to go.',
+      seconds: 175, rent: 18, maxOrders: 3, grace: 1.1,
+      spawn: [9.0, 7.8], limit: [88, 78],
+      friesChance: 0.5, cupChance: 0.4, twoCupChance: 0, maxTop: 2, maxSauce: 2,
+      tops: ALL_TOPS, sauces: ALL_SAUCES, cups: ['ketchup'],
+      howto: 'Take a cup, fill it at the ketchup bottle, add it to the plate.',
+      unlocks: ['Ketchup cups'] },
+
+    { name: 'Dip Into It', tag: 'BBQ and hot sauce come in cups too.',
+      seconds: 180, rent: 21, maxOrders: 3, grace: 1.0,
+      spawn: [8.4, 7.2], limit: [84, 74],
+      friesChance: 0.5, cupChance: 0.5, twoCupChance: 0.15, maxTop: 2, maxSauce: 2,
+      tops: ALL_TOPS, sauces: ALL_SAUCES, cups: ALL_CUPS,
+      howto: 'Some tickets want two cups. Two of the same counts as two.',
+      unlocks: ['BBQ and hot sauce cups'] },
 
     { name: 'Lunch Rush', tag: 'Four tickets on the rail at once.',
-      seconds: 180, rent: 21, maxOrders: 4,
-      spawn: [6.8, 5.4], limit: [68, 55],
+      seconds: 185, rent: 25, maxOrders: 4, grace: 1.0,
+      spawn: [7.4, 6.0], limit: [76, 64],
       friesChance: 0.55, cupChance: 0.5, twoCupChance: 0.2, maxTop: 2, maxSauce: 2,
+      tops: ALL_TOPS, sauces: ALL_SAUCES, cups: ALL_CUPS,
+      howto: 'Helpers earn their keep now. Hire some in the shop.',
       unlocks: ['A fourth ticket', 'Shorter tempers'] },
 
     { name: 'The Works', tag: 'Everything on everything.',
-      seconds: 190, rent: 26, maxOrders: 4,
-      spawn: [6.0, 4.6], limit: [64, 50],
+      seconds: 190, rent: 30, maxOrders: 4, grace: 1.0,
+      spawn: [6.6, 5.0], limit: [70, 56],
       friesChance: 0.6, cupChance: 0.55, twoCupChance: 0.3, maxTop: 3, maxSauce: 3,
+      tops: ALL_TOPS, sauces: ALL_SAUCES, cups: ALL_CUPS,
+      howto: 'Fully loaded sandwiches. Save Feather Frenzy for a full rail.',
       unlocks: ['Fully loaded sandwiches'] }
   ];
 
@@ -933,10 +1002,11 @@ window.CS = window.CS || {};
     l.day = day;
     l.name = 'Overtime ' + over;
     l.tag = 'No end in sight. Keep frying.';
-    l.rent = 26 + over * 4;
-    l.spawn = [Math.max(3.2, 6.0 - over * 0.45), Math.max(2.6, 4.6 - over * 0.40)];
-    l.limit = [Math.max(44, 64 - over * 3), Math.max(34, 50 - over * 3)];
+    l.rent = 30 + over * 4;
+    l.spawn = [Math.max(3.4, 6.6 - over * 0.40), Math.max(2.8, 5.0 - over * 0.35)];
+    l.limit = [Math.max(46, 70 - over * 3), Math.max(36, 56 - over * 3)];
     l.unlocks = [];
+    l.howto = '';
     return l;
   };
 
@@ -1007,6 +1077,30 @@ window.CS = window.CS || {};
       blurb: 'Sets out plates with the bun on, fills ketchup cups and adds them to your plates.',
       jobs: ['plate', 'cup:ketchup'],
       speed: 4.4, act: 0.32
+    },
+    egg: {
+      name: 'Clucky', role: 'Grill Cook', hire: 95,
+      wageShare: 0.07, wageMin: 1.50, wageMax: 22.00,
+      tint: 0xf4ead2,
+      blurb: 'Fries chicken and lays it on any bun that is waiting for it.',
+      jobs: ['chicken'],
+      speed: 4.3, act: 0.36
+    },
+    lettuce: {
+      name: 'Sprout', role: 'Garnish Hand', hire: 120,
+      wageShare: 0.06, wageMin: 1.25, wageMax: 18.00,
+      tint: 0x6fbf3a,
+      blurb: 'Dresses plated sandwiches with whatever toppings the ticket asks for.',
+      jobs: ['dress:top'],
+      speed: 4.4, act: 0.34
+    },
+    mushroom: {
+      name: 'Button', role: 'Runner', hire: 150,
+      wageShare: 0.08, wageMin: 2.00, wageMax: 24.00,
+      tint: 0xd8423a,
+      blurb: 'Carries any finished plate that matches a ticket out through the window.',
+      jobs: ['serve'],
+      speed: 4.6, act: 0.30
     }
   };
 
@@ -1028,8 +1122,60 @@ window.CS = window.CS || {};
         blurb: '+40% walking speed.', mult: { speed: 1.4 } },
       { id: 'tomato-hands',  name: 'Quick Thumbs', cost: 95,
         blurb: 'Works a station 35% faster.', mult: { act: 0.65 } }
+    ],
+    egg: [
+      { id: 'egg-fries', name: 'Two Baskets', cost: 100,
+        blurb: 'Clucky learns to fry potatoes too.', adds: ['fries'] },
+      { id: 'egg-boots', name: 'Non-Slip Boots', cost: 70,
+        blurb: '+40% walking speed.', mult: { speed: 1.4 } },
+      { id: 'egg-hands', name: 'Heatproof Shell', cost: 95,
+        blurb: 'Works a station 35% faster.', mult: { act: 0.65 } }
+    ],
+    lettuce: [
+      { id: 'lettuce-sauce', name: 'Squeeze Bottle Licence', cost: 110,
+        blurb: 'Sprout learns to sauce sandwiches as well.', adds: ['dress:sauce'] },
+      { id: 'lettuce-boots', name: 'Non-Slip Boots', cost: 70,
+        blurb: '+40% walking speed.', mult: { speed: 1.4 } },
+      { id: 'lettuce-hands', name: 'Nimble Leaves', cost: 95,
+        blurb: 'Works a station 35% faster.', mult: { act: 0.65 } }
+    ],
+    mushroom: [
+      { id: 'mushroom-boots', name: 'Roller Skates', cost: 90,
+        blurb: '+50% walking speed.', mult: { speed: 1.5 } },
+      { id: 'mushroom-hands', name: 'Steady Tray', cost: 80,
+        blurb: 'Picks up and hands over 35% faster.', mult: { act: 0.65 } }
     ]
   };
+
+  /* ---------------------------------------------------------- the chef
+     Sandy levels up as she cooks. Every order served is experience, a level
+     is a skill point, and points buy ranks in the skills below from the shop.
+     `per` is what one rank is worth; game.js and orders.js read the totals
+     through CS.econ.skill(id). Feather Frenzy is the one active power: press
+     Q (or the POWER button) for a burst of speed while the queue's patience
+     stops draining.                                                        */
+  CS.XP = { perOrder: 10, perExtra: 2, perTip: 3, perDay: 25 };
+  CS.xpToNext = function (level) { return 60 + (level - 1) * 45; };
+
+  CS.SKILLS = [
+    { id: 'feet',   name: 'Quick Feet',     max: 3, per: 0.08,
+      blurb: '+8% waddle speed per rank.' },
+    { id: 'dash',   name: 'Hot Wings',      max: 3, per: 0.18,
+      blurb: 'Dash recharges 18% faster per rank.' },
+    { id: 'flap',   name: 'Extra Flap',     max: 2, per: 1,
+      blurb: 'One more flap in the air per rank.' },
+    { id: 'reach',  name: 'Long Neck',      max: 2, per: 0.45,
+      blurb: 'Reach stations from a little further away.' },
+    { id: 'sizzle', name: 'Sizzle Sense',   max: 3, per: 0.12,
+      blurb: 'Food sits 12% longer in the oil before it burns, per rank.' },
+    { id: 'charm',  name: 'Charming Cluck', max: 3, per: 0.06,
+      blurb: 'Customers wait 6% longer per rank.' },
+    { id: 'tips',   name: 'Golden Feathers', max: 3, per: 0.15,
+      blurb: '+15% on every tip per rank.' },
+    { id: 'frenzy', name: 'Feather Frenzy', max: 3, per: 2.5,
+      blurb: 'Active power (Q): a burst of speed and the queue stops getting impatient. Each rank lasts longer.' }
+  ];
+  CS.FRENZY = { base: 4.5, speed: 1.45, cooldown: 50 };
 
   /* ------------------------------------------------------------ upgrades
      Three kinds, and the kind decides what buying one actually does:
@@ -1098,28 +1244,31 @@ window.CS = window.CS || {};
   };
 
   /* ----------------------------------------------------------- customers
-     One entry per species. `fur`/`belly`/`snout` colour the shared chunky
-     body; the rest are the features CS.models.customer() bolts on. Ears are
-     'point' | 'droop' | 'tall' | 'round' | 'flop' | 'none', tails are
-     'up' | 'wag' | 'puff' | 'curl' | 'bush' | 'none'. `tint` is what shows on
-     the ticket, so keep the seven readably different from each other. */
+     The queue is a parade of fantasy-RPG regulars: moogles, chocobos, mages
+     and monsters on their lunch break. `look` picks the build in
+     CS.models.customer(); `fur`/`belly` colour the shared chunky body and
+     `trim` is a second accent (robe hem, wings, crown...). Tails are
+     'up' | 'wag' | 'none' and only steer how orders.js sways them. `tint` is
+     what shows on the ticket, so keep them readably different. */
   CS.CRITTERS = [
-    { name: 'Cat',    fur: 0xf0a24a, belly: 0xfbe6c8, snout: 0xfbe6c8, nose: 0xe0736b,
-      ears: 'point', tail: 'up',   stripes: true,  tint: 0xf0a24a },
-    { name: 'Pup',    fur: 0xf7c26b, belly: 0xfff1d8, snout: 0xfff1d8, nose: 0x2a201a,
-      ears: 'droop', tail: 'wag',  patch: true,   tint: 0xf7c26b },
-    { name: 'Bunny',  fur: 0xf2eee6, belly: 0xffffff, snout: 0xffffff, nose: 0xe89aa8,
-      ears: 'tall',  tail: 'puff', tint: 0xe6dfd2 },
-    { name: 'Bear',   fur: 0xb7a2ee, belly: 0xefe6ff, snout: 0xefe6ff, nose: 0x2a201a,
-      ears: 'round', tail: 'none', tint: 0xb7a2ee },
-    { name: 'Piglet', fur: 0xf0a3ae, belly: 0xffd0d6, snout: 0xffb6c1, nose: 0xd4737f,
-      ears: 'flop',  tail: 'curl', tint: 0xf0a3ae },
-    { name: 'Fox',    fur: 0xd9622c, belly: 0xf6eadd, snout: 0xf6eadd, nose: 0x2a201a,
-      ears: 'point', tail: 'bush', tipped: true,  tint: 0xd9622c },
-    { name: 'Frog',   fur: 0x74b84a, belly: 0xd3e8a8, snout: 0xd3e8a8, nose: 0x3e6b25,
-      ears: 'none',  tail: 'none', bigEyes: true, tint: 0x74b84a },
-    { name: 'Mouse',  fur: 0xa9bde0, belly: 0xeef3fb, snout: 0xeef3fb, nose: 0xe08fa0,
-      ears: 'round', tail: 'none', bigEars: true, tint: 0xa9bde0 }
+    { name: 'Moogle',      look: 'moogle',   fur: 0xf6f1ea, belly: 0xffffff, trim: 0x7a5aa8,
+      nose: 0xd8455e, tail: 'none', tint: 0xd8455e },
+    { name: 'Chocobo',     look: 'chocobo',  fur: 0xf5cf3a, belly: 0xfbe38a, trim: 0xe8892a,
+      tail: 'wag', tint: 0xf5cf3a },
+    { name: 'Cactuar',     look: 'cactuar',  fur: 0x74b84a, belly: 0x8fcf5e, trim: 0xf0d860,
+      tail: 'none', tint: 0x74b84a },
+    { name: 'Tonberry',    look: 'tonberry', fur: 0x6aa35a, belly: 0xa6cc8a, trim: 0x7a5534,
+      tail: 'up', tint: 0x8a6440 },
+    { name: 'Bomb',        look: 'bomb',     fur: 0xe8642a, belly: 0xf08a3a, trim: 0xffd23c,
+      tail: 'none', tint: 0xf08a24 },
+    { name: 'Black Mage',  look: 'blackmage', fur: 0x2f4a9a, belly: 0x3a5ab0, trim: 0xc9a35a,
+      tail: 'none', tint: 0x3a5ab0 },
+    { name: 'White Mage',  look: 'whitemage', fur: 0xf4f0ea, belly: 0xffffff, trim: 0xc8302e,
+      skin: 0xf2cfae, tail: 'none', tint: 0xeee6da },
+    { name: 'Cait Sith',   look: 'caitsith', fur: 0x3c3744, belly: 0xf2efe8, trim: 0xc8302e,
+      tail: 'up', tint: 0x9a7bc8 },
+    { name: 'Mandragora',  look: 'mandragora', fur: 0xe2b98a, belly: 0xf0d2a8, trim: 0x4fae3a,
+      tail: 'none', tint: 0xd9a066 }
   ];
 
   /* Where the dining room's front door is. world.js cuts the hole here and
@@ -1456,8 +1605,17 @@ window.CS = window.CS || {};
       stock: {},        // partId -> how many bought but not yet placed
       staff: [],        // [{ kind, training: [id, ...] }]
       layout: null,     // CS.layout.serialize()
-      career: { days: 0, served: 0, earned: 0, tips: 0, best: 0 }
+      career: { days: 0, served: 0, earned: 0, tips: 0, best: 0 },
+      chef: blankChef()
     };
+  }
+
+  /* Sandy's own progress: experience, level, unspent points, skill ranks. */
+  function blankChef() { return { xp: 0, level: 1, points: 0, skills: {} }; }
+
+  function skillDef(id) {
+    for (var i = 0; i < CS.SKILLS.length; i++) if (CS.SKILLS[i].id === id) return CS.SKILLS[i];
+    return null;
   }
 
   function upgrade(id) {
@@ -1491,6 +1649,17 @@ window.CS = window.CS || {};
         .map(function (h) { return { kind: h.kind, training: (h.training || []).slice() }; });
       if (d.career) for (var k in s.career) {
         if (typeof d.career[k] === 'number') s.career[k] = d.career[k];
+      }
+      // saves from before the chef could level up simply start her at 1
+      if (d.chef && typeof d.chef === 'object') {
+        s.chef.xp = Math.max(0, +d.chef.xp || 0);
+        s.chef.level = Math.max(1, parseInt(d.chef.level, 10) || 1);
+        s.chef.points = Math.max(0, parseInt(d.chef.points, 10) || 0);
+        var sk = d.chef.skills || {};
+        CS.SKILLS.forEach(function (def) {
+          var r = parseInt(sk[def.id], 10) || 0;
+          if (r > 0) s.chef.skills[def.id] = Math.min(def.max, r);
+        });
       }
       E.state = s;
 
@@ -1558,6 +1727,42 @@ window.CS = window.CS || {};
       } else {
         E.state.owned.push(u.id);
       }
+      E.save();
+      return { ok: true };
+    },
+
+    /* ------------------------------------------------------------ the chef
+       XP lands as it is earned during a shift, but only reaches the disk
+       when the day settles -- quitting mid-shift loses it along with the
+       till, which keeps the two honest with each other. Returns how many
+       levels were gained, so the caller can make a fuss about it. */
+    gainXP: function (n) {
+      var c = E.state.chef, ups = 0;
+      c.xp += Math.max(0, Math.round(n));
+      while (c.xp >= CS.xpToNext(c.level)) {
+        c.xp -= CS.xpToNext(c.level);
+        c.level++;
+        c.points++;
+        ups++;
+      }
+      return ups;
+    },
+
+    /* The total a skill is worth right now: ranks x its `per`. */
+    skill: function (id) {
+      var def = skillDef(id);
+      return def ? (E.state.chef.skills[id] || 0) * def.per : 0;
+    },
+    skillRank: function (id) { return E.state.chef.skills[id] || 0; },
+
+    learn: function (id) {
+      var def = skillDef(id), c = E.state.chef;
+      if (!def) return { ok: false, why: '' };
+      var r = c.skills[id] || 0;
+      if (r >= def.max) return { ok: false, why: 'Mastered' };
+      if (c.points < 1) return { ok: false, why: 'Needs a skill point' };
+      c.points--;
+      c.skills[id] = r + 1;
       E.save();
       return { ok: true };
     },
@@ -1790,10 +1995,13 @@ window.CS = window.CS || {};
   CS.cookDef = function (k) {
     var base = CS.COOK[k];
     if (!base) return null;
+    // the early days are forgiving about a basket left in a bit long
+    var lv = CS.orders && CS.orders.level;
+    var gentle = lv && lv.grace ? lv.grace : 1;
     return {
       done: base.done, burnt: base.burnt, label: base.label,
       cook: base.cook * E.mod('fryCook'),
-      grace: base.grace * E.mod('fryGrace')
+      grace: base.grace * E.mod('fryGrace') * gentle * (1 + E.skill('sizzle'))
     };
   };
 
@@ -2945,169 +3153,314 @@ window.CS = window.CS || {};
   };
 
   /* -------------------------------------------------------- the customer
-     The queue is an assortment of small round animals: a big head on a
-     small body, stubby limbs and glossy eyes. Body, arms and legs are the
-     same rig for every species -- which is what lets orders.js drive one walk
-     cycle for all of them -- and the species table in config.js supplies the
-     colours plus the ears, snout and tail bolted on top.
+     The queue is a parade of fantasy-RPG regulars on their lunch break:
+     moogles, chocobos, cactuars, tonberries, bombs, mages and the rest. All
+     of them are built on the same chibi rig -- a big head on a small body,
+     stubby limbs -- which is what lets orders.js drive one walk cycle for
+     every one of them. `C.look` picks the costume bolted on top.
 
      `parts` is the contract with orders.js: legL, legR, armL, armR, head,
-     body, tail and mark. Keep those names if you add a species.             */
+     body, tail and mark. Keep those names if you add a look.               */
   CS.models.customer = function (speciesIdx, seed) {
     var C = CS.CRITTERS[speciesIdx % CS.CRITTERS.length];
+    var look = C.look;
     var g = new THREE.Group();
     var parts = { species: C };
     var FUR = { color: C.fur, tex: 'fluff', rough: 0.9 };
     var FUR_D = { color: CS.shade(C.fur, -28), tex: 'fluff', rough: 0.9 };
     var BELLY = { color: C.belly, tex: 'fluff', rough: 0.9 };
-    var SNOUT = { color: C.snout, rough: 0.8 };
+    var TRIM = { color: C.trim, rough: 0.7 };
     var EYE = { color: 0x1e1828, rough: 0.15 };
     var SHINE = { color: 0xffffff, rough: 0.2 };
+    var BLUSH = { color: 0xff9db2, rough: 0.9 };
+    var GLOW = CS.mat({ color: 0xffe04a, basic: true });
+    var GOLD = { color: 0xf2bf3e, rough: 0.3, metal: 0.8 };
 
-    /* ---- legs: stubby, with a round paw ---- */
+    var robed = look === 'blackmage' || look === 'whitemage' || look === 'tonberry';
+    var smooth = look === 'cactuar' || look === 'bomb' || look === 'mandragora';
+
+    // what each part of the rig is made of, before the costume goes on
+    var BODY = smooth ? { color: C.fur, rough: 0.55 } : FUR;
+    var HEAD = BODY, LEG = BODY, FOOT = FUR_D, ARM = BODY, PAW = FUR_D;
+    if (look === 'blackmage') {
+      BODY = ARM = { color: C.fur, rough: 0.85 };
+      HEAD = { color: 0x15111c, rough: 0.95 };
+      LEG = FOOT = PAW = { color: 0x5a3a22, rough: 0.8 };
+    } else if (look === 'whitemage') {
+      BODY = ARM = { color: C.fur, rough: 0.85 };
+      HEAD = PAW = { color: C.skin, rough: 0.8 };
+      LEG = FOOT = { color: 0xb08a5a, rough: 0.8 };
+    } else if (look === 'tonberry') {
+      BODY = ARM = { color: C.trim, tex: 'fluff', rough: 0.95 };
+      HEAD = LEG = FOOT = PAW = FUR;
+    } else if (look === 'chocobo') {
+      LEG = FOOT = TRIM;
+    } else if (smooth) {
+      FOOT = PAW = { color: CS.shade(C.fur, -30), rough: 0.6 };
+    }
+
+    /* ---- legs ---- */
     var hips = new THREE.Group(); hips.position.y = 0.26; g.add(hips);
     ['legL', 'legR'].forEach(function (id, i) {
       var leg = new THREE.Group();
       leg.position.set(i ? 0.13 : -0.13, 0, 0);
       hips.add(leg);
-      add(leg, CS.ball(0.085, 0.12, 0.085, FUR, 0, -0.09, 0));
-      add(leg, CS.ball(0.10, 0.06, 0.13, FUR_D, 0, -0.20, 0.03));
+      if (look === 'chocobo') {
+        add(leg, CS.ball(0.045, 0.13, 0.045, LEG, 0, -0.09, 0));
+        [-0.05, 0, 0.05].forEach(function (tx) {
+          add(leg, CS.ball(0.025, 0.02, 0.09, FOOT, tx, -0.21, 0.06));
+        });
+      } else {
+        add(leg, CS.ball(0.085, 0.12, 0.085, LEG, 0, -0.09, 0));
+        add(leg, CS.ball(0.10, 0.06, 0.13, FOOT, 0, -0.20, 0.03));
+      }
       parts[id] = leg;
     });
 
-    /* ---- body: a soft pear ---- */
+    /* ---- body ---- */
     var body = new THREE.Group(); body.position.y = 0.26; g.add(body); parts.body = body;
-    add(body, CS.ball(0.29, 0.29, 0.25, FUR, 0, 0.20, 0));
-    add(body, CS.ball(0.19, 0.20, 0.08, BELLY, 0, 0.17, 0.19));
-    if (C.patch) add(body, CS.ball(0.12, 0.10, 0.06, FUR_D, -0.16, 0.28, 0.14));
+    if (robed) {
+      // a long robe flaring out over the boots
+      add(body, CS.cyl(0.17, 0.34, 0.54, BODY, 0, 0.15, 0, 20));
+      if (look === 'whitemage') {
+        // the red triangle trim round the hem
+        for (var hi = 0; hi < 10; hi++) {
+          var ha = hi / 10 * Math.PI * 2;
+          var tri = add(body, CS.cone(0.07, 0.13, TRIM, Math.sin(ha) * 0.315, -0.05, Math.cos(ha) * 0.315, 3));
+          tri.rotation.y = ha; tri.scale.z = 0.3;
+        }
+      } else if (look === 'blackmage') {
+        add(body, CS.cyl(0.215, 0.225, 0.05, { color: 0x5a3a22 }, 0, 0.30, 0, 18));
+      } else {
+        // a tonberry's cloak has a pale belly showing at the front
+        add(body, CS.ball(0.13, 0.16, 0.06, BELLY, 0, 0.16, 0.22));
+      }
+    } else if (look === 'bomb') {
+      add(body, CS.ball(0.20, 0.18, 0.19, BODY, 0, 0.12, 0));
+    } else if (look === 'cactuar') {
+      add(body, CS.ball(0.24, 0.38, 0.21, BODY, 0, 0.26, 0));
+      // ridges and a scatter of little spines
+      [-0.12, 0, 0.12].forEach(function (rx) {
+        add(body, CS.ball(0.035, 0.32, 0.03, { color: CS.shade(C.fur, -18), rough: 0.6 }, rx, 0.26, 0.19));
+      });
+      [[0.18, 0.4], [-0.2, 0.18], [0.16, 0.05], [-0.1, 0.5]].forEach(function (p) {
+        var sp = add(body, CS.cone(0.012, 0.06, { color: 0xf3ecc8 }, p[0], p[1], 0.17, 5));
+        sp.rotation.x = Math.PI / 2;
+      });
+    } else {
+      add(body, CS.ball(0.29, 0.29, 0.25, BODY, 0, 0.20, 0));
+      add(body, CS.ball(0.19, 0.20, 0.08, BELLY, 0, 0.17, 0.19));
+    }
+
+    // things worn on the back
+    if (look === 'moogle') {
+      // little purple bat wings
+      [-1, 1].forEach(function (s) {
+        var w = add(body, CS.cone(0.12, 0.22, TRIM, s * 0.14, 0.40, -0.22, 3));
+        w.rotation.z = -s * 1.1; w.rotation.y = s * 0.4; w.scale.z = 0.25;
+      });
+    } else if (look === 'caitsith') {
+      var cape = add(body, CS.shell(0.33, 0.36, 0.30, { color: C.trim, rough: 0.8, side: true },
+        Math.PI * 1.1, Math.PI * 0.8, 0.5, 1.6));
+      cape.position.y = 0.22;
+    }
 
     /* ---- arms ---- */
     [['armL', -1], ['armR', 1]].forEach(function (a) {
+      var s = a[1];
       var arm = new THREE.Group();
-      arm.position.set(a[1] * 0.26, 0.32, 0);
+      arm.position.set(s * (look === 'bomb' ? 0.19 : (look === 'cactuar' ? 0.22 : 0.26)), 0.32, 0);
       body.add(arm);
-      var up = add(arm, CS.ball(0.07, 0.15, 0.07, FUR, a[1] * 0.02, -0.12, 0));
-      up.rotation.z = a[1] * 0.2;
-      add(arm, CS.ball(0.075, 0.07, 0.075, FUR_D, a[1] * 0.04, -0.25, 0.01));
+      if (look === 'chocobo') {
+        // stubby wings rather than arms
+        var wg = add(arm, CS.ball(0.06, 0.16, 0.13, FUR, s * 0.03, -0.10, -0.02));
+        wg.rotation.z = s * 0.35;
+      } else if (look === 'cactuar') {
+        // the famous pose: one arm up, one arm down
+        var pose = new THREE.Group();
+        pose.rotation.z = s > 0 ? 2.5 : -0.25;
+        arm.add(pose);
+        add(pose, CS.ball(0.06, 0.16, 0.06, BODY, 0, -0.13, 0));
+      } else {
+        var up = add(arm, CS.ball(0.07, 0.15, 0.07, ARM, s * 0.02, -0.12, 0));
+        up.rotation.z = s * 0.2;
+        add(arm, CS.ball(0.065, 0.06, 0.065, PAW, s * 0.04, -0.25, 0.01));
+      }
       parts[a[0]] = arm;
     });
 
-    /* ---- tail: on its own pivot, so it can wag ---- */
+    // a tonberry never goes anywhere without its lantern and its little knife
+    if (look === 'tonberry') {
+      var lantern = new THREE.Group();
+      lantern.position.set(0.05, -0.33, 0.06);
+      parts.armR.add(lantern);
+      add(lantern, CS.cyl(0.05, 0.05, 0.10, { color: 0x3a3330, rough: 0.5, metal: 0.6 }, 0, 0, 0, 6));
+      add(lantern, CS.ball(0.04, 0.05, 0.04, GLOW, 0, 0, 0));
+      add(lantern, CS.torus(0.03, 0.006, Math.PI, { color: 0x3a3330 }, 0, 0.06, 0));
+      var knife = add(parts.armL, CS.cone(0.02, 0.14, { color: 0xdfe4ea, rough: 0.2, metal: 0.9 }, -0.04, -0.30, 0.10, 4));
+      knife.rotation.x = Math.PI / 2;
+    }
+
+    /* ---- tail: on its own pivot, so it can sway ---- */
     parts.tail = new THREE.Group();
     parts.tail.position.set(0, 0.14, -0.22);
     body.add(parts.tail);
-    if (C.tail === 'up' || C.tail === 'wag') {
-      var t1 = add(parts.tail, CS.ball(0.05, 0.20, 0.05, FUR, 0, 0.16, -0.06));
+    if (look === 'chocobo') {
+      [-0.5, 0, 0.5].forEach(function (a) {
+        var f = add(parts.tail, CS.cone(0.05, 0.24, FUR, a * 0.12, 0.10, -0.08));
+        f.rotation.x = -1.0; f.rotation.z = a;
+      });
+    } else if (look === 'caitsith') {
+      var t1 = add(parts.tail, CS.ball(0.04, 0.22, 0.04, FUR, 0, 0.16, -0.06));
       t1.rotation.x = -0.5;
-      add(parts.tail, CS.ball(0.06, 0.06, 0.06, C.tipped ? { color: 0xf6eadd } : FUR, 0, 0.33, -0.15));
-      parts.tail.rotation.x = C.tail === 'wag' ? 0.25 : 0;
-    } else if (C.tail === 'bush') {
-      var b1 = add(parts.tail, CS.ball(0.14, 0.24, 0.14, FUR, 0, 0.16, -0.12));
-      b1.rotation.x = -0.6;
-      add(parts.tail, CS.ball(0.10, 0.10, 0.10, { color: 0xf6eadd, tex: 'fluff' }, 0, 0.35, -0.25));
-    } else if (C.tail === 'puff') {
-      add(parts.tail, CS.ball(0.10, 0.10, 0.10, { color: 0xffffff, tex: 'fluff' }, 0, 0.02, -0.03));
-    } else if (C.tail === 'curl') {
-      var curl = add(parts.tail, CS.torus(0.06, 0.022, 0, FUR, 0, 0.06, -0.04));
-      curl.rotation.y = Math.PI / 2;
+      add(parts.tail, CS.ball(0.045, 0.05, 0.045, BELLY, 0, 0.34, -0.15));
+    } else if (look === 'tonberry') {
+      var tt = add(parts.tail, CS.cone(0.06, 0.18, FUR, 0, -0.04, -0.06));
+      tt.rotation.x = -2.2;
     }
 
     /* ---- head: big and round, the chibi bit ---- */
     var head = new THREE.Group(); head.position.set(0, 0.52, 0.01); body.add(head);
     parts.head = head;
-    add(head, CS.ball(0.31, 0.27, 0.28, FUR, 0, 0.20, 0));
-
-    // ears. `eh` tracks how tall this species ends up, so the impatience mark
-    // floats clear of a bunny's ears as well as a frog's flat head.
-    var eh = 0.48;
-    var INNER = { color: 0xf8bccb, rough: 0.9 };
-    if (C.ears === 'point') {
-      [-1, 1].forEach(function (s) {
-        var e = add(head, CS.cone(0.10, 0.20, FUR, s * 0.17, 0.48, -0.02));
-        e.rotation.z = -s * 0.3; e.scale.z = 0.55;
-        var ei = add(head, CS.cone(0.06, 0.13, C.stripes ? { color: 0xf7cfae } : INNER, s * 0.17, 0.46, 0.02));
-        ei.rotation.z = -s * 0.3; ei.scale.z = 0.4;
-      });
-      eh = 0.62;
-    } else if (C.ears === 'tall') {
-      [-1, 1].forEach(function (s) {
-        var e = add(head, CS.ball(0.075, 0.24, 0.05, FUR, s * 0.12, 0.62, -0.02));
-        e.rotation.z = s * -0.15;
-        var ei = add(head, CS.ball(0.045, 0.19, 0.02, INNER, s * 0.12, 0.62, 0.025));
-        ei.rotation.z = s * -0.15;
-      });
-      eh = 0.88;
-    } else if (C.ears === 'round') {
-      var er = C.bigEars ? 0.15 : 0.11, ex = C.bigEars ? 0.23 : 0.20;
-      [-1, 1].forEach(function (s) {
-        add(head, CS.ball(er, er, 0.05, FUR, s * ex, 0.43, -0.02));
-        add(head, CS.ball(er * 0.62, er * 0.62, 0.03, INNER, s * ex, 0.43, 0.02));
-      });
-      eh = 0.58;
-    } else if (C.ears === 'droop') {
-      [-1, 1].forEach(function (s) {
-        var e = add(head, CS.ball(0.08, 0.17, 0.06, FUR_D, s * 0.30, 0.18, 0));
-        e.rotation.z = s * 0.25;
-      });
-    } else if (C.ears === 'flop') {
-      [-1, 1].forEach(function (s) {
-        var e = add(head, CS.ball(0.10, 0.08, 0.04, FUR_D, s * 0.18, 0.42, 0.10));
-        e.rotation.x = 0.7; e.rotation.z = -s * 0.3;
-      });
-      eh = 0.54;
-    }
-
-    // eyes: big and glossy, each with a catchlight. A frog's bulge off the
-    // top of the head; everyone else's sit on the face.
     parts.eyes = new THREE.Group(); head.add(parts.eyes);
-    if (C.bigEyes) {
+    var eh = 0.48;      // how far up this head's tallest feature reaches
+
+    function glossyEyes(y, z, sp) {
       [-1, 1].forEach(function (s) {
-        add(parts.eyes, CS.ball(0.11, 0.11, 0.11, FUR, s * 0.15, 0.42, 0.06));
-        add(parts.eyes, CS.ball(0.065, 0.075, 0.04, EYE, s * 0.16, 0.44, 0.15));
-        add(parts.eyes, CS.ball(0.02, 0.02, 0.01, SHINE, s * 0.16 - 0.02, 0.47, 0.19));
-      });
-      eh = 0.58;
-    } else {
-      [-1, 1].forEach(function (s) {
-        add(parts.eyes, CS.ball(0.05, 0.065, 0.03, EYE, s * 0.115, 0.24, 0.255));
-        add(parts.eyes, CS.ball(0.02, 0.022, 0.01, SHINE, s * 0.115 - 0.015, 0.27, 0.283));
+        add(parts.eyes, CS.ball(0.05, 0.065, 0.03, EYE, s * sp, y, z));
+        add(parts.eyes, CS.ball(0.02, 0.022, 0.01, SHINE, s * sp - 0.015, y + 0.03, z + 0.028));
       });
     }
-    [-1, 1].forEach(function (s) {
-      var bl = add(head, CS.ball(0.05, 0.028, 0.015, { color: 0xff9db2, rough: 0.9 }, s * 0.19, 0.13, 0.24));
-      bl.rotation.y = s * 0.5;
-    });
+    function cheeks(y, z) {
+      [-1, 1].forEach(function (s) {
+        add(head, CS.ball(0.05, 0.028, 0.015, BLUSH, s * 0.19, y, z)).rotation.y = s * 0.5;
+      });
+    }
 
-    // snout and nose
-    if (C.name === 'Piglet') {
-      var sn = add(head, CS.cyl(0.08, 0.085, 0.07, SNOUT, 0, 0.13, 0.28));
-      sn.rotation.x = Math.PI / 2;
-      add(head, CS.ball(0.015, 0.025, 0.01, { color: C.nose }, -0.03, 0.13, 0.318));
-      add(head, CS.ball(0.015, 0.025, 0.01, { color: C.nose }, 0.03, 0.13, 0.318));
-    } else if (C.bigEyes) {
-      var grin = add(head, CS.torus(0.11, 0.012, Math.PI, { color: CS.shade(C.fur, -60) }, 0, 0.16, 0.26));
+    if (look === 'moogle') {
+      add(head, CS.ball(0.31, 0.27, 0.28, HEAD, 0, 0.20, 0));
+      // happy closed eyes, a big red nose, little ears and the pompom
+      [-1, 1].forEach(function (s) {
+        add(parts.eyes, CS.torus(0.04, 0.011, Math.PI, EYE, s * 0.11, 0.22, 0.262));
+        var e = add(head, CS.cone(0.07, 0.12, HEAD, s * 0.2, 0.44, -0.02));
+        e.rotation.z = -s * 0.35; e.scale.z = 0.6;
+      });
+      add(head, CS.ball(0.065, 0.06, 0.06, { color: C.nose, rough: 0.35 }, 0, 0.13, 0.27));
+      cheeks(0.12, 0.24);
+      add(head, CS.cyl(0.012, 0.012, 0.22, { color: 0x2a2028 }, 0, 0.55, -0.02, 6));
+      add(head, CS.ball(0.08, 0.08, 0.08, { color: 0xd8263a, tex: 'fluff', rough: 0.9 }, 0, 0.70, -0.02));
+      eh = 0.80;
+    } else if (look === 'chocobo') {
+      add(head, CS.ball(0.27, 0.27, 0.27, HEAD, 0, 0.22, 0.03));
+      var beak = add(head, CS.cone(0.085, 0.22, TRIM, 0, 0.15, 0.36));
+      beak.rotation.x = Math.PI / 2; beak.scale.x = 1.2;
+      glossyEyes(0.27, 0.25, 0.13);
+      cheeks(0.14, 0.23);
+      [-0.08, 0, 0.08].forEach(function (x, i) {
+        var cr = add(head, CS.cone(0.045, 0.24, HEAD, x, 0.50, -0.06 - i % 2 * 0.03));
+        cr.rotation.x = -0.7; cr.rotation.z = -x * 2.5;
+      });
+      eh = 0.66;
+    } else if (look === 'cactuar') {
+      // the head is just the top of the cactus; the face is three dark holes
+      add(head, CS.ball(0.22, 0.20, 0.20, HEAD, 0, 0.06, 0));
+      var HOLE = { color: 0x203018, rough: 0.9 };
+      [-1, 1].forEach(function (s) { add(parts.eyes, CS.ball(0.035, 0.05, 0.02, HOLE, s * 0.08, 0.12, 0.19)); });
+      add(head, CS.ball(0.04, 0.055, 0.02, HOLE, 0, 0.0, 0.195));
+      [-0.07, 0, 0.07].forEach(function (x) {
+        var sp = add(head, CS.cone(0.03, 0.10, { color: CS.shade(C.fur, 20), rough: 0.6 }, x, 0.28, 0));
+        sp.rotation.z = -x * 4;
+      });
+      eh = 0.36;
+    } else if (look === 'tonberry') {
+      add(head, CS.ball(0.29, 0.26, 0.27, HEAD, 0, 0.18, 0.02));
+      // a brown hood over the top and back, and two lamp-yellow eyes
+      var hood = add(head, CS.shell(0.33, 0.31, 0.32, { color: C.trim, tex: 'fluff', rough: 0.95, side: true },
+        Math.PI / 2 + 1.0, Math.PI * 2 - 2.0, 0, 2.0));
+      hood.position.y = 0.19;
+      var hp = add(head, CS.cone(0.10, 0.22, { color: C.trim, tex: 'fluff', rough: 0.95 }, 0, 0.36, -0.20));
+      hp.rotation.x = -1.2;
+      [-1, 1].forEach(function (s) { add(parts.eyes, CS.ball(0.045, 0.055, 0.02, GLOW, s * 0.1, 0.22, 0.27)); });
+      add(head, CS.ball(0.10, 0.06, 0.07, { color: CS.shade(C.fur, 15), rough: 0.7 }, 0, 0.10, 0.25));
+      eh = 0.52;
+    } else if (look === 'bomb') {
+      // a bomb is mostly head: a glowing ball with a fire on top and a grin
+      add(head, CS.ball(0.36, 0.34, 0.34, { color: C.fur, rough: 0.45, emissive: 0x5a1a00 }, 0, 0.10, 0));
+      var WHITE = { color: 0xfff6e6, rough: 0.3 };
+      [-1, 1].forEach(function (s) {
+        add(parts.eyes, CS.ball(0.075, 0.07, 0.03, WHITE, s * 0.13, 0.18, 0.30));
+        add(parts.eyes, CS.ball(0.035, 0.04, 0.02, EYE, s * 0.12, 0.17, 0.325));
+        var brow = add(head, CS.box(0.13, 0.03, 0.03, EYE, s * 0.13, 0.28, 0.31));
+        brow.rotation.z = s * 0.35;
+      });
+      var grin = add(head, CS.torus(0.13, 0.022, Math.PI, EYE, 0, 0.04, 0.30));
       grin.rotation.z = Math.PI;
-    } else {
-      add(head, CS.ball(0.11, 0.075, 0.07, SNOUT, 0, 0.12, 0.24));
-      add(head, CS.ball(0.04, 0.03, 0.03, { color: C.nose, rough: 0.3 }, 0, 0.15, 0.30));
-    }
-    if (C.stripes) {
-      [-0.06, 0, 0.06].forEach(function (x) {
-        add(head, CS.ball(0.022, 0.06, 0.03, FUR_D, x, 0.42, 0.14));
+      [[0, 0.52, 0xffd23c, 0.11, 0.30], [-0.10, 0.46, 0xff8a1e, 0.08, 0.22], [0.10, 0.46, 0xff6a14, 0.08, 0.22]]
+        .forEach(function (f) {
+          add(head, CS.cone(f[3], f[4], CS.mat({ color: f[2], basic: true }), f[0], f[1], 0));
+        });
+      eh = 0.62;
+    } else if (look === 'blackmage') {
+      // a face that is only shadow and two glowing eyes, under a big straw hat
+      add(head, CS.ball(0.26, 0.25, 0.25, HEAD, 0, 0.18, 0));
+      [-1, 1].forEach(function (s) { add(parts.eyes, CS.ball(0.05, 0.065, 0.02, GLOW, s * 0.1, 0.20, 0.245)); });
+      add(head, CS.cyl(0.30, 0.31, 0.10, BODY, 0, 0.02, 0, 18));       // high collar
+      var STRAW = { color: C.trim, tex: 'fluff', rough: 0.9 };
+      add(head, CS.cyl(0.44, 0.44, 0.03, STRAW, 0, 0.36, 0, 24));
+      add(head, CS.cyl(0.25, 0.26, 0.06, { color: 0x5a3a22 }, 0, 0.40, 0, 20));
+      var hat = add(head, CS.cone(0.25, 0.56, STRAW, 0, 0.66, -0.04, 16));
+      hat.rotation.x = -0.22;
+      eh = 0.95;
+    } else if (look === 'whitemage') {
+      add(head, CS.ball(0.27, 0.25, 0.25, HEAD, 0, 0.18, 0.02));
+      glossyEyes(0.20, 0.255, 0.1);
+      cheeks(0.10, 0.23);
+      var HOOD = { color: C.fur, rough: 0.85, side: true };
+      var wh = add(head, CS.shell(0.31, 0.30, 0.30, HOOD, Math.PI / 2 + 0.95, Math.PI * 2 - 1.9, 0, 2.1));
+      wh.position.y = 0.19;
+      // the hood's little cat ears, and the red trim round its face
+      [-1, 1].forEach(function (s) {
+        var e = add(head, CS.cone(0.08, 0.17, { color: C.fur, rough: 0.85 }, s * 0.17, 0.48, -0.02));
+        e.rotation.z = -s * 0.3; e.scale.z = 0.6;
+        var t = add(head, CS.cone(0.05, 0.09, TRIM, s * 0.25, 0.04, 0.17, 3));
+        t.rotation.x = Math.PI; t.scale.z = 0.3;
       });
+      eh = 0.66;
+    } else if (look === 'caitsith') {
+      add(head, CS.ball(0.31, 0.27, 0.28, HEAD, 0, 0.20, 0));
+      add(head, CS.ball(0.17, 0.12, 0.08, BELLY, 0, 0.12, 0.23));
+      glossyEyes(0.24, 0.255, 0.115);
+      add(head, CS.ball(0.03, 0.022, 0.02, { color: 0xe0736b }, 0, 0.16, 0.30));
+      cheeks(0.12, 0.24);
+      [-1, 1].forEach(function (s) {
+        var e = add(head, CS.cone(0.10, 0.20, HEAD, s * 0.19, 0.46, -0.02));
+        e.rotation.z = -s * 0.35; e.scale.z = 0.55;
+      });
+      // a little gold crown, and the megaphone-free version of the cape
+      add(head, CS.cyl(0.11, 0.12, 0.07, GOLD, 0, 0.47, 0, 12));
+      for (var ci = 0; ci < 5; ci++) {
+        var ca = ci / 5 * Math.PI * 2;
+        add(head, CS.cone(0.025, 0.07, GOLD, Math.sin(ca) * 0.1, 0.54, Math.cos(ca) * 0.1, 5));
+      }
+      eh = 0.66;
+    } else if (look === 'mandragora') {
+      add(head, CS.ball(0.29, 0.27, 0.27, HEAD, 0, 0.18, 0));
+      glossyEyes(0.22, 0.25, 0.11);
+      add(head, CS.ball(0.05, 0.035, 0.02, { color: 0x5a1a1a }, 0, 0.10, 0.26));
+      cheeks(0.12, 0.23);
+      // a tuft of leaves bursting out of the top
+      for (var li = 0; li < 5; li++) {
+        var la = li / 5 * Math.PI * 2;
+        var lf = add(head, CS.ball(0.06, 0.20, 0.025, TRIM, Math.sin(la) * 0.08, 0.58, Math.cos(la) * 0.08));
+        lf.rotation.x = Math.cos(la) * 0.5; lf.rotation.z = -Math.sin(la) * 0.5;
+      }
+      eh = 0.76;
+    } else {
+      add(head, CS.ball(0.31, 0.27, 0.28, HEAD, 0, 0.20, 0));
+      glossyEyes(0.24, 0.255, 0.115);
     }
 
-    /* A cap on some of them, picked off the seed, so two Bunnies standing in
-       the same queue still read as two different customers. */
-    if (seed % 5 > 2 && C.ears !== 'tall') {
-      var cap = [0x6a4f9c, 0x3f8a6b, 0x2f4f96, 0xc0563f][seed % 4];
-      add(head, CS.shell(0.28, 0.20, 0.27, { color: cap }, 0, Math.PI * 2, 0, Math.PI / 2)).position.y = 0.32;
-      var brim = add(head, CS.cyl(0.17, 0.17, 0.025, { color: CS.shade(cap, -20) }, 0, 0.33, 0.20));
-      brim.scale.z = 0.8;
-      eh = Math.max(eh, 0.62);
-    }
-
-    // impatience mark, floating clear of whatever this species has on its head
+    // impatience mark, floating clear of whatever this one has on its head
     parts.mark = new THREE.Group();
     parts.mark.position.set(0, 0.26 + 0.52 + eh + 0.30, 0);
     parts.mark.visible = false;
@@ -3116,6 +3469,10 @@ window.CS = window.CS || {};
     add(parts.mark, CS.ball(0.07, 0.15, 0.07, RED, 0, 0.16, 0));
     add(parts.mark, CS.ball(0.06, 0.06, 0.06, RED, 0, -0.06, 0));
     CS.noMirror(parts.mark);
+
+    // a touch of variety, so two moogles in one queue are not twins
+    var sz = 0.94 + (seed % 7) * 0.02;
+    g.scale.setScalar(sz);
 
     g.traverse(function (o) { if (o.isMesh) o.castShadow = true; });
     return { group: g, parts: parts, species: C };
@@ -3333,6 +3690,15 @@ window.CS = window.CS || {};
       case 'cookedFries':  g.add(inPan ? friesPile(0xffc63f, 16, WARM) : friesCarton(false)); break;
       case 'burntFries':   g.add(inPan ? friesPile(0x3a2f26, 16) : friesCarton(true)); break;
       case 'cup':          g.add(sauceCup(item.sauce)); break;
+      case 'garnish': {
+        // a pinch of topping or a dollop of sauce on its way to a sandwich
+        var ing = CS.ING[item.ing];
+        var gm = { color: ing ? ing.color : 0xffffff, rough: ing && ing.kind === 'sauce' ? 0.25 : 0.7 };
+        [[0, 0.06, 0], [0.07, 0.05, 0.03], [-0.06, 0.05, 0.04], [0.01, 0.1, -0.03]].forEach(function (p) {
+          g.add(CS.ball(0.07, 0.05, 0.07, gm, p[0], p[1], p[2]));
+        });
+        break;
+      }
       case 'plate': {
         dish(g);
         var y = 0.056;
@@ -3581,8 +3947,15 @@ window.CS = window.CS || {};
     var parts = { kind: kind };
 
     var spud = kind === 'potato';
-    var SKIN = spud ? { color: 0xd9a868, tex: 'fluff', rough: 0.85 } : { color: 0xe8392b, rough: 0.28 };
-    var SKIN_D = spud ? { color: 0xb98a4e, rough: 0.85 } : { color: 0xc22a20, rough: 0.3 };
+    var LOOKS = {
+      potato:   [{ color: 0xd9a868, tex: 'fluff', rough: 0.85 }, { color: 0xb98a4e, rough: 0.85 }],
+      tomato:   [{ color: 0xe8392b, rough: 0.28 }, { color: 0xc22a20, rough: 0.3 }],
+      egg:      [{ color: 0xf6efe0, rough: 0.4 }, { color: 0xe8dcc0, rough: 0.5 }],
+      lettuce:  [{ color: 0x7fcc48, tex: 'fluff', rough: 0.75 }, { color: 0x4f9a2e, rough: 0.7 }],
+      mushroom: [{ color: 0xf3e6cf, rough: 0.8 }, { color: 0xd9c6a4, rough: 0.8 }]
+    };
+    var look = LOOKS[kind] || LOOKS.tomato;
+    var SKIN = look[0], SKIN_D = look[1];
     var EYE = { color: 0x1e1828, rough: 0.15 };
     var SHINE = { color: 0xffffff, rough: 0.2 };
 
@@ -3604,6 +3977,39 @@ window.CS = window.CS || {};
       add(body, CS.cyl(0.20, 0.22, 0.12, { color: 0xfbf8f1 }, 0, BY + 0.40, -0.02, 20));
       add(body, CS.cyl(0.222, 0.225, 0.025, { color: 0x2f4f96 }, 0, BY + 0.35, -0.02, 20));
       add(body, CS.ball(0.20, 0.08, 0.18, { color: 0xfbf8f1 }, 0, BY + 0.47, -0.02));
+    } else if (kind === 'egg') {
+      // a tall egg with a zig-zag of cracked shell still sat on top as a hat
+      add(body, CS.ball(0.31, 0.40, 0.30, SKIN, 0, BY + 0.02, 0));
+      for (var ei = 0; ei < 8; ei++) {
+        var ea = ei / 8 * Math.PI * 2;
+        var sh = add(body, CS.cone(0.07, 0.12, { color: 0xfffaf0, rough: 0.35 },
+          Math.sin(ea) * 0.2, BY + 0.38, Math.cos(ea) * 0.2, 4));
+        sh.rotation.y = ea;
+      }
+      add(body, CS.ball(0.21, 0.07, 0.21, { color: 0xfffaf0, rough: 0.35 }, 0, BY + 0.34, 0));
+      add(body, CS.ball(0.10, 0.10, 0.04, { color: 0xffc83a, rough: 0.3 }, 0.19, BY + 0.22, 0.20));
+    } else if (kind === 'lettuce') {
+      // a round head of lettuce, frilly leaves curling up round it
+      add(body, CS.ball(0.36, 0.34, 0.34, SKIN, 0, BY, 0));
+      for (var li = 0; li < 7; li++) {
+        var la = li / 7 * Math.PI * 2;
+        if (Math.abs(Math.sin(la / 2)) < 0.5) continue;      // keep the face clear
+        var lf = add(body, CS.ball(0.17, 0.22, 0.05, SKIN_D,
+          Math.sin(la) * 0.3, BY + 0.06, Math.cos(la) * 0.3));
+        lf.rotation.y = la; lf.rotation.x = -0.25;
+      }
+      add(body, CS.ball(0.20, 0.10, 0.20, { color: 0xb6e384, rough: 0.7 }, 0, BY + 0.30, 0));
+    } else if (kind === 'mushroom') {
+      // a pale stalk under a big red cap with white spots
+      add(body, CS.ball(0.29, 0.34, 0.28, SKIN, 0, BY - 0.04, 0));
+      var CAP = { color: 0xd8423a, rough: 0.35 };
+      add(body, CS.shell(0.46, 0.34, 0.46, CAP, 0, Math.PI * 2, 0, Math.PI / 2)).position.y = BY + 0.22;
+      add(body, CS.cyl(0.46, 0.40, 0.04, { color: 0xf3e6cf }, 0, BY + 0.21, 0, 24));
+      [[0, 0.30, 0.10], [0.25, 0.16, 0.14], [-0.24, 0.18, 0.12], [0.1, 0.22, -0.3], [-0.2, 0.12, -0.3]]
+        .forEach(function (p) {
+          var dy = Math.sqrt(Math.max(0, 1 - (p[0] * p[0] + p[2] * p[2]) / 0.21)) * 0.34;
+          add(body, CS.ball(0.07, 0.03, 0.07, { color: 0xfffaf0 }, p[0], BY + 0.22 + dy * 0.95, p[2]));
+        });
     } else {
       add(body, CS.ball(0.38, 0.34, 0.37, SKIN, 0, BY, 0));
       add(body, CS.ball(0.10, 0.06, 0.04, { color: 0xffb9ab, rough: 0.2 }, -0.17, BY + 0.17, 0.30)).rotation.z = 0.5;
@@ -3619,7 +4025,8 @@ window.CS = window.CS || {};
     }
 
     // apron bib in white with blue piping, so they read as staff
-    var R = spud ? [0.33, 0.39, 0.30] : [0.38, 0.34, 0.37];
+    var R = { potato: [0.33, 0.39, 0.30], egg: [0.31, 0.40, 0.30], lettuce: [0.36, 0.34, 0.34],
+      mushroom: [0.29, 0.34, 0.28] }[kind] || [0.38, 0.34, 0.37];
     var apron = add(body, CS.shell(R[0] * 1.03, R[1] * 1.03, R[2] * 1.03, { color: 0xfbf8f1 },
       Math.PI / 2 - 0.6, 1.2, 1.55, 0.8));
     apron.position.y = BY;
@@ -5202,6 +5609,7 @@ window.CS = window.CS || {};
       this.coins.length = 0;
       this.level = level || CS.levelFor(1);
       this.spawnTimer = CS.FIRST_SPAWN;
+      this.frozen = false;
       nextId = 1;
     },
 
@@ -5223,18 +5631,23 @@ window.CS = window.CS || {};
       }
       if (!wantsSandwich && !wantsFries && !nCups) wantsSandwich = true;
 
+      // only what is on today's menu; older saves' levels fall back to all
+      var tops = lv.tops || CS.SANDWICH_TOPPINGS;
+      var sauces = lv.sauces || CS.SANDWICH_SAUCES;
+      var dips = (lv.cups && lv.cups.length) ? lv.cups : CS.CUP_SAUCES;
+
       var sandwich = null;
       if (wantsSandwich) {
-        var topCap = lv.maxTop ? Math.max(1, Math.round(lv.maxTop * (0.4 + 0.6 * cx))) : 0;
-        var sauceCap = lv.maxSauce ? Math.max(1, Math.round(lv.maxSauce * (0.4 + 0.6 * cx))) : 0;
+        var topCap = lv.maxTop && tops.length ? Math.max(1, Math.round(lv.maxTop * (0.4 + 0.6 * cx))) : 0;
+        var sauceCap = lv.maxSauce && sauces.length ? Math.max(1, Math.round(lv.maxSauce * (0.4 + 0.6 * cx))) : 0;
         sandwich = {
-          toppings: sample(CS.SANDWICH_TOPPINGS, topCap ? ri(topCap + 1) : 0),
-          sauces: sample(CS.SANDWICH_SAUCES, sauceCap ? ri(sauceCap + 1) : 0)
+          toppings: sample(tops, topCap ? ri(Math.min(topCap, tops.length) + 1) : 0),
+          sauces: sample(sauces, sauceCap ? ri(Math.min(sauceCap, sauces.length) + 1) : 0)
         };
       }
 
       var cups = [];
-      for (var i = 0; i < nCups; i++) cups.push(CS.pick(CS.CUP_SAUCES));
+      for (var i = 0; i < nCups; i++) cups.push(CS.pick(dips));
 
       var extra = sandwich ? sandwich.toppings.length + sandwich.sauces.length : 0;
 
@@ -5242,7 +5655,7 @@ window.CS = window.CS || {};
          more again -- which is the whole reason to pay for one. */
       var limit = (CS.lerp(lv.limit[0], lv.limit[1], progress)
         + extra * 5.0 + (wantsFries ? 9 : 0) + cups.length * 5.0)
-        * CS.econ.mod('patience');
+        * CS.econ.mod('patience') * (1 + CS.econ.skill('charm'));
 
       var t = {
         id: nextId++,
@@ -5373,6 +5786,31 @@ window.CS = window.CS || {};
       CS.audio.coins();
     },
 
+    /* ------------------------------------------------------- collisions
+       Nobody in the dining room walks through anybody else. Every pair
+       that overlaps is pushed apart, half each, with a little sideways slip
+       so two customers meeting head-on in the doorway step round each other
+       instead of standing nose to nose forever. */
+    separate: function () {
+      var R = 0.36, all = [];
+      this.list.forEach(function (o) { all.push(o.cust.group); });
+      this.leaving.forEach(function (c) { all.push(c.group); });
+      for (var i = 0; i < all.length; i++) {
+        for (var j = i + 1; j < all.length; j++) {
+          var a = all[i].position, b = all[j].position;
+          var dx = b.x - a.x, dz = b.z - a.z;
+          var d = Math.hypot(dx, dz);
+          if (d >= R * 2) continue;
+          if (d < 1e-4) { dx = 1; dz = 0; d = 1; }
+          var nx = dx / d, nz = dz / d, over = R * 2 - d;
+          var px = nx * over * 0.5 - nz * over * 0.25;
+          var pz = nz * over * 0.5 + nx * over * 0.25;
+          a.x -= px; a.z -= pz;
+          b.x += px; b.z += pz;
+        }
+      }
+    },
+
     relayout: function () {
       for (var i = 0; i < this.list.length; i++) {
         var spot = queueSpot(i);
@@ -5398,7 +5836,7 @@ window.CS = window.CS || {};
       /* ---- everyone in the queue: walk in, shuffle up, wait, fidget ---- */
       for (var i = this.list.length - 1; i >= 0; i--) {
         var o = this.list[i];
-        o.left -= dt;
+        if (!this.frozen) o.left -= dt;     // Feather Frenzy holds the queue still
         var c = o.cust, g = c.group, moved = 0;
         c.t += dt;
 
@@ -5461,6 +5899,8 @@ window.CS = window.CS || {};
         }
       }
 
+      this.separate();
+
       /* ---- tip coins arcing onto the counter ---- */
       for (var k = this.coins.length - 1; k >= 0; k--) {
         var co = this.coins[k];
@@ -5512,8 +5952,8 @@ window.CS = window.CS || {};
      * a hand only adds to a plate when the result still matches an open
        ticket, so they can fill in a plate but never spoil one.
      * they never take the last free counter for something that is not
-       urgent, never touch the serving window, and never put toppings or
-       sandwich sauces on. Dressing the sandwich stays your call.          */
+       urgent. Only a runner touches the serving window, and only a garnish
+       hand dresses a sandwich -- with what an open ticket still asks for.  */
 window.CS = window.CS || {};
 (function (CS) {
   'use strict';
@@ -5827,6 +6267,109 @@ window.CS = window.CS || {};
     ];
   }
 
+  /* ------------------------------------------------------ dressing
+     A garnish hand (Sprout) finishes sandwiches that are sat on a counter:
+     it works out which topping -- or, once trained, which sauce -- an open
+     ticket still wants on that plate, fetches a pinch from the tray and puts
+     it on. Like every other hand it only ever adds something that keeps the
+     plate matching a ticket, so it fills in a sandwich but never spoils one. */
+  function withIng(plate, ing) {
+    var s = plate.sandwich, top = CS.ING[ing].kind === 'topping';
+    return {
+      k: 'plate', fries: plate.fries, cups: plate.cups.slice(),
+      sandwich: {
+        chicken: s.chicken,
+        toppings: top ? s.toppings.concat([ing]) : s.toppings,
+        sauces: top ? s.sauces : s.sauces.concat([ing])
+      }
+    };
+  }
+
+  function plateNeeds(plate, ing) {
+    if (!plate || plate.k !== 'plate' || !plate.sandwich) return false;
+    var s = plate.sandwich;
+    if (s.toppings.indexOf(ing) >= 0 || s.sauces.indexOf(ing) >= 0) return false;
+    var next = withIng(plate, ing);
+    return openOrders().some(function (o) {
+      var want = CS.ING[ing].kind === 'topping' ? o.sandwich && o.sandwich.toppings : o.sandwich && o.sandwich.sauces;
+      return want && want.indexOf(ing) >= 0 && fitsOrder(next, o);
+    });
+  }
+
+  /* The nearest plate that wants something this hand knows how to add. */
+  function dressTarget(h, stations) {
+    var kinds = [];
+    if (h.jobs.indexOf('dress:top') >= 0) kinds.push('topping');
+    if (h.jobs.indexOf('dress:sauce') >= 0) kinds.push('sauce');
+    if (!kinds.length) return null;
+    var best = null, bestD = Infinity;
+    stations.forEach(function (st) {
+      if (st.type !== 'counter' || !st.item || !st.item.sandwich || claimedBy(st, h)) return;
+      if (!adjacentTiles(st).length) return;
+      Object.keys(CS.ING).forEach(function (ing) {
+        var kind = CS.ING[ing].kind;
+        if (kinds.indexOf(kind) < 0) return;
+        if (kind === 'sauce' && CS.SANDWICH_SAUCES.indexOf(ing) < 0) return;
+        if (!plateNeeds(st.item, ing)) return;
+        var src = nearest(h, stations, function (s) { return s.type === kind && s.def.ing === ing; });
+        if (!src) return;
+        var d = Math.abs(src.col - h.col) + Math.abs(src.row - h.row) +
+          Math.abs(src.col - st.col) + Math.abs(src.row - st.row);
+        if (d < bestD) { bestD = d; best = { plate: st, ing: ing, kind: kind }; }
+      });
+    });
+    return best;
+  }
+
+  function dressJob(t) {
+    return [
+      { at: function (h, s) {
+          return nearest(h, s, function (st) { return st.type === t.kind && st.def.ing === t.ing; });
+        },
+        act: function (h) {
+          h.carry = { k: 'garnish', ing: t.ing };
+          CS.audio[t.kind === 'topping' ? 'topping' : 'sauce']();
+        } },
+      { at: function () { return t.plate; },
+        pinned: true,
+        ok: function (h, st) { return plateNeeds(st.item, t.ing); },
+        act: function (h, st) {
+          var s = st.item.sandwich;
+          (t.kind === 'topping' ? s.toppings : s.sauces).push(t.ing);
+          CS.game.setStationItem(st, st.item);
+          h.carry = null;
+          CS.audio.place();
+          CS.game.puff(st, CS.ING[t.ing].color, 8);
+        } }
+    ];
+  }
+
+  /* ------------------------------------------------------- running
+     A runner (Button) takes any plate on a counter that exactly matches an
+     open ticket out through the serving window. If the ticket walks out
+     while the plate is in their arms, it goes back on the pass. */
+  function readyPlate(st) {
+    return st.type === 'counter' && st.item && st.item.k === 'plate' &&
+      !CS.plateIsEmpty(st.item) && !!CS.orders.findMatch(st.item);
+  }
+
+  function runJob(st0) {
+    return [
+      { at: function () { return st0; },
+        pinned: true,
+        ok: function (h, st) { return readyPlate(st); },
+        act: lift },
+      { at: function (h, s) { return nearest(h, s, function (st) { return st.type === 'serve'; }); },
+        pinned: true,
+        ok: function (h) { return !!(h.carry && CS.orders.findMatch(h.carry)); },
+        act: function (h) {
+          var plate = h.carry;
+          h.carry = null;
+          CS.game.serve(plate, h);
+        } }
+    ];
+  }
+
   /* Somebody's basket has been sitting cooked for a while: get it out. */
   function rescueJob(fryer) {
     return [
@@ -5913,10 +6456,27 @@ window.CS = window.CS || {};
       return;
     }
 
-    // 3. production, biggest shortfall first
+    // 3. a finished plate waiting on the pass goes out the window
+    if (h.jobs.indexOf('serve') >= 0) {
+      var ready = nearest(h, stations, readyPlate);
+      if (ready) {
+        startJob(h, 'run', runJob(ready), ready.item, ready);
+        return;
+      }
+    }
+
+    // 4. a sandwich on the counter still missing a topping or a sauce
+    var dress = dressTarget(h, stations);
+    if (dress) {
+      startJob(h, 'dress', dressJob(dress), { k: 'garnish', ing: dress.ing }, dress.plate);
+      return;
+    }
+
+    // 5. production, biggest shortfall first
     var free = freeCounters(h, stations).length;
     var best = null, bestGap = 0;
     h.jobs.forEach(function (job) {
+      if (job === 'serve' || job.indexOf('dress:') === 0) return;
       var gap = demand(job) - supply(job, stations);
       if (gap <= bestGap) return;
       // somewhere for it to go: a plate that wants it, or a spare counter
@@ -5949,6 +6509,8 @@ window.CS = window.CS || {};
       // a basket of ours is still in the oil: whoever is free will rescue it
       h.myFryer = null;
     }
+    // a pinch of lettuce with no sandwich left to go on is just let go of
+    if (h.carry && h.carry.k === 'garnish') h.carry = null;
     if (h.carry) {
       startJob(h, 'deliver', [DELIVER], h.carry);
       h.makes = CS.isBurnt(h.carry) ? null : lineOf(h.carry);
@@ -6274,7 +6836,30 @@ window.CS = window.CS || {};
         'dashBar', 'flapPips', 'tDash', 'tJump',
         'tickets', 'heldName', 'heldDetail', 'hint', 'hintText',
         'toasts', 'screen', 'btnMute', 'btnPix', 'btnHelp', 'btnCam',
-        'loading', 'hud'].forEach(function (id) { el[id] = $(id); });
+        'loading', 'hud', 'chefLv', 'xpBar', 'powerWrap', 'powerBar', 'tPower']
+        .forEach(function (id) { el[id] = $(id); });
+    },
+
+    /* Sandy's level and how far she is through it. */
+    setChef: function (c) {
+      if (!el.chefLv) return;
+      el.chefLv.textContent = 'Lv ' + c.level;
+      var f = CS.clamp(c.xp / CS.xpToNext(c.level), 0, 1);
+      el.xpBar.firstElementChild.style.width = (f * 100).toFixed(1) + '%';
+    },
+
+    /* Feather Frenzy: hidden until learnt, then a meter that drains while it
+       runs and refills while it recharges. */
+    setPower: function (known, frac, live) {
+      if (el.powerWrap) el.powerWrap.classList.toggle('hidden', !known);
+      if (el.tPower) {
+        el.tPower.classList.toggle('hidden', !known);
+        el.tPower.classList.toggle('live', live);
+        el.tPower.classList.toggle('cool', !live && frac < 1);
+      }
+      if (!known || !el.powerBar) return;
+      el.powerBar.className = 'm' + (live ? ' live' : (frac >= 1 ? ' ready' : ''));
+      el.powerBar.firstElementChild.style.width = (CS.clamp(frac, 0, 1) * 100).toFixed(0) + '%';
     },
 
     setLevel: function (lv) {
@@ -6441,12 +7026,14 @@ window.CS = window.CS || {};
           '<li><b>USE</b> — work the station you are next to</li>' +
           '<li><b>JUMP</b> — hop; tap again to <b>flap</b></li>' +
           '<li>Hold <b>JUMP</b> falling — glide</li>' +
-          '<li><b>DASH</b> — burst forward</li>'
+          '<li><b>DASH</b> — burst forward</li>' +
+          '<li><b>POWER</b> — Feather Frenzy, once learnt</li>'
         : '<li><b>WASD</b> / arrows — waddle</li>' +
           '<li><b>E</b> — use station</li>' +
           '<li><b>Space</b> — jump, then again to <b>flap</b></li>' +
           '<li><b>Hold Space</b> falling — glide</li>' +
           '<li><b>Shift</b> — dash</li>' +
+          '<li><b>Q</b> — Feather Frenzy, once learnt</li>' +
           '<li><b>C</b> — switch camera view</li>' +
           '<li><b>ESC</b> — pause</li>' +
           '<li><b>M</b> mute &nbsp; <b>P</b> pixel size</li>';
@@ -6465,6 +7052,12 @@ window.CS = window.CS || {};
         '<li>Bin mistakes in the <b>trash</b></li>' +
         '<li>Ticket must match <b>exactly</b></li>' +
         '<li>Fast serves build a <b>combo</b></li>' +
+        '</ul></div>' +
+        '<div class="col"><h3>GROWING</h3><ul>' +
+        '<li>New foods arrive <b>day by day</b></li>' +
+        '<li>Orders earn Sandy <b>XP</b></li>' +
+        '<li>Level up, spend <b>skill points</b></li>' +
+        '<li>Hire <b>helpers</b> in the shop</li>' +
         '</ul></div>' +
         '</div>';
     },
@@ -6497,19 +7090,29 @@ window.CS = window.CS || {};
           lv.unlocks.map(function (u) { return '<li>&#9656; <b>' + u + '</b></li>'; }).join('') +
           '</ul></div>'
         : '';
+      var howto = lv.howto
+        ? '<div class="col" style="flex:1 1 100%"><h3>HOW TO</h3><ul><li>' + lv.howto + '</li></ul></div>'
+        : '';
+      var crew = CS.econ.crew();
+      var crewLine = crew.length
+        ? '<p style="color:var(--gold)">On shift: ' + crew.map(function (h) {
+            return h.name + ' the ' + h.role;
+          }).join(', ') + '</p>'
+        : '';
       var mins = Math.floor(lv.seconds / 60), secs = lv.seconds % 60;
       var c = this.showScreen(
         '<h1>DAY ' + lv.day + '</h1>' +
         '<h2>' + lv.name.toUpperCase() + '</h2>' +
-        '<p>' + lv.tag + '</p>' +
-        '<div class="cols">' + unlocks +
+        '<p>' + lv.tag + '</p>' + crewLine +
+        '<div class="cols">' + unlocks + howto +
         '<div class="col"><h3>THE SHIFT</h3><ul>' +
         '<li>Length: <b>' + mins + ':' + (secs < 10 ? '0' : '') + secs + '</b></li>' +
         '<li>Rent: <b>' + CS.money(lv.rent) + '</b></li>' +
         (CS.econ.crew().length
           ? '<li>Wages: <b>' + CS.money(CS.econ.wageRange().min) + '+</b>, a share of takings</li>'
           : '') +
-        '<li>Tickets at once: <b>' + CS.orders.cap() + '</b></li>' +
+        '<li>Tickets at once: <b>' +
+          Math.min(CS.MAX_ORDERS_CAP, lv.maxOrders + CS.econ.mod('orders')) + '</b></li>' +
         '</ul></div>' +
         '<div class="col"><h3>REMINDERS</h3><ul>' +
         (CS.platform && CS.platform.coarse
@@ -6717,18 +7320,20 @@ window.CS = window.CS || {};
       var def = CS.STAFF_DEFS[kind];
       var hired = CS.econ.hired(kind);
       var pct = Math.round(def.wageShare * 100);
+      var dot = '<i style="display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;' +
+        'border:2px solid #14203d;background:#' + ('000000' + def.tint.toString(16)).slice(-6) + '"></i>';
       var terms = pct + '% of the day\'s takings, at least ' + CS.money(def.wageMin);
       if (!hired) {
         var can = CS.econ.state.wallet >= def.hire
           ? { ok: true } : { ok: false, why: 'Not enough money' };
-        out += row('hire:' + kind, def.name + ' &#183; ' + def.role,
+        out += row('hire:' + kind, dot + def.name + ' &#183; ' + def.role,
           def.blurb + ' &#183; ' + terms, def.hire, can);
         return;
       }
       var crew = CS.econ.crew().filter(function (c) { return c.kind === kind; })[0];
       out += '<div class="buyrow hired"><div class="buyname">' +
-        def.name + ' &#183; ' + def.role +
-        '<span>on ' + terms + ' &#183; makes ' +
+        dot + def.name + ' &#183; ' + def.role +
+        '<span>on ' + terms + ' &#183; handles ' +
         jobWords(crew.jobs) + ', and saves any basket about to burn' +
         '</span></div><button class="buy off" disabled>HIRED</button></div>';
       (CS.TRAINING[kind] || []).forEach(function (t) {
@@ -6746,8 +7351,39 @@ window.CS = window.CS || {};
       if (j === 'fries') return 'fries';
       if (j === 'chicken') return 'fried chicken';
       if (j === 'plate') return 'bun plates';
+      if (j === 'serve') return 'deliveries to the window';
+      if (j === 'dress:top') return 'toppings';
+      if (j === 'dress:sauce') return 'sandwich sauces';
       return CS.ING[j.slice(4)].label.toLowerCase() + ' cups';
     }).join(', ');
+  }
+
+  /* Sandy's level, her unspent points, and a row per skill. */
+  function chefHTML() {
+    var c = CS.econ.state.chef;
+    var need = CS.xpToNext(c.level);
+    var out = '<div class="buyrow hired"><div class="buyname">Chef Sandy &#183; Level ' + c.level +
+      '<span>' + c.xp + ' / ' + need + ' XP to the next level &#183; every order served earns XP</span></div>' +
+      '<b class="skillpts">' + c.points + ' POINT' + (c.points === 1 ? '' : 'S') + '</b></div>';
+    CS.SKILLS.forEach(function (s) {
+      var r = CS.econ.skillRank(s.id);
+      var pips = '';
+      for (var i = 0; i < s.max; i++) pips += i < r ? '&#9670;' : '&#9671;';
+      var state = r >= s.max ? { ok: false, why: 'MASTERED' }
+        : (c.points > 0 ? { ok: true } : { ok: false, why: 'Level up to earn a skill point' });
+      out += skillRow(s, pips, state);
+    });
+    return out;
+  }
+
+  function skillRow(s, pips, state) {
+    var label = state.ok ? 'LEARN' : (state.why === 'MASTERED' ? 'MASTERED' : '1 POINT');
+    return '<div class="buyrow' + (state.ok ? '' : ' dim') + '">' +
+      '<div class="buyname">' + s.name + ' <b class="skillpts">' + pips + '</b>' +
+      '<span>' + s.blurb + '</span>' +
+      (!state.ok && state.why !== 'MASTERED' ? '<em>' + state.why + '</em>' : '') + '</div>' +
+      '<button class="buy' + (state.ok ? '' : ' off') + '" data-buy="skill:' + s.id + '"' +
+      (state.ok ? '' : ' disabled') + '>' + label + '</button></div>';
   }
 
   function headerHTML() {
@@ -6771,6 +7407,7 @@ window.CS = window.CS || {};
     card.querySelector('#sParts').innerHTML = partsHTML();
     card.querySelector('#sLand').innerHTML = landHTML();
     card.querySelector('#sStaff').innerHTML = staffHTML();
+    card.querySelector('#sChef').innerHTML = chefHTML();
     bind();
   }
 
@@ -6783,7 +7420,10 @@ window.CS = window.CS || {};
 
   function buy(key) {
     var res;
-    if (key.indexOf('hire:') === 0) res = CS.econ.hire(key.slice(5));
+    if (key.indexOf('skill:') === 0) {
+      res = CS.econ.learn(key.slice(6));
+      if (res.ok) { CS.audio.fanfare(); CS.ui.toast('Skill learnt!', 'good'); render(); return; }
+    } else if (key.indexOf('hire:') === 0) res = CS.econ.hire(key.slice(5));
     else if (key.indexOf('train:') === 0) {
       var bits = key.split(':');
       res = CS.econ.train(bits[1], bits[2]);
@@ -6802,11 +7442,13 @@ window.CS = window.CS || {};
       card = CS.ui.showScreen(
         '<h1>THE SHOP</h1>' +
         '<div id="sHead"></div>' +
+        // the helpers lead the list: hiring is the biggest decision before a day
         '<div class="shopscroll">' +
+        '<h3>Helpers &#183; hire them before you open</h3><div id="sStaff"></div>' +
+        '<h3>Chef Sandy &#183; skills</h3><div id="sChef"></div>' +
         '<h3>Equipment</h3><div id="sGear"></div>' +
         '<h3>Kit &#183; buy it, then place it in the kitchen</h3><div id="sParts"></div>' +
         '<h3>The Building</h3><div id="sLand"></div>' +
-        '<h3>Staff</h3><div id="sStaff"></div>' +
         '</div>' +
         '<div class="krow">' +
         '<button class="btn" id="sEdit">KITCHEN</button>' +
@@ -7190,6 +7832,7 @@ window.CS = window.CS || {};
         CS.platform.haptic('medium');
       });
       bindButton(document.getElementById('tPause'), function () { CS.game.press('pause'); });
+      bindButton(document.getElementById('tPower'), function () { CS.game.press('power'); });
     },
 
     /* Let go of everything when the game is paused or a screen opens. */
@@ -7210,8 +7853,9 @@ window.CS = window.CS || {};
 
   var T = CS.TILE;
   var PLAYER_R = 0.42;
-  var SPEED = 6.4;
-  var REACH = 2.9;
+  var HAND_R = 0.40;
+  var BASE_SPEED = 6.4, SPEED = BASE_SPEED;
+  var BASE_REACH = 2.9, REACH = BASE_REACH;
 
   var renderer, scene, camera, clock;
   var world, stations, chef, heldMesh = null, highlight, chefShadow;
@@ -7226,11 +7870,29 @@ window.CS = window.CS || {};
   var GRAVITY = 24;
   var JUMP_V = 7.0;         // ~1.0 units of hop, enough to clear a counter
   var FLAP_V = 5.2;
-  var MAX_FLAPS = 2;
+  var MAX_FLAPS = 2;      // raised by the Extra Flap skill, see applySkills()
   var GLIDE_FALL = 2.3;     // holding jump turns a fall into a flutter
   var DASH_SPEED = 17;
   var DASH_TIME = 0.20;
-  var DASH_CD = 0.95;
+  var BASE_DASH_CD = 0.95, DASH_CD = BASE_DASH_CD;
+
+  /* Feather Frenzy, the chef's one active power: `t` counts down while it
+     is running, `cd` while it recharges. */
+  var FR = { t: 0, cd: 0 };
+
+  /* Re-read Sandy's skills into the movement constants. Called whenever a
+     day starts, since the shop between days is where ranks are bought. */
+  function applySkills() {
+    var E = CS.econ;
+    SPEED = BASE_SPEED * (1 + E.skill('feet'));
+    DASH_CD = BASE_DASH_CD / (1 + E.skill('dash'));
+    MAX_FLAPS = 2 + E.skill('flap');
+    REACH = BASE_REACH + E.skill('reach');
+  }
+  function frenzyLength() {
+    var r = CS.econ.skillRank('frenzy');
+    return r ? CS.FRENZY.base + CS.econ.skill('frenzy') : 0;
+  }
 
   var P = {
     x: 0, z: 0, y: 0, vx: 0, vz: 0, vy: 0,
@@ -7524,7 +8186,10 @@ window.CS = window.CS || {};
   function setHeld(item) { S.held = item; refreshHeld(); }
 
   /* ---------------------------------------------------------- the till */
-  function serve(plate) {
+  /* `hand` is the helper doing the serving, if it was not the chef -- a
+     runner carries plates out of the window too, and their plate is in
+     their own arms rather than Sandy's wings. */
+  function serve(plate, hand) {
     var o = CS.orders.findMatch(plate);
     if (!o) {
       CS.audio.error();
@@ -7538,10 +8203,16 @@ window.CS = window.CS || {};
     var left = o.left / o.limit;
     S.combo = Math.min(CS.COMBO.max, S.combo + CS.COMBO.step);
     S.bestCombo = Math.max(S.bestCombo, S.combo);
-    setHeld(null);
+    if (!hand) setHeld(null);
     CS.orders.complete(o, true);
     CS.audio.cash();
-    CS.ui.toast(CS.money(took) + '   ORDER #' + String(o.id).padStart(2, '0') + ' UP!', 'good');
+    CS.ui.toast(CS.money(took) + '   ORDER #' + String(o.id).padStart(2, '0') + ' UP!' +
+      (hand ? '  (' + hand.name + ')' : ''), 'good');
+
+    // every order out of the window is experience for the chef
+    var extras = o.sandwich ? o.sandwich.toppings.length + o.sandwich.sauces.length : 0;
+    extras += (o.fries ? 1 : 0) + o.cups.length;
+    earnXP(CS.XP.perOrder + extras * CS.XP.perExtra);
 
     var sv = stations.filter(function (s) { return s.type === 'serve'; })[0];
     if (sv) CS.fx.burst(sv.x, sv.topY + 0.5, sv.z, 16, { color: 0xffd464, life: 0.8, vy: 2.2 });
@@ -7553,8 +8224,9 @@ window.CS = window.CS || {};
        the reward for a shop that keeps ahead of its queue, not a lottery. */
     var T = CS.TIP;
     if (left > T.minLeft && Math.random() < (left - T.minLeft) / (1 - T.minLeft) * T.chance) {
-      var tip = Math.round(o.price * T.share * left * S.combo * 100) / 100;
+      var tip = Math.round(o.price * T.share * left * S.combo * (1 + CS.econ.skill('tips')) * 100) / 100;
       if (tip < 0.05) tip = 0.05;
+      earnXP(CS.XP.perTip);
       var nCoins = tip >= T.bigTip ? 3 : (tip >= T.bigTip / 2 ? 2 : 1);
       CS.econ.tip(tip);
       if (sv) CS.orders.tipBurst(sv.x, sv.topY, sv.z, nCoins);
@@ -7562,6 +8234,19 @@ window.CS = window.CS || {};
         CS.ui.toast(CS.money(tip) + '   ' + o.critter.name.toUpperCase() + ' LEFT A TIP', 'tip');
       }, 260);
     }
+  }
+
+  function earnXP(n) {
+    var ups = CS.econ.gainXP(n);
+    if (ups) {
+      CS.audio.fanfare();
+      CS.fx.burst(P.x, P.y + 1.6, P.z, 22, { color: 0xffe27a, life: 1.0, vy: 2.6 });
+      setTimeout(function () {
+        CS.ui.toast('LEVEL UP!  Sandy is level ' + CS.econ.state.chef.level +
+          ' -- spend the skill point in the shop', 'tip');
+      }, 500);
+    }
+    CS.ui.setChef(CS.econ.state.chef);
   }
 
   function onExpire(o) {
@@ -7642,11 +8327,13 @@ window.CS = window.CS || {};
           { color: 0x3c3548, size: 0.38, life: 2.0, rise: 1.4, opacity: 0.7, grow: 2.6 });
       }
 
-      // floating progress bar
+      // floating progress bar. It lives in the kitchen's own root group, not
+      // the scene: the kitchen is torn down and rebuilt between days, and a
+      // bar hung on the scene outlived its fryer and floated there for good.
       if (!st.bar) {
         st.bar = CS.models.bar(1.1);
         st.bar.position.set(st.x, st.topY + 1.5, st.z);
-        scene.add(st.bar);
+        world.root.add(st.bar);
       }
       st.bar.visible = true;
       st.bar.quaternion.copy(camera.quaternion);
@@ -7817,6 +8504,69 @@ window.CS = window.CS || {};
     }
   }
 
+  /* Feather Frenzy: a burst of speed, and for as long as it lasts the queue
+     forgets to be impatient. Long recharge, so it is for the moment the rail
+     fills up rather than for every ticket. */
+  function tryFrenzy() {
+    var len = frenzyLength();
+    if (!len) { CS.ui.toast('Learn Feather Frenzy in the shop first', 'info'); CS.audio.error(); return; }
+    if (FR.t > 0 || FR.cd > 0) { CS.audio.error(); return; }
+    FR.t = len;
+    FR.cd = CS.FRENZY.cooldown;
+    CS.audio.fanfare();
+    CS.ui.toast('FEATHER FRENZY!', 'tip');
+    for (var i = 0; i < 14; i++) {
+      CS.fx.spawn(P.x + (Math.random() - 0.5) * 1.2, P.y + 0.4 + Math.random() * 0.8, P.z + (Math.random() - 0.5) * 1.2,
+        { color: i % 2 ? 0xffe27a : 0xfaf8f1, life: 1.1, vy: 1.6, size: 0.1, g: -1.0 });
+    }
+  }
+
+  /* -------------------------------------------------------- collisions
+     Sandy and her helpers are solid to each other. Every overlapping pair is
+     pushed apart, half each, plus a little sideways slip so two of them
+     meeting head-on in a one-tile aisle step round each other instead of
+     wedging. Helpers are kept off solid tiles; the chef's own tile collision
+     runs straight after. While she is up in the air she sails over them. */
+  function solidAt(x, z) {
+    return CS.isSolid(Math.floor((x - CS.OX) / T), Math.floor((z - CS.OZ) / T));
+  }
+
+  function nudgeHand(h, dx, dz) {
+    var l = Math.hypot(dx, dz);
+    if (l < 1e-6) return;
+    var ex = dx / l * HAND_R * 0.75, ez = dz / l * HAND_R * 0.75;
+    if (!solidAt(h.x + dx + ex, h.z + dz + ez)) { h.x += dx; h.z += dz; return; }
+    if (!solidAt(h.x + dx + ex, h.z)) h.x += dx;
+    else if (!solidAt(h.x, h.z + dz + ez)) h.z += dz;
+  }
+
+  function separateCharacters() {
+    var hs = CS.staff.hands, bodies = [], i, j;
+    for (i = 0; i < hs.length; i++) bodies.push({ h: hs[i], r: HAND_R });
+    if (P.y < 0.7) bodies.push({ h: null, r: PLAYER_R });
+    var chefMoved = false;
+    for (i = 0; i < bodies.length; i++) {
+      for (j = i + 1; j < bodies.length; j++) {
+        var a = bodies[i], b = bodies[j];
+        var ax = a.h ? a.h.x : P.x, az = a.h ? a.h.z : P.z;
+        var bx = b.h ? b.h.x : P.x, bz = b.h ? b.h.z : P.z;
+        var dx = bx - ax, dz = bz - az, d = Math.hypot(dx, dz), min = a.r + b.r;
+        if (d >= min) continue;
+        if (d < 1e-4) { dx = 1; dz = 0; d = 1; }
+        var nx = dx / d, nz = dz / d, over = min - d;
+        var px = nx * over * 0.5 - nz * over * 0.25;
+        var pz = nz * over * 0.5 + nx * over * 0.25;
+        if (a.h) nudgeHand(a.h, -px, -pz); else { P.x -= px; P.z -= pz; chefMoved = true; }
+        if (b.h) nudgeHand(b.h, px, pz); else { P.x += px; P.z += pz; chefMoved = true; }
+      }
+    }
+    if (chefMoved) { resolveAxis('x'); resolveAxis('z'); }
+    for (i = 0; i < hs.length; i++) {
+      hs[i].group.position.x = hs[i].x;
+      hs[i].group.position.z = hs[i].z;
+    }
+  }
+
   function tryDash() {
     if (P.dashCd > 0 || P.dashT > 0) return;
     var dx = Math.sin(P.yaw), dz = Math.cos(P.yaw);
@@ -7868,6 +8618,7 @@ window.CS = window.CS || {};
         if (k === 'e' || k === 'f' || k === 'enter') interact();
         if (k === ' ') tryJump();
         if (k === 'shift') tryDash();
+        if (k === 'q') tryFrenzy();
       }
     });
     window.addEventListener('keyup', function (e) { keys[e.key.toLowerCase()] = false; });
@@ -7925,6 +8676,9 @@ window.CS = window.CS || {};
   function reset() {
     S.level = S.level || CS.levelFor(S.day);
     S.time = S.level.seconds;
+    applySkills();
+    FR.t = 0; FR.cd = 0;
+    CS.ui.setChef(CS.econ.state.chef);
     S.combo = 1; S.bestCombo = 1;
     S.target = null;
     setHeld(null);
@@ -7998,7 +8752,12 @@ window.CS = window.CS || {};
     stations.forEach(function (st) {
       if (st.item) { CS.econ.waste(st.item); setStationItem(st, null); }
       st.cook = null;
+      if (st.bar) st.bar.visible = false;
     });
+    FR.t = 0; CS.orders.frozen = false;
+
+    // a day that paid its way is worth a chunk of experience on top
+    if (CS.econ.takings() >= CS.econ.ledger.rent + CS.econ.wages()) earnXP(CS.XP.perDay);
 
     var L = CS.econ.settle();
     CS.audio[L.passed ? 'fanfare' : 'over']();
@@ -8068,7 +8827,8 @@ window.CS = window.CS || {};
             { color: 0xd8c39a, life: 0.35, vy: 0.8, size: 0.09, g: -1.2 });
         }
       } else {
-        var targetVx = mx * SPEED, targetVz = mz * SPEED;
+        var sp = SPEED * (FR.t > 0 ? CS.FRENZY.speed : 1);
+        var targetVx = mx * sp, targetVz = mz * sp;
         var airK = P.grounded ? 1 : 0.55;        // less bite in the air
         var accel = (len > 0 ? 18 : 22) * airK;
         P.vx += (targetVx - P.vx) * Math.min(1, dt * accel);
@@ -8139,9 +8899,23 @@ window.CS = window.CS || {};
 
       updateFryers(dt);
 
+      // Feather Frenzy: a running burst, then a long recharge
+      if (FR.t > 0) {
+        FR.t -= dt;
+        if (Math.random() < dt * 14) {
+          CS.fx.spawn(P.x + (Math.random() - 0.5) * 0.8, P.y + 0.3 + Math.random() * 0.9, P.z + (Math.random() - 0.5) * 0.8,
+            { color: 0xffe27a, life: 0.6, vy: 0.9, size: 0.08, g: -0.6 });
+        }
+        if (FR.t <= 0) CS.ui.toast('Frenzy over', 'info');
+      } else if (FR.cd > 0) {
+        FR.cd -= dt;
+      }
+      CS.orders.frozen = FR.t > 0;
+
       var progress = 1 - S.time / S.level.seconds;
       CS.orders.update(dt, progress, onExpire);
       CS.staff.update(dt, stations, camera);
+      separateCharacters();
       updateSteam(dt);
       CS.ui.renderTickets(CS.orders.list);
 
@@ -8154,6 +8928,8 @@ window.CS = window.CS || {};
       CS.ui.setTarget(took, CS.econ.ledger.rent + CS.econ.wagesFor(took));
       CS.ui.setFryers(fryerRows());
       CS.ui.setMoves(1 - P.dashCd / DASH_CD, P.grounded ? MAX_FLAPS : P.flaps, MAX_FLAPS, !P.grounded);
+      CS.ui.setPower(frenzyLength() > 0,
+        FR.t > 0 ? FR.t / frenzyLength() : 1 - FR.cd / CS.FRENZY.cooldown, FR.t > 0);
       if (S.time <= 0) endDay();
     } else {
       // keep the kitchen alive behind menus
@@ -8344,6 +9120,7 @@ window.CS = window.CS || {};
       if (what === 'use') interact();
       else if (what === 'jump') tryJump();
       else if (what === 'dash') tryDash();
+      else if (what === 'power') tryFrenzy();
     },
     /* debug helpers: CS.game.teleport(col, row) drops the chef on a tile,
        CS.game.debug exposes the three.js objects for poking from the console */

@@ -22,8 +22,8 @@
      * a hand only adds to a plate when the result still matches an open
        ticket, so they can fill in a plate but never spoil one.
      * they never take the last free counter for something that is not
-       urgent, never touch the serving window, and never put toppings or
-       sandwich sauces on. Dressing the sandwich stays your call.          */
+       urgent. Only a runner touches the serving window, and only a garnish
+       hand dresses a sandwich -- with what an open ticket still asks for.  */
 window.CS = window.CS || {};
 (function (CS) {
   'use strict';
@@ -337,6 +337,109 @@ window.CS = window.CS || {};
     ];
   }
 
+  /* ------------------------------------------------------ dressing
+     A garnish hand (Sprout) finishes sandwiches that are sat on a counter:
+     it works out which topping -- or, once trained, which sauce -- an open
+     ticket still wants on that plate, fetches a pinch from the tray and puts
+     it on. Like every other hand it only ever adds something that keeps the
+     plate matching a ticket, so it fills in a sandwich but never spoils one. */
+  function withIng(plate, ing) {
+    var s = plate.sandwich, top = CS.ING[ing].kind === 'topping';
+    return {
+      k: 'plate', fries: plate.fries, cups: plate.cups.slice(),
+      sandwich: {
+        chicken: s.chicken,
+        toppings: top ? s.toppings.concat([ing]) : s.toppings,
+        sauces: top ? s.sauces : s.sauces.concat([ing])
+      }
+    };
+  }
+
+  function plateNeeds(plate, ing) {
+    if (!plate || plate.k !== 'plate' || !plate.sandwich) return false;
+    var s = plate.sandwich;
+    if (s.toppings.indexOf(ing) >= 0 || s.sauces.indexOf(ing) >= 0) return false;
+    var next = withIng(plate, ing);
+    return openOrders().some(function (o) {
+      var want = CS.ING[ing].kind === 'topping' ? o.sandwich && o.sandwich.toppings : o.sandwich && o.sandwich.sauces;
+      return want && want.indexOf(ing) >= 0 && fitsOrder(next, o);
+    });
+  }
+
+  /* The nearest plate that wants something this hand knows how to add. */
+  function dressTarget(h, stations) {
+    var kinds = [];
+    if (h.jobs.indexOf('dress:top') >= 0) kinds.push('topping');
+    if (h.jobs.indexOf('dress:sauce') >= 0) kinds.push('sauce');
+    if (!kinds.length) return null;
+    var best = null, bestD = Infinity;
+    stations.forEach(function (st) {
+      if (st.type !== 'counter' || !st.item || !st.item.sandwich || claimedBy(st, h)) return;
+      if (!adjacentTiles(st).length) return;
+      Object.keys(CS.ING).forEach(function (ing) {
+        var kind = CS.ING[ing].kind;
+        if (kinds.indexOf(kind) < 0) return;
+        if (kind === 'sauce' && CS.SANDWICH_SAUCES.indexOf(ing) < 0) return;
+        if (!plateNeeds(st.item, ing)) return;
+        var src = nearest(h, stations, function (s) { return s.type === kind && s.def.ing === ing; });
+        if (!src) return;
+        var d = Math.abs(src.col - h.col) + Math.abs(src.row - h.row) +
+          Math.abs(src.col - st.col) + Math.abs(src.row - st.row);
+        if (d < bestD) { bestD = d; best = { plate: st, ing: ing, kind: kind }; }
+      });
+    });
+    return best;
+  }
+
+  function dressJob(t) {
+    return [
+      { at: function (h, s) {
+          return nearest(h, s, function (st) { return st.type === t.kind && st.def.ing === t.ing; });
+        },
+        act: function (h) {
+          h.carry = { k: 'garnish', ing: t.ing };
+          CS.audio[t.kind === 'topping' ? 'topping' : 'sauce']();
+        } },
+      { at: function () { return t.plate; },
+        pinned: true,
+        ok: function (h, st) { return plateNeeds(st.item, t.ing); },
+        act: function (h, st) {
+          var s = st.item.sandwich;
+          (t.kind === 'topping' ? s.toppings : s.sauces).push(t.ing);
+          CS.game.setStationItem(st, st.item);
+          h.carry = null;
+          CS.audio.place();
+          CS.game.puff(st, CS.ING[t.ing].color, 8);
+        } }
+    ];
+  }
+
+  /* ------------------------------------------------------- running
+     A runner (Button) takes any plate on a counter that exactly matches an
+     open ticket out through the serving window. If the ticket walks out
+     while the plate is in their arms, it goes back on the pass. */
+  function readyPlate(st) {
+    return st.type === 'counter' && st.item && st.item.k === 'plate' &&
+      !CS.plateIsEmpty(st.item) && !!CS.orders.findMatch(st.item);
+  }
+
+  function runJob(st0) {
+    return [
+      { at: function () { return st0; },
+        pinned: true,
+        ok: function (h, st) { return readyPlate(st); },
+        act: lift },
+      { at: function (h, s) { return nearest(h, s, function (st) { return st.type === 'serve'; }); },
+        pinned: true,
+        ok: function (h) { return !!(h.carry && CS.orders.findMatch(h.carry)); },
+        act: function (h) {
+          var plate = h.carry;
+          h.carry = null;
+          CS.game.serve(plate, h);
+        } }
+    ];
+  }
+
   /* Somebody's basket has been sitting cooked for a while: get it out. */
   function rescueJob(fryer) {
     return [
@@ -423,10 +526,27 @@ window.CS = window.CS || {};
       return;
     }
 
-    // 3. production, biggest shortfall first
+    // 3. a finished plate waiting on the pass goes out the window
+    if (h.jobs.indexOf('serve') >= 0) {
+      var ready = nearest(h, stations, readyPlate);
+      if (ready) {
+        startJob(h, 'run', runJob(ready), ready.item, ready);
+        return;
+      }
+    }
+
+    // 4. a sandwich on the counter still missing a topping or a sauce
+    var dress = dressTarget(h, stations);
+    if (dress) {
+      startJob(h, 'dress', dressJob(dress), { k: 'garnish', ing: dress.ing }, dress.plate);
+      return;
+    }
+
+    // 5. production, biggest shortfall first
     var free = freeCounters(h, stations).length;
     var best = null, bestGap = 0;
     h.jobs.forEach(function (job) {
+      if (job === 'serve' || job.indexOf('dress:') === 0) return;
       var gap = demand(job) - supply(job, stations);
       if (gap <= bestGap) return;
       // somewhere for it to go: a plate that wants it, or a spare counter
@@ -459,6 +579,8 @@ window.CS = window.CS || {};
       // a basket of ours is still in the oil: whoever is free will rescue it
       h.myFryer = null;
     }
+    // a pinch of lettuce with no sandwich left to go on is just let go of
+    if (h.carry && h.carry.k === 'garnish') h.carry = null;
     if (h.carry) {
       startJob(h, 'deliver', [DELIVER], h.carry);
       h.makes = CS.isBurnt(h.carry) ? null : lineOf(h.carry);

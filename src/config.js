@@ -106,49 +106,105 @@ window.CS = window.CS || {};
      Inside a day the pressure also ramps: `spawn` and `limit` are [start, end]
      pairs interpolated across the shift, and ticket complexity grows with it.
      So it gets harder both as the clock runs AND as the days go by.         */
-  CS.FIRST_SPAWN = 2.5;        // grace before the first customer of a day
+  CS.FIRST_SPAWN = 4.0;        // grace before the first customer of a day
+
+  /* The menu grows one idea at a time, so the early days are about learning
+     to cook rather than surviving. `tops`, `sauces` and `cups` say which
+     ingredients a ticket may ask for today -- lettuce arrives before tomato,
+     ketchup before the other dips -- and `grace` stretches how long a cooked
+     basket sits before it burns, easing back to 1 as you settle in. Each day
+     also carries a `howto`: one line on how to make whatever is new. */
+  var ALL_TOPS = ['lettuce', 'tomato', 'pickle'];
+  var ALL_SAUCES = ['mayo', 'bbq', 'hot'];
+  var ALL_CUPS = ['bbq', 'hot', 'ketchup'];
 
   CS.LEVELS = [
-    { name: 'Opening Day', tag: 'Plain sandwiches. Find your feet.',
-      seconds: 120, rent: 5, maxOrders: 2,
-      spawn: [10.0, 8.5], limit: [80, 70],
+    { name: 'Opening Day', tag: 'One customer at a time. Enjoy the sizzle.',
+      seconds: 150, rent: 4, maxOrders: 1, grace: 2.0,
+      spawn: [13.0, 12.0], limit: [120, 110],
       friesChance: 0, cupChance: 0, twoCupChance: 0, maxTop: 0, maxSauce: 0,
-      unlocks: ['Plate', 'Bun', 'Fried chicken'] },
+      tops: [], sauces: [], cups: [],
+      howto: 'Plate, then bun, then fried chicken. Carry it to the window.',
+      unlocks: ['Plain chicken sandwiches'] },
 
-    { name: 'Fries Are Up', tag: 'A second fryer is lit.',
-      seconds: 140, rent: 7, maxOrders: 2,
-      spawn: [9.5, 8.0], limit: [78, 68],
-      friesChance: 0.5, cupChance: 0, twoCupChance: 0, maxTop: 0, maxSauce: 0,
+    { name: 'Finding Your Feet', tag: 'Two tickets on the rail now.',
+      seconds: 150, rent: 6, maxOrders: 2, grace: 1.8,
+      spawn: [12.0, 10.5], limit: [110, 100],
+      friesChance: 0, cupChance: 0, twoCupChance: 0, maxTop: 0, maxSauce: 0,
+      tops: [], sauces: [], cups: [],
+      howto: 'Drop the next chicken in the fryer while you plate the last one.',
+      unlocks: ['A second ticket'] },
+
+    { name: 'Fries Are Up', tag: 'A basket of golden fries on the side.',
+      seconds: 160, rent: 8, maxOrders: 2, grace: 1.6,
+      spawn: [11.5, 10.0], limit: [105, 95],
+      friesChance: 0.45, cupChance: 0, twoCupChance: 0, maxTop: 0, maxSauce: 0,
+      tops: [], sauces: [], cups: [],
+      howto: 'Potatoes from the bin fry too. Add the fries to the plate.',
       unlocks: ['French fries'] },
 
-    { name: 'Garden Fresh', tag: 'The topping trays open up.',
-      seconds: 150, rent: 10, maxOrders: 3,
-      spawn: [9.0, 7.4], limit: [76, 64],
-      friesChance: 0.45, cupChance: 0, twoCupChance: 0, maxTop: 1, maxSauce: 0,
-      unlocks: ['Lettuce', 'Tomato', 'Pickles'] },
+    { name: 'Garden Fresh', tag: 'The lettuce tray opens up.',
+      seconds: 160, rent: 10, maxOrders: 2, grace: 1.5,
+      spawn: [11.0, 9.5], limit: [100, 92],
+      friesChance: 0.4, cupChance: 0, twoCupChance: 0, maxTop: 1, maxSauce: 0,
+      tops: ['lettuce'], sauces: [], cups: [],
+      howto: 'Hold a plate with a bun on it at the lettuce tray and USE it.',
+      unlocks: ['Lettuce'] },
 
-    { name: 'Sauce Boss', tag: 'Squeeze bottles on the back wall.',
-      seconds: 160, rent: 13, maxOrders: 3,
-      spawn: [8.4, 6.9], limit: [74, 62],
-      friesChance: 0.45, cupChance: 0, twoCupChance: 0, maxTop: 1, maxSauce: 1,
-      unlocks: ['Mayo', 'BBQ sauce', 'Hot sauce'] },
+    { name: 'Salad Days', tag: 'Tomato and pickles join the lettuce.',
+      seconds: 165, rent: 12, maxOrders: 3, grace: 1.4,
+      spawn: [10.5, 9.0], limit: [96, 88],
+      friesChance: 0.4, cupChance: 0, twoCupChance: 0, maxTop: 2, maxSauce: 0,
+      tops: ALL_TOPS, sauces: [], cups: [],
+      howto: 'Toppings go on in any order. Just match the ticket.',
+      unlocks: ['Tomato', 'Pickles', 'A third ticket'] },
 
-    { name: 'Sides Please', tag: 'Cups of sauce to go.',
-      seconds: 170, rent: 17, maxOrders: 3,
-      spawn: [7.8, 6.3], limit: [72, 60],
-      friesChance: 0.5, cupChance: 0.45, twoCupChance: 0.12, maxTop: 2, maxSauce: 1,
-      unlocks: ['Sauce cups: BBQ, hot sauce, ketchup'] },
+    { name: 'Sauce Boss', tag: 'Mayo and BBQ bottles on the back wall.',
+      seconds: 170, rent: 14, maxOrders: 3, grace: 1.3,
+      spawn: [10.0, 8.6], limit: [92, 84],
+      friesChance: 0.45, cupChance: 0, twoCupChance: 0, maxTop: 2, maxSauce: 1,
+      tops: ALL_TOPS, sauces: ['mayo', 'bbq'], cups: [],
+      howto: 'Squeeze a bottle onto a sandwich just like adding a topping.',
+      unlocks: ['Mayo', 'BBQ sauce'] },
+
+    { name: 'Turn Up the Heat', tag: 'Hot sauce, for the brave.',
+      seconds: 170, rent: 16, maxOrders: 3, grace: 1.2,
+      spawn: [9.5, 8.2], limit: [90, 80],
+      friesChance: 0.45, cupChance: 0, twoCupChance: 0, maxTop: 2, maxSauce: 2,
+      tops: ALL_TOPS, sauces: ALL_SAUCES, cups: [],
+      howto: 'Some sandwiches want two sauces now. Read the ticket twice.',
+      unlocks: ['Hot sauce'] },
+
+    { name: 'Sides Please', tag: 'Ketchup cups to go.',
+      seconds: 175, rent: 18, maxOrders: 3, grace: 1.1,
+      spawn: [9.0, 7.8], limit: [88, 78],
+      friesChance: 0.5, cupChance: 0.4, twoCupChance: 0, maxTop: 2, maxSauce: 2,
+      tops: ALL_TOPS, sauces: ALL_SAUCES, cups: ['ketchup'],
+      howto: 'Take a cup, fill it at the ketchup bottle, add it to the plate.',
+      unlocks: ['Ketchup cups'] },
+
+    { name: 'Dip Into It', tag: 'BBQ and hot sauce come in cups too.',
+      seconds: 180, rent: 21, maxOrders: 3, grace: 1.0,
+      spawn: [8.4, 7.2], limit: [84, 74],
+      friesChance: 0.5, cupChance: 0.5, twoCupChance: 0.15, maxTop: 2, maxSauce: 2,
+      tops: ALL_TOPS, sauces: ALL_SAUCES, cups: ALL_CUPS,
+      howto: 'Some tickets want two cups. Two of the same counts as two.',
+      unlocks: ['BBQ and hot sauce cups'] },
 
     { name: 'Lunch Rush', tag: 'Four tickets on the rail at once.',
-      seconds: 180, rent: 21, maxOrders: 4,
-      spawn: [6.8, 5.4], limit: [68, 55],
+      seconds: 185, rent: 25, maxOrders: 4, grace: 1.0,
+      spawn: [7.4, 6.0], limit: [76, 64],
       friesChance: 0.55, cupChance: 0.5, twoCupChance: 0.2, maxTop: 2, maxSauce: 2,
+      tops: ALL_TOPS, sauces: ALL_SAUCES, cups: ALL_CUPS,
+      howto: 'Helpers earn their keep now. Hire some in the shop.',
       unlocks: ['A fourth ticket', 'Shorter tempers'] },
 
     { name: 'The Works', tag: 'Everything on everything.',
-      seconds: 190, rent: 26, maxOrders: 4,
-      spawn: [6.0, 4.6], limit: [64, 50],
+      seconds: 190, rent: 30, maxOrders: 4, grace: 1.0,
+      spawn: [6.6, 5.0], limit: [70, 56],
       friesChance: 0.6, cupChance: 0.55, twoCupChance: 0.3, maxTop: 3, maxSauce: 3,
+      tops: ALL_TOPS, sauces: ALL_SAUCES, cups: ALL_CUPS,
+      howto: 'Fully loaded sandwiches. Save Feather Frenzy for a full rail.',
       unlocks: ['Fully loaded sandwiches'] }
   ];
 
@@ -170,10 +226,11 @@ window.CS = window.CS || {};
     l.day = day;
     l.name = 'Overtime ' + over;
     l.tag = 'No end in sight. Keep frying.';
-    l.rent = 26 + over * 4;
-    l.spawn = [Math.max(3.2, 6.0 - over * 0.45), Math.max(2.6, 4.6 - over * 0.40)];
-    l.limit = [Math.max(44, 64 - over * 3), Math.max(34, 50 - over * 3)];
+    l.rent = 30 + over * 4;
+    l.spawn = [Math.max(3.4, 6.6 - over * 0.40), Math.max(2.8, 5.0 - over * 0.35)];
+    l.limit = [Math.max(46, 70 - over * 3), Math.max(36, 56 - over * 3)];
     l.unlocks = [];
+    l.howto = '';
     return l;
   };
 
@@ -244,6 +301,30 @@ window.CS = window.CS || {};
       blurb: 'Sets out plates with the bun on, fills ketchup cups and adds them to your plates.',
       jobs: ['plate', 'cup:ketchup'],
       speed: 4.4, act: 0.32
+    },
+    egg: {
+      name: 'Clucky', role: 'Grill Cook', hire: 95,
+      wageShare: 0.07, wageMin: 1.50, wageMax: 22.00,
+      tint: 0xf4ead2,
+      blurb: 'Fries chicken and lays it on any bun that is waiting for it.',
+      jobs: ['chicken'],
+      speed: 4.3, act: 0.36
+    },
+    lettuce: {
+      name: 'Sprout', role: 'Garnish Hand', hire: 120,
+      wageShare: 0.06, wageMin: 1.25, wageMax: 18.00,
+      tint: 0x6fbf3a,
+      blurb: 'Dresses plated sandwiches with whatever toppings the ticket asks for.',
+      jobs: ['dress:top'],
+      speed: 4.4, act: 0.34
+    },
+    mushroom: {
+      name: 'Button', role: 'Runner', hire: 150,
+      wageShare: 0.08, wageMin: 2.00, wageMax: 24.00,
+      tint: 0xd8423a,
+      blurb: 'Carries any finished plate that matches a ticket out through the window.',
+      jobs: ['serve'],
+      speed: 4.6, act: 0.30
     }
   };
 
@@ -265,8 +346,60 @@ window.CS = window.CS || {};
         blurb: '+40% walking speed.', mult: { speed: 1.4 } },
       { id: 'tomato-hands',  name: 'Quick Thumbs', cost: 95,
         blurb: 'Works a station 35% faster.', mult: { act: 0.65 } }
+    ],
+    egg: [
+      { id: 'egg-fries', name: 'Two Baskets', cost: 100,
+        blurb: 'Clucky learns to fry potatoes too.', adds: ['fries'] },
+      { id: 'egg-boots', name: 'Non-Slip Boots', cost: 70,
+        blurb: '+40% walking speed.', mult: { speed: 1.4 } },
+      { id: 'egg-hands', name: 'Heatproof Shell', cost: 95,
+        blurb: 'Works a station 35% faster.', mult: { act: 0.65 } }
+    ],
+    lettuce: [
+      { id: 'lettuce-sauce', name: 'Squeeze Bottle Licence', cost: 110,
+        blurb: 'Sprout learns to sauce sandwiches as well.', adds: ['dress:sauce'] },
+      { id: 'lettuce-boots', name: 'Non-Slip Boots', cost: 70,
+        blurb: '+40% walking speed.', mult: { speed: 1.4 } },
+      { id: 'lettuce-hands', name: 'Nimble Leaves', cost: 95,
+        blurb: 'Works a station 35% faster.', mult: { act: 0.65 } }
+    ],
+    mushroom: [
+      { id: 'mushroom-boots', name: 'Roller Skates', cost: 90,
+        blurb: '+50% walking speed.', mult: { speed: 1.5 } },
+      { id: 'mushroom-hands', name: 'Steady Tray', cost: 80,
+        blurb: 'Picks up and hands over 35% faster.', mult: { act: 0.65 } }
     ]
   };
+
+  /* ---------------------------------------------------------- the chef
+     Sandy levels up as she cooks. Every order served is experience, a level
+     is a skill point, and points buy ranks in the skills below from the shop.
+     `per` is what one rank is worth; game.js and orders.js read the totals
+     through CS.econ.skill(id). Feather Frenzy is the one active power: press
+     Q (or the POWER button) for a burst of speed while the queue's patience
+     stops draining.                                                        */
+  CS.XP = { perOrder: 10, perExtra: 2, perTip: 3, perDay: 25 };
+  CS.xpToNext = function (level) { return 60 + (level - 1) * 45; };
+
+  CS.SKILLS = [
+    { id: 'feet',   name: 'Quick Feet',     max: 3, per: 0.08,
+      blurb: '+8% waddle speed per rank.' },
+    { id: 'dash',   name: 'Hot Wings',      max: 3, per: 0.18,
+      blurb: 'Dash recharges 18% faster per rank.' },
+    { id: 'flap',   name: 'Extra Flap',     max: 2, per: 1,
+      blurb: 'One more flap in the air per rank.' },
+    { id: 'reach',  name: 'Long Neck',      max: 2, per: 0.45,
+      blurb: 'Reach stations from a little further away.' },
+    { id: 'sizzle', name: 'Sizzle Sense',   max: 3, per: 0.12,
+      blurb: 'Food sits 12% longer in the oil before it burns, per rank.' },
+    { id: 'charm',  name: 'Charming Cluck', max: 3, per: 0.06,
+      blurb: 'Customers wait 6% longer per rank.' },
+    { id: 'tips',   name: 'Golden Feathers', max: 3, per: 0.15,
+      blurb: '+15% on every tip per rank.' },
+    { id: 'frenzy', name: 'Feather Frenzy', max: 3, per: 2.5,
+      blurb: 'Active power (Q): a burst of speed and the queue stops getting impatient. Each rank lasts longer.' }
+  ];
+  CS.FRENZY = { base: 4.5, speed: 1.45, cooldown: 50 };
 
   /* ------------------------------------------------------------ upgrades
      Three kinds, and the kind decides what buying one actually does:
@@ -335,28 +468,31 @@ window.CS = window.CS || {};
   };
 
   /* ----------------------------------------------------------- customers
-     One entry per species. `fur`/`belly`/`snout` colour the shared chunky
-     body; the rest are the features CS.models.customer() bolts on. Ears are
-     'point' | 'droop' | 'tall' | 'round' | 'flop' | 'none', tails are
-     'up' | 'wag' | 'puff' | 'curl' | 'bush' | 'none'. `tint` is what shows on
-     the ticket, so keep the seven readably different from each other. */
+     The queue is a parade of fantasy-RPG regulars: moogles, chocobos, mages
+     and monsters on their lunch break. `look` picks the build in
+     CS.models.customer(); `fur`/`belly` colour the shared chunky body and
+     `trim` is a second accent (robe hem, wings, crown...). Tails are
+     'up' | 'wag' | 'none' and only steer how orders.js sways them. `tint` is
+     what shows on the ticket, so keep them readably different. */
   CS.CRITTERS = [
-    { name: 'Cat',    fur: 0xf0a24a, belly: 0xfbe6c8, snout: 0xfbe6c8, nose: 0xe0736b,
-      ears: 'point', tail: 'up',   stripes: true,  tint: 0xf0a24a },
-    { name: 'Pup',    fur: 0xf7c26b, belly: 0xfff1d8, snout: 0xfff1d8, nose: 0x2a201a,
-      ears: 'droop', tail: 'wag',  patch: true,   tint: 0xf7c26b },
-    { name: 'Bunny',  fur: 0xf2eee6, belly: 0xffffff, snout: 0xffffff, nose: 0xe89aa8,
-      ears: 'tall',  tail: 'puff', tint: 0xe6dfd2 },
-    { name: 'Bear',   fur: 0xb7a2ee, belly: 0xefe6ff, snout: 0xefe6ff, nose: 0x2a201a,
-      ears: 'round', tail: 'none', tint: 0xb7a2ee },
-    { name: 'Piglet', fur: 0xf0a3ae, belly: 0xffd0d6, snout: 0xffb6c1, nose: 0xd4737f,
-      ears: 'flop',  tail: 'curl', tint: 0xf0a3ae },
-    { name: 'Fox',    fur: 0xd9622c, belly: 0xf6eadd, snout: 0xf6eadd, nose: 0x2a201a,
-      ears: 'point', tail: 'bush', tipped: true,  tint: 0xd9622c },
-    { name: 'Frog',   fur: 0x74b84a, belly: 0xd3e8a8, snout: 0xd3e8a8, nose: 0x3e6b25,
-      ears: 'none',  tail: 'none', bigEyes: true, tint: 0x74b84a },
-    { name: 'Mouse',  fur: 0xa9bde0, belly: 0xeef3fb, snout: 0xeef3fb, nose: 0xe08fa0,
-      ears: 'round', tail: 'none', bigEars: true, tint: 0xa9bde0 }
+    { name: 'Moogle',      look: 'moogle',   fur: 0xf6f1ea, belly: 0xffffff, trim: 0x7a5aa8,
+      nose: 0xd8455e, tail: 'none', tint: 0xd8455e },
+    { name: 'Chocobo',     look: 'chocobo',  fur: 0xf5cf3a, belly: 0xfbe38a, trim: 0xe8892a,
+      tail: 'wag', tint: 0xf5cf3a },
+    { name: 'Cactuar',     look: 'cactuar',  fur: 0x74b84a, belly: 0x8fcf5e, trim: 0xf0d860,
+      tail: 'none', tint: 0x74b84a },
+    { name: 'Tonberry',    look: 'tonberry', fur: 0x6aa35a, belly: 0xa6cc8a, trim: 0x7a5534,
+      tail: 'up', tint: 0x8a6440 },
+    { name: 'Bomb',        look: 'bomb',     fur: 0xe8642a, belly: 0xf08a3a, trim: 0xffd23c,
+      tail: 'none', tint: 0xf08a24 },
+    { name: 'Black Mage',  look: 'blackmage', fur: 0x2f4a9a, belly: 0x3a5ab0, trim: 0xc9a35a,
+      tail: 'none', tint: 0x3a5ab0 },
+    { name: 'White Mage',  look: 'whitemage', fur: 0xf4f0ea, belly: 0xffffff, trim: 0xc8302e,
+      skin: 0xf2cfae, tail: 'none', tint: 0xeee6da },
+    { name: 'Cait Sith',   look: 'caitsith', fur: 0x3c3744, belly: 0xf2efe8, trim: 0xc8302e,
+      tail: 'up', tint: 0x9a7bc8 },
+    { name: 'Mandragora',  look: 'mandragora', fur: 0xe2b98a, belly: 0xf0d2a8, trim: 0x4fae3a,
+      tail: 'none', tint: 0xd9a066 }
   ];
 
   /* Where the dining room's front door is. world.js cuts the hole here and

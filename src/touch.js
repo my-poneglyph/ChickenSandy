@@ -104,6 +104,7 @@ window.CS = window.CS || {};
         CS.platform.haptic('medium');
       });
       bindButton(document.getElementById('tPause'), function () { CS.game.press('pause'); });
+      bindButton(document.getElementById('tPower'), function () { CS.game.press('power'); });
     },
 
     /* Let go of everything when the game is paused or a screen opens. */

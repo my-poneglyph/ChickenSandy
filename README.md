@@ -128,6 +128,7 @@ expanded layout. Add `?tgfs=0` to the URL to opt out and test the windowed layou
 | `Space` | Jump — press again in the air to **flap** (two flaps per jump) |
 | `Space` (held while falling) | Glide down slowly |
 | `Shift` | Dash |
+| `Q` | **Feather Frenzy**, once learnt (the `POWER` button on a phone) |
 | Mouse click | Use a station you're standing next to |
 | `C` | Switch camera — **Close** / **Overview** / **Behind** |
 | `Esc` | Pause (also shows the how-to-play panel) |
@@ -153,6 +154,35 @@ walking round. Walls are treated as infinitely tall, so no amount of flapping ge
 you out of the shop.
 
 The dash cooldown and your remaining flaps are shown in the bottom-left panel.
+
+**Everyone is solid.** Sandy and her helpers bump into each other rather than walking
+through one another; an overlapping pair is pushed apart with a little sideways slip,
+so two of them meeting head-on in a one-tile aisle step round each other instead of
+wedging. Hop and you sail over a helper. Customers in the dining room do the same
+among themselves.
+
+### Levelling up
+
+Sandy earns **XP** for every order that goes out of the window (more for fussier
+orders and for tips), and a chunk for a day that pays its way. Each level is a
+**skill point**, spent in the shop under *Chef Sandy*:
+
+| Skill | Ranks | Per rank |
+| --- | --- | --- |
+| Quick Feet | 3 | +8% waddle speed |
+| Hot Wings | 3 | Dash recharges 18% faster |
+| Extra Flap | 2 | One more flap per jump |
+| Long Neck | 2 | Reach stations from further away |
+| Sizzle Sense | 3 | Food sits 12% longer before it burns |
+| Charming Cluck | 3 | Customers wait 6% longer |
+| Golden Feathers | 3 | +15% on every tip |
+| Feather Frenzy | 3 | Active power: see below |
+
+**Feather Frenzy** (`Q`) is a burst of speed during which the queue stops getting
+impatient: 7s at rank 1, up to 12s at rank 3, then a 50s recharge. Its meter sits
+next to the dash and flap readout. The level and XP bar are top-right in the HUD.
+Skills, like everything else, live in `src/config.js` (`CS.SKILLS`, `CS.XP`,
+`CS.FRENZY`).
 
 ### Camera views
 
@@ -191,7 +221,8 @@ middle of the kitchen are where you park a plate while your wings are busy.
 3. **Chicken crate → Fryer** — raw chicken fries in about 7.5s, then you have ~7s
    before it burns. **Potato bin → Fryer** for fries: ~5.5s, then ~6s of grace.
    A floating bar above the fryer goes green while cooking, amber while it's sitting
-   in the oil, and red once it's ruined.
+   in the oil, and red once it's ruined. The early days are kinder: on Day 1 food
+   sits twice as long before it burns, easing back to normal by Day 9.
 4. **Toppings** — lettuce, tomato, pickles (hold the plate, press `E` at the tray).
 5. **Sauces** — mayo, BBQ, hot sauce squeeze onto the sandwich. Ketchup is
    cup-only.
@@ -206,8 +237,9 @@ you can see the stack you've actually built.
 
 ### The customers
 
-The people you are cooking for are an assortment of small animals — a cat, a pup, a
-bunny, a bear, a piglet, a fox, a frog and a mouse — and they run the whole loop in
+The people you are cooking for are fantasy-RPG regulars on their lunch break — a
+moogle, a chocobo, a cactuar, a tonberry with its lantern, a bomb, a black mage, a
+white mage, Cait Sith in his crown and a mandragora — and they run the whole loop in
 the dining room, in view through the serving window:
 
 1. **They arrive.** A customer appears on the porch outside, the shop bell rings, and
@@ -222,18 +254,16 @@ the dining room, in view through the serving window:
    goes out the same door. One who ran out of patience skips the hop and stomps out
    faster, shaking their head.
 
-Species are dealt so that no two customers in the queue at once are the same animal
+Characters are dealt so that no two customers in the queue at once are the same
 (until the queue is longer than the roster), and the coloured square on each ticket
-is that animal's fur colour, so you can tell at a glance whose order is whose. Some
-of them wear a cap, picked off their seed, so two bunnies still read as two
-customers.
+is that character's colour, so you can tell at a glance whose order is whose. Each
+one is sized a touch differently off their seed, so two moogles are not twins.
 
-The whole roster lives in `CS.CRITTERS` in `src/config.js`: fur, belly and nose
-colours plus an ear shape (`point` / `droop` / `tall` / `round` / `flop` / `none`)
-and a tail (`up` / `wag` / `puff` / `curl` / `bush` / `none`). Body, arms and legs
-are the same rig for every species, which is what lets one walk cycle drive all of
-them — so adding a ninth animal is one entry in that array, as long as it keeps the
-`parts` names `orders.js` expects.
+The roster lives in `CS.CRITTERS` in `src/config.js`: a `look` that picks the costume
+in `CS.models.customer()`, body/belly/trim colours and a tail style. Body, arms and
+legs are the same rig for every character, which is what lets one walk cycle drive
+all of them — so adding a tenth is one entry in that array plus a `look` branch, as
+long as it keeps the `parts` names `orders.js` expects.
 
 ### Tips
 
@@ -292,20 +322,30 @@ the only thing that starts over, and only when you ask for it.
 takings evaporated, so the player who most needed an upgrade was exactly the one who
 could never bank enough to buy one.)
 
+The menu grows **one ingredient at a time**, so the first days are about learning to
+cook, not surviving. Day 1 is one customer at a time with two minutes of patience;
+each later day adds a single new thing, and the day card shows a one-line *How to*
+for it. A level's `tops`, `sauces` and `cups` lists say which ingredients a ticket
+may ask for, and `grace` stretches the burn timer while you are new.
+
 | Day | Name | Length | Rent | Tickets | What's new |
 | --- | --- | --- | --- | --- | --- |
-| 1 | Opening Day | 2:00 | $5 | 2 | Plate, bun, fried chicken — nothing else |
-| 2 | Fries Are Up | 2:20 | $7 | 2 | French fries |
-| 3 | Garden Fresh | 2:30 | $10 | 3 | Lettuce, tomato, pickles |
-| 4 | Sauce Boss | 2:40 | $13 | 3 | Mayo, BBQ, hot sauce |
-| 5 | Sides Please | 2:50 | $17 | 3 | Sauce cups to go |
-| 6 | Lunch Rush | 3:00 | $21 | 4 | A fourth ticket, shorter tempers |
-| 7 | The Works | 3:10 | $26 | 4 | Fully loaded sandwiches |
-| 8+ | Overtime *n* | 3:10 | +$4/day | 4 | Endless: faster arrivals, less patience |
+| 1 | Opening Day | 2:30 | $4 | 1 | Plain chicken sandwiches |
+| 2 | Finding Your Feet | 2:30 | $6 | 2 | A second ticket |
+| 3 | Fries Are Up | 2:40 | $8 | 2 | French fries |
+| 4 | Garden Fresh | 2:40 | $10 | 2 | Lettuce |
+| 5 | Salad Days | 2:45 | $12 | 3 | Tomato, pickles |
+| 6 | Sauce Boss | 2:50 | $14 | 3 | Mayo, BBQ sauce |
+| 7 | Turn Up the Heat | 2:50 | $16 | 3 | Hot sauce |
+| 8 | Sides Please | 2:55 | $18 | 3 | Ketchup cups |
+| 9 | Dip Into It | 3:00 | $21 | 3 | BBQ and hot sauce cups |
+| 10 | Lunch Rush | 3:05 | $25 | 4 | A fourth ticket, shorter tempers |
+| 11 | The Works | 3:10 | $30 | 4 | Fully loaded sandwiches |
+| 12+ | Overtime *n* | 3:10 | +$4/day | 4 | Endless: faster arrivals, less patience |
 
 Within a single day the spawn interval and customer patience interpolate from the
 day's `spawn[0]`/`limit[0]` to `spawn[1]`/`limit[1]`, and ticket complexity ramps
-with them — so the last minute of Day 7 is a very different shift from the first.
+with them — so the last minute of Day 11 is a very different shift from the first.
 
 ---
 
@@ -349,7 +389,9 @@ Between days you are in the shop, spending the profit. Four kinds of thing to bu
   you place it yourself in the kitchen editor.
 * **The building** — the Back Room adds two rows, the East Wing four columns. The
   wall moves out and anything mounted on it slides out with it.
-* **Staff** — see below.
+* **Helpers** — listed first, since hiring is the biggest decision before a day. See
+  below.
+* **Chef Sandy** — spend skill points; see *Levelling up*.
 
 Everything is saved to `localStorage` under `chickenSandy.shop.v1` the moment it
 changes, so the shop is still there when you come back. Telegram webviews can clear
@@ -358,14 +400,18 @@ wipes it.
 
 ### Hiring
 
-Two assistants, each with a trade, and both with the sense to help out beyond it.
+Five helpers, each with a trade, and all with the sense to help out beyond it.
 A thought bubble over each one's head shows what they are working on, and turns
-amber if they are stood holding something with nowhere to put it.
+amber if they are stood holding something with nowhere to put it. Whoever is on the
+payroll is named on the day card before you open.
 
 | | Hire | Wage | Makes |
 | --- | --- | --- | --- |
 | **Spud** the fry cook | $85 | 7% of takings, min $1.50 | Fries (chicken with training) |
 | **Dollop** the prep hand | $65 | 5% of takings, min $1.00 | Plates with the bun on, ketchup cups (BBQ and hot with training) |
+| **Clucky** the grill cook | $95 | 7% of takings, min $1.50 | Fried chicken onto waiting buns (fries with training) |
+| **Sprout** the garnish hand | $120 | 6% of takings, min $1.25 | Toppings on plated sandwiches (sandwich sauces with training) |
+| **Button** the runner | $150 | 8% of takings, min $2.00 | Carries any plate that matches a ticket out of the window |
 
 The wage is **a share of the day's takings**, not a flat fee. A flat wage punished
 exactly the days you could least afford it — a slow shift still owed the full amount.
@@ -383,9 +429,9 @@ In order of urgency, a hand will:
 
 Finished food goes **straight onto a plate** on a counter when a ticket wants it
 there, and otherwise onto the free counter nearest the serving window, so you always
-know where to look. Between the two of them they will put together most of a plate —
-Dollop sets out the bun, Spud drops the chicken on it, Dollop adds the cups — and
-leave you the toppings, the sandwich sauces and the serving.
+know where to look. Between them they can put together a whole plate — Dollop sets
+out the bun, Clucky drops the chicken on it, Sprout dresses it, Dollop adds the cups
+and Button carries it out — though a full crew costs real wages.
 
 The rules that keep them out of your way:
 
@@ -395,8 +441,9 @@ The rules that keep them out of your way:
   they find another. A hand with nowhere to put food keeps hold of it and waits.
 * **A hand only adds to a plate if the result still matches an open ticket**, so they
   can fill a plate in but never spoil one.
-* They never take the last free counter for anything that is not urgent, never touch
-  the serving window, and never put toppings or sandwich sauces on.
+* They never take the last free counter for anything that is not urgent. Only the
+  runner touches the serving window, and only the garnish hand puts toppings or
+  sandwich sauces on — and only ones an open ticket is still asking for.
 
 Work is **demand-driven**: a hand reads the live ticket rail and nets it against
 everything already in the pipeline — on the counters, in the fryers, in your wings,

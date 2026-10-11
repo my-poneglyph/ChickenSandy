@@ -77,18 +77,20 @@ window.CS = window.CS || {};
       var def = CS.STAFF_DEFS[kind];
       var hired = CS.econ.hired(kind);
       var pct = Math.round(def.wageShare * 100);
+      var dot = '<i style="display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;' +
+        'border:2px solid #14203d;background:#' + ('000000' + def.tint.toString(16)).slice(-6) + '"></i>';
       var terms = pct + '% of the day\'s takings, at least ' + CS.money(def.wageMin);
       if (!hired) {
         var can = CS.econ.state.wallet >= def.hire
           ? { ok: true } : { ok: false, why: 'Not enough money' };
-        out += row('hire:' + kind, def.name + ' &#183; ' + def.role,
+        out += row('hire:' + kind, dot + def.name + ' &#183; ' + def.role,
           def.blurb + ' &#183; ' + terms, def.hire, can);
         return;
       }
       var crew = CS.econ.crew().filter(function (c) { return c.kind === kind; })[0];
       out += '<div class="buyrow hired"><div class="buyname">' +
-        def.name + ' &#183; ' + def.role +
-        '<span>on ' + terms + ' &#183; makes ' +
+        dot + def.name + ' &#183; ' + def.role +
+        '<span>on ' + terms + ' &#183; handles ' +
         jobWords(crew.jobs) + ', and saves any basket about to burn' +
         '</span></div><button class="buy off" disabled>HIRED</button></div>';
       (CS.TRAINING[kind] || []).forEach(function (t) {
@@ -106,8 +108,39 @@ window.CS = window.CS || {};
       if (j === 'fries') return 'fries';
       if (j === 'chicken') return 'fried chicken';
       if (j === 'plate') return 'bun plates';
+      if (j === 'serve') return 'deliveries to the window';
+      if (j === 'dress:top') return 'toppings';
+      if (j === 'dress:sauce') return 'sandwich sauces';
       return CS.ING[j.slice(4)].label.toLowerCase() + ' cups';
     }).join(', ');
+  }
+
+  /* Sandy's level, her unspent points, and a row per skill. */
+  function chefHTML() {
+    var c = CS.econ.state.chef;
+    var need = CS.xpToNext(c.level);
+    var out = '<div class="buyrow hired"><div class="buyname">Chef Sandy &#183; Level ' + c.level +
+      '<span>' + c.xp + ' / ' + need + ' XP to the next level &#183; every order served earns XP</span></div>' +
+      '<b class="skillpts">' + c.points + ' POINT' + (c.points === 1 ? '' : 'S') + '</b></div>';
+    CS.SKILLS.forEach(function (s) {
+      var r = CS.econ.skillRank(s.id);
+      var pips = '';
+      for (var i = 0; i < s.max; i++) pips += i < r ? '&#9670;' : '&#9671;';
+      var state = r >= s.max ? { ok: false, why: 'MASTERED' }
+        : (c.points > 0 ? { ok: true } : { ok: false, why: 'Level up to earn a skill point' });
+      out += skillRow(s, pips, state);
+    });
+    return out;
+  }
+
+  function skillRow(s, pips, state) {
+    var label = state.ok ? 'LEARN' : (state.why === 'MASTERED' ? 'MASTERED' : '1 POINT');
+    return '<div class="buyrow' + (state.ok ? '' : ' dim') + '">' +
+      '<div class="buyname">' + s.name + ' <b class="skillpts">' + pips + '</b>' +
+      '<span>' + s.blurb + '</span>' +
+      (!state.ok && state.why !== 'MASTERED' ? '<em>' + state.why + '</em>' : '') + '</div>' +
+      '<button class="buy' + (state.ok ? '' : ' off') + '" data-buy="skill:' + s.id + '"' +
+      (state.ok ? '' : ' disabled') + '>' + label + '</button></div>';
   }
 
   function headerHTML() {
@@ -131,6 +164,7 @@ window.CS = window.CS || {};
     card.querySelector('#sParts').innerHTML = partsHTML();
     card.querySelector('#sLand').innerHTML = landHTML();
     card.querySelector('#sStaff').innerHTML = staffHTML();
+    card.querySelector('#sChef').innerHTML = chefHTML();
     bind();
   }
 
@@ -143,7 +177,10 @@ window.CS = window.CS || {};
 
   function buy(key) {
     var res;
-    if (key.indexOf('hire:') === 0) res = CS.econ.hire(key.slice(5));
+    if (key.indexOf('skill:') === 0) {
+      res = CS.econ.learn(key.slice(6));
+      if (res.ok) { CS.audio.fanfare(); CS.ui.toast('Skill learnt!', 'good'); render(); return; }
+    } else if (key.indexOf('hire:') === 0) res = CS.econ.hire(key.slice(5));
     else if (key.indexOf('train:') === 0) {
       var bits = key.split(':');
       res = CS.econ.train(bits[1], bits[2]);
@@ -162,11 +199,13 @@ window.CS = window.CS || {};
       card = CS.ui.showScreen(
         '<h1>THE SHOP</h1>' +
         '<div id="sHead"></div>' +
+        // the helpers lead the list: hiring is the biggest decision before a day
         '<div class="shopscroll">' +
+        '<h3>Helpers &#183; hire them before you open</h3><div id="sStaff"></div>' +
+        '<h3>Chef Sandy &#183; skills</h3><div id="sChef"></div>' +
         '<h3>Equipment</h3><div id="sGear"></div>' +
         '<h3>Kit &#183; buy it, then place it in the kitchen</h3><div id="sParts"></div>' +
         '<h3>The Building</h3><div id="sLand"></div>' +
-        '<h3>Staff</h3><div id="sStaff"></div>' +
         '</div>' +
         '<div class="krow">' +
         '<button class="btn" id="sEdit">KITCHEN</button>' +

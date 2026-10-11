@@ -34,8 +34,17 @@ window.CS = window.CS || {};
       stock: {},        // partId -> how many bought but not yet placed
       staff: [],        // [{ kind, training: [id, ...] }]
       layout: null,     // CS.layout.serialize()
-      career: { days: 0, served: 0, earned: 0, tips: 0, best: 0 }
+      career: { days: 0, served: 0, earned: 0, tips: 0, best: 0 },
+      chef: blankChef()
     };
+  }
+
+  /* Sandy's own progress: experience, level, unspent points, skill ranks. */
+  function blankChef() { return { xp: 0, level: 1, points: 0, skills: {} }; }
+
+  function skillDef(id) {
+    for (var i = 0; i < CS.SKILLS.length; i++) if (CS.SKILLS[i].id === id) return CS.SKILLS[i];
+    return null;
   }
 
   function upgrade(id) {
@@ -69,6 +78,17 @@ window.CS = window.CS || {};
         .map(function (h) { return { kind: h.kind, training: (h.training || []).slice() }; });
       if (d.career) for (var k in s.career) {
         if (typeof d.career[k] === 'number') s.career[k] = d.career[k];
+      }
+      // saves from before the chef could level up simply start her at 1
+      if (d.chef && typeof d.chef === 'object') {
+        s.chef.xp = Math.max(0, +d.chef.xp || 0);
+        s.chef.level = Math.max(1, parseInt(d.chef.level, 10) || 1);
+        s.chef.points = Math.max(0, parseInt(d.chef.points, 10) || 0);
+        var sk = d.chef.skills || {};
+        CS.SKILLS.forEach(function (def) {
+          var r = parseInt(sk[def.id], 10) || 0;
+          if (r > 0) s.chef.skills[def.id] = Math.min(def.max, r);
+        });
       }
       E.state = s;
 
@@ -136,6 +156,42 @@ window.CS = window.CS || {};
       } else {
         E.state.owned.push(u.id);
       }
+      E.save();
+      return { ok: true };
+    },
+
+    /* ------------------------------------------------------------ the chef
+       XP lands as it is earned during a shift, but only reaches the disk
+       when the day settles -- quitting mid-shift loses it along with the
+       till, which keeps the two honest with each other. Returns how many
+       levels were gained, so the caller can make a fuss about it. */
+    gainXP: function (n) {
+      var c = E.state.chef, ups = 0;
+      c.xp += Math.max(0, Math.round(n));
+      while (c.xp >= CS.xpToNext(c.level)) {
+        c.xp -= CS.xpToNext(c.level);
+        c.level++;
+        c.points++;
+        ups++;
+      }
+      return ups;
+    },
+
+    /* The total a skill is worth right now: ranks x its `per`. */
+    skill: function (id) {
+      var def = skillDef(id);
+      return def ? (E.state.chef.skills[id] || 0) * def.per : 0;
+    },
+    skillRank: function (id) { return E.state.chef.skills[id] || 0; },
+
+    learn: function (id) {
+      var def = skillDef(id), c = E.state.chef;
+      if (!def) return { ok: false, why: '' };
+      var r = c.skills[id] || 0;
+      if (r >= def.max) return { ok: false, why: 'Mastered' };
+      if (c.points < 1) return { ok: false, why: 'Needs a skill point' };
+      c.points--;
+      c.skills[id] = r + 1;
       E.save();
       return { ok: true };
     },
@@ -368,10 +424,13 @@ window.CS = window.CS || {};
   CS.cookDef = function (k) {
     var base = CS.COOK[k];
     if (!base) return null;
+    // the early days are forgiving about a basket left in a bit long
+    var lv = CS.orders && CS.orders.level;
+    var gentle = lv && lv.grace ? lv.grace : 1;
     return {
       done: base.done, burnt: base.burnt, label: base.label,
       cook: base.cook * E.mod('fryCook'),
-      grace: base.grace * E.mod('fryGrace')
+      grace: base.grace * E.mod('fryGrace') * gentle * (1 + E.skill('sizzle'))
     };
   };
 

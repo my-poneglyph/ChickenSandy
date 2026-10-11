@@ -36,7 +36,30 @@ window.CS = window.CS || {};
         'dashBar', 'flapPips', 'tDash', 'tJump',
         'tickets', 'heldName', 'heldDetail', 'hint', 'hintText',
         'toasts', 'screen', 'btnMute', 'btnPix', 'btnHelp', 'btnCam',
-        'loading', 'hud'].forEach(function (id) { el[id] = $(id); });
+        'loading', 'hud', 'chefLv', 'xpBar', 'powerWrap', 'powerBar', 'tPower']
+        .forEach(function (id) { el[id] = $(id); });
+    },
+
+    /* Sandy's level and how far she is through it. */
+    setChef: function (c) {
+      if (!el.chefLv) return;
+      el.chefLv.textContent = 'Lv ' + c.level;
+      var f = CS.clamp(c.xp / CS.xpToNext(c.level), 0, 1);
+      el.xpBar.firstElementChild.style.width = (f * 100).toFixed(1) + '%';
+    },
+
+    /* Feather Frenzy: hidden until learnt, then a meter that drains while it
+       runs and refills while it recharges. */
+    setPower: function (known, frac, live) {
+      if (el.powerWrap) el.powerWrap.classList.toggle('hidden', !known);
+      if (el.tPower) {
+        el.tPower.classList.toggle('hidden', !known);
+        el.tPower.classList.toggle('live', live);
+        el.tPower.classList.toggle('cool', !live && frac < 1);
+      }
+      if (!known || !el.powerBar) return;
+      el.powerBar.className = 'm' + (live ? ' live' : (frac >= 1 ? ' ready' : ''));
+      el.powerBar.firstElementChild.style.width = (CS.clamp(frac, 0, 1) * 100).toFixed(0) + '%';
     },
 
     setLevel: function (lv) {
@@ -203,12 +226,14 @@ window.CS = window.CS || {};
           '<li><b>USE</b> — work the station you are next to</li>' +
           '<li><b>JUMP</b> — hop; tap again to <b>flap</b></li>' +
           '<li>Hold <b>JUMP</b> falling — glide</li>' +
-          '<li><b>DASH</b> — burst forward</li>'
+          '<li><b>DASH</b> — burst forward</li>' +
+          '<li><b>POWER</b> — Feather Frenzy, once learnt</li>'
         : '<li><b>WASD</b> / arrows — waddle</li>' +
           '<li><b>E</b> — use station</li>' +
           '<li><b>Space</b> — jump, then again to <b>flap</b></li>' +
           '<li><b>Hold Space</b> falling — glide</li>' +
           '<li><b>Shift</b> — dash</li>' +
+          '<li><b>Q</b> — Feather Frenzy, once learnt</li>' +
           '<li><b>C</b> — switch camera view</li>' +
           '<li><b>ESC</b> — pause</li>' +
           '<li><b>M</b> mute &nbsp; <b>P</b> pixel size</li>';
@@ -227,6 +252,12 @@ window.CS = window.CS || {};
         '<li>Bin mistakes in the <b>trash</b></li>' +
         '<li>Ticket must match <b>exactly</b></li>' +
         '<li>Fast serves build a <b>combo</b></li>' +
+        '</ul></div>' +
+        '<div class="col"><h3>GROWING</h3><ul>' +
+        '<li>New foods arrive <b>day by day</b></li>' +
+        '<li>Orders earn Sandy <b>XP</b></li>' +
+        '<li>Level up, spend <b>skill points</b></li>' +
+        '<li>Hire <b>helpers</b> in the shop</li>' +
         '</ul></div>' +
         '</div>';
     },
@@ -259,19 +290,29 @@ window.CS = window.CS || {};
           lv.unlocks.map(function (u) { return '<li>&#9656; <b>' + u + '</b></li>'; }).join('') +
           '</ul></div>'
         : '';
+      var howto = lv.howto
+        ? '<div class="col" style="flex:1 1 100%"><h3>HOW TO</h3><ul><li>' + lv.howto + '</li></ul></div>'
+        : '';
+      var crew = CS.econ.crew();
+      var crewLine = crew.length
+        ? '<p style="color:var(--gold)">On shift: ' + crew.map(function (h) {
+            return h.name + ' the ' + h.role;
+          }).join(', ') + '</p>'
+        : '';
       var mins = Math.floor(lv.seconds / 60), secs = lv.seconds % 60;
       var c = this.showScreen(
         '<h1>DAY ' + lv.day + '</h1>' +
         '<h2>' + lv.name.toUpperCase() + '</h2>' +
-        '<p>' + lv.tag + '</p>' +
-        '<div class="cols">' + unlocks +
+        '<p>' + lv.tag + '</p>' + crewLine +
+        '<div class="cols">' + unlocks + howto +
         '<div class="col"><h3>THE SHIFT</h3><ul>' +
         '<li>Length: <b>' + mins + ':' + (secs < 10 ? '0' : '') + secs + '</b></li>' +
         '<li>Rent: <b>' + CS.money(lv.rent) + '</b></li>' +
         (CS.econ.crew().length
           ? '<li>Wages: <b>' + CS.money(CS.econ.wageRange().min) + '+</b>, a share of takings</li>'
           : '') +
-        '<li>Tickets at once: <b>' + CS.orders.cap() + '</b></li>' +
+        '<li>Tickets at once: <b>' +
+          Math.min(CS.MAX_ORDERS_CAP, lv.maxOrders + CS.econ.mod('orders')) + '</b></li>' +
         '</ul></div>' +
         '<div class="col"><h3>REMINDERS</h3><ul>' +
         (CS.platform && CS.platform.coarse

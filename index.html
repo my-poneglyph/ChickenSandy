@@ -70,6 +70,13 @@
   .tgt{height:6px;background:#14203d;border:2px solid #14203d;margin-top:4px;}
   .tgt i{display:block;height:100%;background:var(--gold);width:0%;transition:width .3s ease-out;}
   .tgt.done i{background:var(--green);}
+  .tgt.xp i{background:#b58cff;}
+  #moves .mv.hidden, .tbtn.hidden{display:none;}
+  #moves .m.live i{background:#ff9a3c;}
+  .tbtn.power{grid-column:1 / span 2;grid-row:3;justify-self:center;width:72px;height:44px;border-radius:22px;
+    font-size:10px;background:#7a4fb8;border-color:#3f2668;box-shadow:inset 0 3px 0 #a07ade,0 4px 0 rgba(0,0,0,.45);}
+  .tbtn.power.live{background:#e8892a;border-color:#8a4a12;}
+  .skillpts{color:#b58cff;}
   #tgtLabel{font-size:8px;color:#d9c9a2;margin-top:3px;}
 
   /* fryer gauges — so you always know what is in the oil, in any camera mode */
@@ -528,6 +535,10 @@
       <div id="tgtLabel">rent $18.00</div>
     </div>
     <div class="panel stat"><div class="k">Combo</div><div class="v" id="combo">x1</div></div>
+    <div class="panel stat" id="chefwrap">
+      <div class="k">Chef</div><div class="v" id="chefLv">Lv 1</div>
+      <div class="tgt xp" id="xpBar"><i></i></div>
+    </div>
   </div>
 
   <div id="tickets"></div>
@@ -542,6 +553,7 @@
     <div class="panel" id="moves">
       <div class="mv"><div class="k">Dash &#183; Shift</div><div class="m ready" id="dashBar"><i></i></div></div>
       <div class="mv"><div class="k">Flap &#183; Space</div><div class="pips" id="flapPips"></div></div>
+      <div class="mv hidden" id="powerWrap"><div class="k">Frenzy &#183; Q</div><div class="m" id="powerBar"><i></i></div></div>
     </div>
   </div>
 
@@ -564,6 +576,7 @@
       <button class="tbtn jump" id="tJump">JUMP</button>
       <button class="tbtn dash" id="tDash">DASH</button>
       <button class="tbtn use" id="tUse">USE</button>
+      <button class="tbtn power hidden" id="tPower">POWER</button>
     </div>
   </div>
 </div>

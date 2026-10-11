@@ -99,6 +99,7 @@ window.CS = window.CS || {};
       this.coins.length = 0;
       this.level = level || CS.levelFor(1);
       this.spawnTimer = CS.FIRST_SPAWN;
+      this.frozen = false;
       nextId = 1;
     },
 
@@ -120,18 +121,23 @@ window.CS = window.CS || {};
       }
       if (!wantsSandwich && !wantsFries && !nCups) wantsSandwich = true;
 
+      // only what is on today's menu; older saves' levels fall back to all
+      var tops = lv.tops || CS.SANDWICH_TOPPINGS;
+      var sauces = lv.sauces || CS.SANDWICH_SAUCES;
+      var dips = (lv.cups && lv.cups.length) ? lv.cups : CS.CUP_SAUCES;
+
       var sandwich = null;
       if (wantsSandwich) {
-        var topCap = lv.maxTop ? Math.max(1, Math.round(lv.maxTop * (0.4 + 0.6 * cx))) : 0;
-        var sauceCap = lv.maxSauce ? Math.max(1, Math.round(lv.maxSauce * (0.4 + 0.6 * cx))) : 0;
+        var topCap = lv.maxTop && tops.length ? Math.max(1, Math.round(lv.maxTop * (0.4 + 0.6 * cx))) : 0;
+        var sauceCap = lv.maxSauce && sauces.length ? Math.max(1, Math.round(lv.maxSauce * (0.4 + 0.6 * cx))) : 0;
         sandwich = {
-          toppings: sample(CS.SANDWICH_TOPPINGS, topCap ? ri(topCap + 1) : 0),
-          sauces: sample(CS.SANDWICH_SAUCES, sauceCap ? ri(sauceCap + 1) : 0)
+          toppings: sample(tops, topCap ? ri(Math.min(topCap, tops.length) + 1) : 0),
+          sauces: sample(sauces, sauceCap ? ri(Math.min(sauceCap, sauces.length) + 1) : 0)
         };
       }
 
       var cups = [];
-      for (var i = 0; i < nCups; i++) cups.push(CS.pick(CS.CUP_SAUCES));
+      for (var i = 0; i < nCups; i++) cups.push(CS.pick(dips));
 
       var extra = sandwich ? sandwich.toppings.length + sandwich.sauces.length : 0;
 
@@ -139,7 +145,7 @@ window.CS = window.CS || {};
          more again -- which is the whole reason to pay for one. */
       var limit = (CS.lerp(lv.limit[0], lv.limit[1], progress)
         + extra * 5.0 + (wantsFries ? 9 : 0) + cups.length * 5.0)
-        * CS.econ.mod('patience');
+        * CS.econ.mod('patience') * (1 + CS.econ.skill('charm'));
 
       var t = {
         id: nextId++,
@@ -270,6 +276,31 @@ window.CS = window.CS || {};
       CS.audio.coins();
     },
 
+    /* ------------------------------------------------------- collisions
+       Nobody in the dining room walks through anybody else. Every pair
+       that overlaps is pushed apart, half each, with a little sideways slip
+       so two customers meeting head-on in the doorway step round each other
+       instead of standing nose to nose forever. */
+    separate: function () {
+      var R = 0.36, all = [];
+      this.list.forEach(function (o) { all.push(o.cust.group); });
+      this.leaving.forEach(function (c) { all.push(c.group); });
+      for (var i = 0; i < all.length; i++) {
+        for (var j = i + 1; j < all.length; j++) {
+          var a = all[i].position, b = all[j].position;
+          var dx = b.x - a.x, dz = b.z - a.z;
+          var d = Math.hypot(dx, dz);
+          if (d >= R * 2) continue;
+          if (d < 1e-4) { dx = 1; dz = 0; d = 1; }
+          var nx = dx / d, nz = dz / d, over = R * 2 - d;
+          var px = nx * over * 0.5 - nz * over * 0.25;
+          var pz = nz * over * 0.5 + nx * over * 0.25;
+          a.x -= px; a.z -= pz;
+          b.x += px; b.z += pz;
+        }
+      }
+    },
+
     relayout: function () {
       for (var i = 0; i < this.list.length; i++) {
         var spot = queueSpot(i);
@@ -295,7 +326,7 @@ window.CS = window.CS || {};
       /* ---- everyone in the queue: walk in, shuffle up, wait, fidget ---- */
       for (var i = this.list.length - 1; i >= 0; i--) {
         var o = this.list[i];
-        o.left -= dt;
+        if (!this.frozen) o.left -= dt;     // Feather Frenzy holds the queue still
         var c = o.cust, g = c.group, moved = 0;
         c.t += dt;
 
@@ -357,6 +388,8 @@ window.CS = window.CS || {};
           this.leaving.splice(j, 1);
         }
       }
+
+      this.separate();
 
       /* ---- tip coins arcing onto the counter ---- */
       for (var k = this.coins.length - 1; k >= 0; k--) {
