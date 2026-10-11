@@ -265,6 +265,25 @@ legs are the same rig for every character, which is what lets one walk cycle dri
 all of them — so adding a tenth is one entry in that array plus a `look` branch, as
 long as it keeps the `parts` names `orders.js` expects.
 
+### The castle grounds
+
+The shop no longer floats in a void. Outside it is a lawn with a cobbled path
+running right round the building, hedges and lamp posts along the walls, benches,
+a fountain, market stalls, a well, trees, and the castle's curtain wall and keep in
+the distance. Off-duty customers stroll the path, stop to wave at the shop, and
+step round each other.
+
+Land you have not bought yet is dressed too: a vegetable garden (with a scarecrow
+and a gardener) where the Back Room goes, a little orchard where the East Wing
+goes, and a pumpkin patch in the corner. Buying a wing clears its plot.
+
+It all lives in `src/grounds.js` and is built once, outside the kitchen's rebuild,
+because it sits entirely outside the full map grid. It is cheap enough for a phone:
+the static scenery is merged into a handful of meshes, each stroller's limbs are
+baked into one mesh per limb (about 10 draw calls instead of 40), phones get fewer
+strollers, and everything is kept out of the floor reflection and the shadow pass.
+Together it adds roughly 60 draw calls.
+
 ### Tips
 
 A customer served with time to spare leaves coins on the counter: the till rings, a

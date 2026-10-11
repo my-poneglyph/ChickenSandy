@@ -856,6 +856,7 @@ window.CS = window.CS || {};
     world = CS.world.rebuild(scene, world, { lowSpec: CS.platform.mobile });
     stations = world.stations;
     stations.forEach(function (st) { st.group.userData.station = st; });
+    CS.grounds.sync();          // a wing you just bought clears its garden
     S.target = null;
     CS.staff.clear();
     placePlayer(CS.SPAWN.col, CS.SPAWN.row);
@@ -1091,6 +1092,7 @@ window.CS = window.CS || {};
     CS.fx.update(dt);
     CS.steam.update(dt);
     CS.world.tick(clock.elapsedTime);
+    CS.grounds.update(dt);       // strollers keep walking behind menus too
 
     // ---- camera
     var cm = CAMS[camMode];
@@ -1199,6 +1201,8 @@ window.CS = window.CS || {};
     CS.mirror.auto(lowSpec);
     CS.orders.init(scene);
     CS.staff.init(scene);
+    // the castle grounds outside: built once, never rebuilt with the kitchen
+    CS.grounds.build(scene, { lowSpec: lowSpec });
 
     chef = CS.models.chef();
     chef.group.scale.setScalar(1.25);
