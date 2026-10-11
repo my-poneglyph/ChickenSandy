@@ -246,14 +246,14 @@ window.CS = window.CS || {};
        short blades, so it reads as grass from the kitchen camera. */
     grass: function () {
       var s = 256, k = canvas(s), x = k.x;
-      x.fillStyle = hex(0x6d9c46);
+      x.fillStyle = hex(0x5a8939);
       x.fillRect(0, 0, s, s);
-      blotches(x, s, [0x82b356, 0x5a8738, 0x78a84c, 0x93c062], 28, 18, 64, 0.38, 61);
+      blotches(x, s, [0x75a64a, 0x41692a, 0x689844, 0x82b052, 0x3a5f26], 34, 16, 66, 0.5, 61);
       var rng = rngFrom(62);
       x.lineWidth = 1.5;
       for (var i = 0; i < 700; i++) {
         var px = rng() * s, py = rng() * s, len = 3 + rng() * 5, lean = (rng() - 0.5) * 3;
-        x.strokeStyle = rgba(rng() < 0.5 ? 0x9ccf6a : 0x4c7a30, 0.55);
+        x.strokeStyle = rgba(rng() < 0.45 ? 0x9ccf6a : 0x33561f, 0.6);
         x.beginPath(); x.moveTo(px, py); x.lineTo(px + lean, py - len); x.stroke();
       }
       grain(x, s, 12, 63);

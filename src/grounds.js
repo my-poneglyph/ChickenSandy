@@ -44,8 +44,9 @@ window.CS = window.CS || {};
   var MAT = {};
   function mats() {
     if (MAT.paint) return MAT;
-    MAT.paint = CS.mat({ color: 0xffffff, rough: 0.82, vc: true });
-    MAT.stone = CS.mat({ color: 0xffffff, tex: 'grain', rough: 0.88, vc: true });
+    // a shade under full brightness, so the lit kitchen is what the eye goes to
+    MAT.paint = CS.mat({ color: 0xdcdcdc, rough: 0.82, vc: true });
+    MAT.stone = CS.mat({ color: 0xcfcfcf, tex: 'grain', rough: 0.88, vc: true });
     MAT.glow = CS.mat({ color: 0xffd27a, basic: true });
     return MAT;
   }
@@ -325,7 +326,7 @@ window.CS = window.CS || {};
     segs.forEach(function (g, i) {
       var L = g.len + PATH_W;
       var m = new THREE.Mesh(new THREE.PlaneGeometry(L, PATH_W),
-        CS.mat({ color: 0xd9cfc0, rough: 0.9 }));
+        CS.mat({ color: 0xb3a692, rough: 0.9 }));
       m.material = m.material.clone();
       m.material.map = CS.tex('stone').clone();
       m.material.map.needsUpdate = true;
@@ -338,7 +339,7 @@ window.CS = window.CS || {};
     });
     // and a spur from the north path up to the porch, where the queue comes in
     var spur = new THREE.Mesh(new THREE.PlaneGeometry(PATH_W, Math.abs(PN - (Z0 - 12.4)) + PATH_W),
-      CS.mat({ color: 0xd9cfc0, tex: 'stone', rep: [1, Math.round(Math.abs(PN - Z0 + 12.4) / 2.2)], rough: 0.9 }));
+      CS.mat({ color: 0xb3a692, tex: 'stone', rep: [1, Math.round(Math.abs(PN - Z0 + 12.4) / 2.2)], rough: 0.9 }));
     spur.rotation.x = -Math.PI / 2;
     spur.position.set(CS.DOOR_X, -0.045, (PN + Z0 - 12.4) / 2);
     scene.add(spur);
@@ -477,7 +478,7 @@ window.CS = window.CS || {};
       buildLoop();
 
       // ---- the lawn: one big plane under everything, unbought land included
-      var lawn = new THREE.Mesh(new THREE.PlaneGeometry(240, 240), CS.mat({ color: 0xffffff, rough: 0.95 }));
+      var lawn = new THREE.Mesh(new THREE.PlaneGeometry(240, 240), CS.mat({ color: 0xd8d8d8, rough: 0.95 }));
       lawn.material = lawn.material.clone();
       lawn.material.map = CS.texRepeat('grass', 240 / 6, 240 / 6);
       lawn.rotation.x = -Math.PI / 2;

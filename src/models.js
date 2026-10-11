@@ -175,6 +175,7 @@ window.CS = window.CS || {};
       m.updateMatrix();
       nm.getNormalMatrix(m.matrix);
       var g = m.geometry, P = g.attributes.position, N = g.attributes.normal, U = g.attributes.uv;
+      var C = g.attributes.color;            // an already-merged piece keeps its tints
       var c = m.userData.tint || white;
       for (var i = 0; i < P.count; i++) {
         v.fromBufferAttribute(P, i).applyMatrix4(m.matrix);
@@ -182,7 +183,8 @@ window.CS = window.CS || {};
         pos.push(v.x, v.y, v.z);
         nor.push(n.x, n.y, n.z);
         uv.push(U ? U.getX(i) : 0, U ? U.getY(i) : 0);
-        col.push(c.r, c.g, c.b);
+        if (C) col.push(C.getX(i) * c.r, C.getY(i) * c.g, C.getZ(i) * c.b);
+        else col.push(c.r, c.g, c.b);
       }
       if (g.index) {
         for (var j = 0; j < g.index.count; j++) idx.push(g.index.getX(j) + base);
@@ -199,6 +201,96 @@ window.CS = window.CS || {};
     geo.setIndex(idx);
     geo.computeBoundingSphere();
     return finishMesh(new THREE.Mesh(geo, material), 0, 0, 0);
+  };
+
+  /* Draw-call diet. Every distinct mesh is a draw call, and another one in
+     the shadow pass if it casts a shadow, which is what phones choke on.
+
+     CS.bake(rig) merges meshes that share a parent AND a material into one,
+     in place. Pivots stay where they are and so does every material, so a
+     baked chef, customer or sandwich looks and animates exactly as before --
+     it just costs a fraction of the draw calls.
+
+     CS.batchStatic(root, skip) goes further for things that never move: it
+     merges every opaque mesh under `root` that shares a material, wherever
+     it sits in the tree, into one mesh in root space. `skip` is a list of
+     objects (and everything under them) to leave alone because something
+     animates them. */
+  function bakeKey(o) {
+    var m = o.material;
+    if (!o.isMesh || !m || Array.isArray(m) || m.isShaderMaterial || o.isInstancedMesh) return null;
+    if (!o.geometry.attributes.normal || o.userData.noBake) return null;
+    return m.uuid + '|' + (o.castShadow ? 1 : 0) + (o.receiveShadow ? 1 : 0) + '|' + o.layers.mask;
+  }
+
+  function mergeGroup(list, into) {
+    var first = list[0];
+    var merged = CS.merge(list, first.material);
+    merged.castShadow = first.castShadow;
+    merged.receiveShadow = first.receiveShadow;
+    merged.layers.mask = first.layers.mask;
+    merged.geometry.userData.baked = true;
+    into.add(merged);
+    return merged;
+  }
+
+  /* Baked geometry is made fresh rather than shared out of the cache, so
+     whatever throws a baked model away (a plate served, a customer gone)
+     must hand it back to the GPU or a long session slowly fills memory. */
+  CS.dispose = function (obj) {
+    if (!obj) return;
+    obj.traverse(function (o) {
+      if (o.isMesh && o.geometry && o.geometry.userData.baked) o.geometry.dispose();
+    });
+  };
+
+  CS.bake = function (rig) {
+    var groups = {}, order = [];
+    rig.traverse(function (o) {
+      var k = bakeKey(o);
+      if (!k || !o.visible || !o.parent) return;
+      k = o.parent.uuid + '|' + k;
+      if (!groups[k]) { groups[k] = []; order.push(k); }
+      groups[k].push(o);
+    });
+    order.forEach(function (k) {
+      var list = groups[k];
+      if (list.length < 2) return;
+      var parent = list[0].parent;
+      list.forEach(function (m) { parent.remove(m); });
+      mergeGroup(list, parent);
+    });
+    return rig;
+  };
+
+  CS.batchStatic = function (root, skip) {
+    var skipSet = {};
+    (skip || []).forEach(function (o) { if (o) skipSet[o.uuid] = true; });
+    root.updateMatrixWorld(true);
+    var inv = new THREE.Matrix4().copy(root.matrixWorld).invert();
+    var groups = {}, order = [];
+    (function walk(o) {
+      if (skipSet[o.uuid] || !o.visible) return;
+      var k = o !== root ? bakeKey(o) : null;
+      if (k && !o.material.transparent) {
+        if (!groups[k]) { groups[k] = []; order.push(k); }
+        groups[k].push(o);
+      }
+      o.children.slice().forEach(walk);
+    })(root);
+    var merged = 0;
+    order.forEach(function (k) {
+      var list = groups[k];
+      if (list.length < 2) return;
+      list.forEach(function (m) {
+        m.matrix.multiplyMatrices(inv, m.matrixWorld);
+        m.matrix.decompose(m.position, m.quaternion, m.scale);
+        m.parent.remove(m);
+      });
+      mergeGroup(list, root);
+      merged += list.length;
+    });
+    return merged;
   };
 
   /* A point on the surface of an ellipsoid, using SphereGeometry's angles:
@@ -390,6 +482,7 @@ window.CS = window.CS || {};
     body.add(parts.hands);
 
     g.traverse(function (o) { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+    CS.bake(g);                 // same look, a fraction of the draw calls
     return { group: g, parts: parts };
   };
 
@@ -716,6 +809,7 @@ window.CS = window.CS || {};
     g.scale.setScalar(sz);
 
     g.traverse(function (o) { if (o.isMesh) o.castShadow = true; });
+    CS.bake(g);                 // same look, a fraction of the draw calls
     return { group: g, parts: parts, species: C };
   };
 
@@ -966,6 +1060,7 @@ window.CS = window.CS || {};
       }
     }
     g.traverse(function (o) { if (o.isMesh) o.castShadow = true; });
+    CS.bake(g);                 // same look, a fraction of the draw calls
     return g;
   };
 
@@ -1321,6 +1416,7 @@ window.CS = window.CS || {};
     CS.noMirror(parts.mark);
 
     g.traverse(function (o) { if (o.isMesh) o.castShadow = true; });
+    CS.bake(g);                 // same look, a fraction of the draw calls
     return { group: g, parts: parts };
   };
 

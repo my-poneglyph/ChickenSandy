@@ -762,7 +762,14 @@ window.CS = window.CS || {};
         scene.add(warm3);
       }
 
-      scene.fog = new THREE.Fog(CS.linear(0x3a3550), 55, 100);
+      /* Nothing above ever moves except the fryer glow and coals and the
+         hearth's flames, so everything else is merged by material -- a few
+         dozen draw calls for the whole room instead of ~600, plus the same
+         again saved in the shadow pass. */
+      var skip = [];
+      stations.forEach(function (st) { skip.push(st.glow, st.coals, st.slot); });
+      flames.forEach(function (f) { if (f.m) skip.push(f.m); });
+      CS.batchStatic(scene, skip);
 
       return { root: scene, stations: stations, solids: solids, floor: floor, heights: heights };
     },
@@ -773,7 +780,7 @@ window.CS = window.CS || {};
        what actually has to go is the flame list -- otherwise tick() keeps
        animating hearths that are no longer in the scene. */
     rebuild: function (parent, old, opts) {
-      if (old && old.root) parent.remove(old.root);
+      if (old && old.root) { parent.remove(old.root); CS.dispose(old.root); }
       flames.length = 0;
       return CS.world.build(parent, opts);
     },

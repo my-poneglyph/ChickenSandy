@@ -2599,14 +2599,14 @@ window.CS = window.CS || {};
        short blades, so it reads as grass from the kitchen camera. */
     grass: function () {
       var s = 256, k = canvas(s), x = k.x;
-      x.fillStyle = hex(0x6d9c46);
+      x.fillStyle = hex(0x5a8939);
       x.fillRect(0, 0, s, s);
-      blotches(x, s, [0x82b356, 0x5a8738, 0x78a84c, 0x93c062], 28, 18, 64, 0.38, 61);
+      blotches(x, s, [0x75a64a, 0x41692a, 0x689844, 0x82b052, 0x3a5f26], 34, 16, 66, 0.5, 61);
       var rng = rngFrom(62);
       x.lineWidth = 1.5;
       for (var i = 0; i < 700; i++) {
         var px = rng() * s, py = rng() * s, len = 3 + rng() * 5, lean = (rng() - 0.5) * 3;
-        x.strokeStyle = rgba(rng() < 0.5 ? 0x9ccf6a : 0x4c7a30, 0.55);
+        x.strokeStyle = rgba(rng() < 0.45 ? 0x9ccf6a : 0x33561f, 0.6);
         x.beginPath(); x.moveTo(px, py); x.lineTo(px + lean, py - len); x.stroke();
       }
       grain(x, s, 12, 63);
@@ -2952,6 +2952,7 @@ window.CS = window.CS || {};
       m.updateMatrix();
       nm.getNormalMatrix(m.matrix);
       var g = m.geometry, P = g.attributes.position, N = g.attributes.normal, U = g.attributes.uv;
+      var C = g.attributes.color;            // an already-merged piece keeps its tints
       var c = m.userData.tint || white;
       for (var i = 0; i < P.count; i++) {
         v.fromBufferAttribute(P, i).applyMatrix4(m.matrix);
@@ -2959,7 +2960,8 @@ window.CS = window.CS || {};
         pos.push(v.x, v.y, v.z);
         nor.push(n.x, n.y, n.z);
         uv.push(U ? U.getX(i) : 0, U ? U.getY(i) : 0);
-        col.push(c.r, c.g, c.b);
+        if (C) col.push(C.getX(i) * c.r, C.getY(i) * c.g, C.getZ(i) * c.b);
+        else col.push(c.r, c.g, c.b);
       }
       if (g.index) {
         for (var j = 0; j < g.index.count; j++) idx.push(g.index.getX(j) + base);
@@ -2976,6 +2978,96 @@ window.CS = window.CS || {};
     geo.setIndex(idx);
     geo.computeBoundingSphere();
     return finishMesh(new THREE.Mesh(geo, material), 0, 0, 0);
+  };
+
+  /* Draw-call diet. Every distinct mesh is a draw call, and another one in
+     the shadow pass if it casts a shadow, which is what phones choke on.
+
+     CS.bake(rig) merges meshes that share a parent AND a material into one,
+     in place. Pivots stay where they are and so does every material, so a
+     baked chef, customer or sandwich looks and animates exactly as before --
+     it just costs a fraction of the draw calls.
+
+     CS.batchStatic(root, skip) goes further for things that never move: it
+     merges every opaque mesh under `root` that shares a material, wherever
+     it sits in the tree, into one mesh in root space. `skip` is a list of
+     objects (and everything under them) to leave alone because something
+     animates them. */
+  function bakeKey(o) {
+    var m = o.material;
+    if (!o.isMesh || !m || Array.isArray(m) || m.isShaderMaterial || o.isInstancedMesh) return null;
+    if (!o.geometry.attributes.normal || o.userData.noBake) return null;
+    return m.uuid + '|' + (o.castShadow ? 1 : 0) + (o.receiveShadow ? 1 : 0) + '|' + o.layers.mask;
+  }
+
+  function mergeGroup(list, into) {
+    var first = list[0];
+    var merged = CS.merge(list, first.material);
+    merged.castShadow = first.castShadow;
+    merged.receiveShadow = first.receiveShadow;
+    merged.layers.mask = first.layers.mask;
+    merged.geometry.userData.baked = true;
+    into.add(merged);
+    return merged;
+  }
+
+  /* Baked geometry is made fresh rather than shared out of the cache, so
+     whatever throws a baked model away (a plate served, a customer gone)
+     must hand it back to the GPU or a long session slowly fills memory. */
+  CS.dispose = function (obj) {
+    if (!obj) return;
+    obj.traverse(function (o) {
+      if (o.isMesh && o.geometry && o.geometry.userData.baked) o.geometry.dispose();
+    });
+  };
+
+  CS.bake = function (rig) {
+    var groups = {}, order = [];
+    rig.traverse(function (o) {
+      var k = bakeKey(o);
+      if (!k || !o.visible || !o.parent) return;
+      k = o.parent.uuid + '|' + k;
+      if (!groups[k]) { groups[k] = []; order.push(k); }
+      groups[k].push(o);
+    });
+    order.forEach(function (k) {
+      var list = groups[k];
+      if (list.length < 2) return;
+      var parent = list[0].parent;
+      list.forEach(function (m) { parent.remove(m); });
+      mergeGroup(list, parent);
+    });
+    return rig;
+  };
+
+  CS.batchStatic = function (root, skip) {
+    var skipSet = {};
+    (skip || []).forEach(function (o) { if (o) skipSet[o.uuid] = true; });
+    root.updateMatrixWorld(true);
+    var inv = new THREE.Matrix4().copy(root.matrixWorld).invert();
+    var groups = {}, order = [];
+    (function walk(o) {
+      if (skipSet[o.uuid] || !o.visible) return;
+      var k = o !== root ? bakeKey(o) : null;
+      if (k && !o.material.transparent) {
+        if (!groups[k]) { groups[k] = []; order.push(k); }
+        groups[k].push(o);
+      }
+      o.children.slice().forEach(walk);
+    })(root);
+    var merged = 0;
+    order.forEach(function (k) {
+      var list = groups[k];
+      if (list.length < 2) return;
+      list.forEach(function (m) {
+        m.matrix.multiplyMatrices(inv, m.matrixWorld);
+        m.matrix.decompose(m.position, m.quaternion, m.scale);
+        m.parent.remove(m);
+      });
+      mergeGroup(list, root);
+      merged += list.length;
+    });
+    return merged;
   };
 
   /* A point on the surface of an ellipsoid, using SphereGeometry's angles:
@@ -3167,6 +3259,7 @@ window.CS = window.CS || {};
     body.add(parts.hands);
 
     g.traverse(function (o) { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
+    CS.bake(g);                 // same look, a fraction of the draw calls
     return { group: g, parts: parts };
   };
 
@@ -3493,6 +3586,7 @@ window.CS = window.CS || {};
     g.scale.setScalar(sz);
 
     g.traverse(function (o) { if (o.isMesh) o.castShadow = true; });
+    CS.bake(g);                 // same look, a fraction of the draw calls
     return { group: g, parts: parts, species: C };
   };
 
@@ -3743,6 +3837,7 @@ window.CS = window.CS || {};
       }
     }
     g.traverse(function (o) { if (o.isMesh) o.castShadow = true; });
+    CS.bake(g);                 // same look, a fraction of the draw calls
     return g;
   };
 
@@ -4098,6 +4193,7 @@ window.CS = window.CS || {};
     CS.noMirror(parts.mark);
 
     g.traverse(function (o) { if (o.isMesh) o.castShadow = true; });
+    CS.bake(g);                 // same look, a fraction of the draw calls
     return { group: g, parts: parts };
   };
 
@@ -5138,7 +5234,14 @@ window.CS = window.CS || {};
         scene.add(warm3);
       }
 
-      scene.fog = new THREE.Fog(CS.linear(0x3a3550), 55, 100);
+      /* Nothing above ever moves except the fryer glow and coals and the
+         hearth's flames, so everything else is merged by material -- a few
+         dozen draw calls for the whole room instead of ~600, plus the same
+         again saved in the shadow pass. */
+      var skip = [];
+      stations.forEach(function (st) { skip.push(st.glow, st.coals, st.slot); });
+      flames.forEach(function (f) { if (f.m) skip.push(f.m); });
+      CS.batchStatic(scene, skip);
 
       return { root: scene, stations: stations, solids: solids, floor: floor, heights: heights };
     },
@@ -5149,7 +5252,7 @@ window.CS = window.CS || {};
        what actually has to go is the flame list -- otherwise tick() keeps
        animating hearths that are no longer in the scene. */
     rebuild: function (parent, old, opts) {
-      if (old && old.root) parent.remove(old.root);
+      if (old && old.root) { parent.remove(old.root); CS.dispose(old.root); }
       flames.length = 0;
       return CS.world.build(parent, opts);
     },
@@ -5619,8 +5722,8 @@ window.CS = window.CS || {};
     init: function (sc) { scene = sc; this.level = CS.levelFor(1); },
 
     reset: function (level) {
-      this.list.forEach(function (o) { scene.remove(o.cust.group); });
-      this.leaving.forEach(function (c) { scene.remove(c.group); });
+      this.list.forEach(function (o) { scene.remove(o.cust.group); CS.dispose(o.cust.group); });
+      this.leaving.forEach(function (c) { scene.remove(c.group); CS.dispose(c.group); });
       this.coins.forEach(function (c) { scene.remove(c.m); });
       this.list.length = 0;
       this.leaving.length = 0;
@@ -5913,6 +6016,7 @@ window.CS = window.CS || {};
         // gone through the door, or stuck long enough that something is wrong
         if (!lc.path.length || lc.t > 14) {
           scene.remove(lg);
+          CS.dispose(lg);
           this.leaving.splice(j, 1);
         }
       }
@@ -5992,8 +6096,9 @@ window.CS = window.CS || {};
   var MAT = {};
   function mats() {
     if (MAT.paint) return MAT;
-    MAT.paint = CS.mat({ color: 0xffffff, rough: 0.82, vc: true });
-    MAT.stone = CS.mat({ color: 0xffffff, tex: 'grain', rough: 0.88, vc: true });
+    // a shade under full brightness, so the lit kitchen is what the eye goes to
+    MAT.paint = CS.mat({ color: 0xdcdcdc, rough: 0.82, vc: true });
+    MAT.stone = CS.mat({ color: 0xcfcfcf, tex: 'grain', rough: 0.88, vc: true });
     MAT.glow = CS.mat({ color: 0xffd27a, basic: true });
     return MAT;
   }
@@ -6273,7 +6378,7 @@ window.CS = window.CS || {};
     segs.forEach(function (g, i) {
       var L = g.len + PATH_W;
       var m = new THREE.Mesh(new THREE.PlaneGeometry(L, PATH_W),
-        CS.mat({ color: 0xd9cfc0, rough: 0.9 }));
+        CS.mat({ color: 0xb3a692, rough: 0.9 }));
       m.material = m.material.clone();
       m.material.map = CS.tex('stone').clone();
       m.material.map.needsUpdate = true;
@@ -6286,7 +6391,7 @@ window.CS = window.CS || {};
     });
     // and a spur from the north path up to the porch, where the queue comes in
     var spur = new THREE.Mesh(new THREE.PlaneGeometry(PATH_W, Math.abs(PN - (Z0 - 12.4)) + PATH_W),
-      CS.mat({ color: 0xd9cfc0, tex: 'stone', rep: [1, Math.round(Math.abs(PN - Z0 + 12.4) / 2.2)], rough: 0.9 }));
+      CS.mat({ color: 0xb3a692, tex: 'stone', rep: [1, Math.round(Math.abs(PN - Z0 + 12.4) / 2.2)], rough: 0.9 }));
     spur.rotation.x = -Math.PI / 2;
     spur.position.set(CS.DOOR_X, -0.045, (PN + Z0 - 12.4) / 2);
     scene.add(spur);
@@ -6425,7 +6530,7 @@ window.CS = window.CS || {};
       buildLoop();
 
       // ---- the lawn: one big plane under everything, unbought land included
-      var lawn = new THREE.Mesh(new THREE.PlaneGeometry(240, 240), CS.mat({ color: 0xffffff, rough: 0.95 }));
+      var lawn = new THREE.Mesh(new THREE.PlaneGeometry(240, 240), CS.mat({ color: 0xd8d8d8, rough: 0.95 }));
       lawn.material = lawn.material.clone();
       lawn.material.map = CS.texRepeat('grass', 240 / 6, 240 / 6);
       lawn.rotation.x = -Math.PI / 2;
@@ -7180,7 +7285,7 @@ window.CS = window.CS || {};
     var key = h.carry ? JSON.stringify(h.carry) : '';
     if (key === h.carryKey) return;
     h.carryKey = key;
-    if (h.carryMesh) { h.parts.hold.remove(h.carryMesh); h.carryMesh = null; }
+    if (h.carryMesh) { h.parts.hold.remove(h.carryMesh); CS.dispose(h.carryMesh); h.carryMesh = null; }
     if (!h.carry) return;
     var m = CS.models.item(h.carry);
     m.scale.setScalar(0.8);
@@ -7197,7 +7302,7 @@ window.CS = window.CS || {};
     var key = want ? JSON.stringify(want) : '';
     if (key !== h.iconKey) {
       h.iconKey = key;
-      while (b.icon.children.length) b.icon.remove(b.icon.children[0]);
+      while (b.icon.children.length) { CS.dispose(b.icon.children[0]); b.icon.remove(b.icon.children[0]); }
       if (want) {
         var m = CS.models.item(want);
         m.scale.setScalar(want.k === 'plate' ? 0.48 : 0.62);
@@ -7350,6 +7455,7 @@ window.CS = window.CS || {};
     clear: function () {
       hands.forEach(function (h) {
         scene.remove(h.group);
+        CS.dispose(h.group);
         scene.remove(h.bubble.group);
       });
       hands.length = 0;
@@ -8712,7 +8818,7 @@ window.CS = window.CS || {};
   /* ------------------------------------------------------- item rendering */
   function setStationItem(st, item) {
     st.item = item;
-    while (st.slot.children.length) st.slot.remove(st.slot.children[0]);
+    while (st.slot.children.length) { CS.dispose(st.slot.children[0]); st.slot.remove(st.slot.children[0]); }
     if (item) {
       var m = CS.models.item(item, { inPan: st.type === 'fryer' });
       m.scale.setScalar(1.5);            // oversized so the food reads from here
@@ -8722,7 +8828,7 @@ window.CS = window.CS || {};
   }
 
   function refreshHeld() {
-    if (heldMesh) { chef.parts.hands.remove(heldMesh); heldMesh = null; }
+    if (heldMesh) { chef.parts.hands.remove(heldMesh); CS.dispose(heldMesh); heldMesh = null; }
     if (S.held) {
       heldMesh = CS.models.item(S.held);
       heldMesh.scale.setScalar(1.15);
@@ -8755,7 +8861,7 @@ window.CS = window.CS || {};
 
   function setInspectItem(item) {
     if (!inspect.scene) return;
-    if (inspect.obj) { inspect.scene.remove(inspect.obj); inspect.obj = null; }
+    if (inspect.obj) { inspect.scene.remove(inspect.obj); CS.dispose(inspect.obj); inspect.obj = null; }
     if (!item) { inspect.el.classList.add('hidden'); return; }
     inspect.el.classList.remove('hidden');
     var g = CS.models.item(item);
@@ -9256,15 +9362,25 @@ window.CS = window.CS || {};
     CS.ui.setMuteLabel(CS.audio.isMuted());
   }
 
+  /* The kitchen's meshes are merged by material at build time, so a click
+     cannot be traced back to a station through the mesh it hit. Instead the
+     ray is met with the plane of the worktops (y = 1) and the click goes to
+     whichever station is nearest that point. */
+  var pickPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -1.0);
+  var pickAt = new THREE.Vector3();
+
   function handleClick() {
     pendingClick = null;
     raycaster.setFromCamera(mouse, camera);
-    var hits = raycaster.intersectObjects(scene.children, true);
-    for (var i = 0; i < hits.length; i++) {
-      var o = hits[i].object;
-      while (o && !o.userData.station) o = o.parent;
-      if (!o) continue;
-      var st = o.userData.station;
+    if (!raycaster.ray.intersectPlane(pickPlane, pickAt)) return;
+    var best = null, bestD = T * 0.75;
+    for (var i = 0; i < stations.length; i++) {
+      var s = stations[i];
+      var dd = Math.hypot(s.x - pickAt.x, s.z - pickAt.z);
+      if (dd < bestD) { bestD = dd; best = s; }
+    }
+    if (best) {
+      var st = best;
       var d = Math.hypot(st.x - P.x, st.z - P.z);
       if (d > REACH + 0.4) { CS.ui.toast('Too far away', 'info'); return; }
       var res = CS.resolve(st, S.held);
