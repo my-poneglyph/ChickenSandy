@@ -73,6 +73,8 @@ window.CS = window.CS || {};
   /* st: station, held: current item (or null). Returns {ok, text, run}. */
   CS.resolve = function (st, held) {
     var G = CS.game;
+    // the Shadow Rooster's glare: nothing works until the stone cracks
+    if (st.stoned) return blocked('Turned to stone! Wait for it to crack');
 
     switch (st.type) {
       /* ---------------------------------------------------------- crates */

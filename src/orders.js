@@ -91,7 +91,7 @@ window.CS = window.CS || {};
     init: function (sc) { scene = sc; this.level = CS.levelFor(1); },
 
     reset: function (level) {
-      this.list.forEach(function (o) { scene.remove(o.cust.group); CS.dispose(o.cust.group); });
+      this.list.forEach(function (o) { if (o.cust) { scene.remove(o.cust.group); CS.dispose(o.cust.group); } });
       this.leaving.forEach(function (c) { scene.remove(c.group); CS.dispose(c.group); });
       this.coins.forEach(function (c) { scene.remove(c.m); });
       this.list.length = 0;
@@ -100,6 +100,8 @@ window.CS = window.CS || {};
       this.level = level || CS.levelFor(1);
       this.spawnTimer = CS.FIRST_SPAWN;
       this.frozen = false;
+      this.halted = false;     // a fed boss stops ordering
+      this.courses = 0;
       nextId = 1;
     },
 
@@ -162,6 +164,7 @@ window.CS = window.CS || {};
     /* How long the queue may get: the day's own limit, plus anything the
        Roadside Sign bought you. */
     cap: function () {
+      if (this.level.boss) return this.level.boss.atOnce;     // a boss sets its own pace
       return Math.min(CS.MAX_ORDERS_CAP,
         this.level.maxOrders + CS.econ.mod('orders'));
     },
@@ -176,8 +179,32 @@ window.CS = window.CS || {};
       return free.length ? CS.pick(free) : ri(CS.CRITTERS.length);
     },
 
+    /* A boss day has no queue. The boss stands in the dining room and its
+       courses go straight onto the rail, never more than it still needs to
+       be full. They carry the boss's colour and name in place of a
+       customer's, and no model of their own. */
+    spawnCourse: function (progress) {
+      var b = this.level.boss;
+      if (CS.bosses.remaining() - this.list.length <= 0) return null;
+      var t = this.makeTicket(progress);
+      if (b.force) {
+        if (!t.sandwich) t.sandwich = { toppings: [], sauces: [] };
+        if (t.sandwich.sauces.indexOf(b.force) < 0) t.sandwich.sauces.push(b.force);
+        t.price = CS.econ.priceOf(t);
+      }
+      t.boss = true;
+      t.course = ++this.courses;
+      t.cust = null;
+      t.critter = { name: b.fullName, look: b.look };
+      t.css = b.css;
+      this.list.push(t);
+      CS.bosses.ordered(t);
+      return t;
+    },
+
     spawn: function (progress) {
       if (this.list.length >= this.cap()) return null;
+      if (this.level.boss) return this.spawnCourse(progress);
       var t = this.makeTicket(progress);
       var idx = this.list.length;
       var seed = ri(1000);
@@ -240,6 +267,7 @@ window.CS = window.CS || {};
       if (i >= 0) this.list.splice(i, 1);
       order.done = true;
       var c = order.cust;
+      if (!c) return;                  // a boss's course: the boss reacts, see bosses.js
       c.happy = happy;
       c.t = 0;
       c.state = 'leave';
@@ -285,7 +313,7 @@ window.CS = window.CS || {};
        instead of standing nose to nose forever. */
     separate: function () {
       var R = 0.36, all = [];
-      this.list.forEach(function (o) { all.push(o.cust.group); });
+      this.list.forEach(function (o) { if (o.cust) all.push(o.cust.group); });
       this.leaving.forEach(function (c) { all.push(c.group); });
       for (var i = 0; i < all.length; i++) {
         for (var j = i + 1; j < all.length; j++) {
@@ -316,7 +344,7 @@ window.CS = window.CS || {};
       var lv = this.level;
 
       this.spawnTimer -= dt;
-      if (this.spawnTimer <= 0) {
+      if (this.spawnTimer <= 0 && !this.halted) {
         if (this.list.length < this.cap()) {
           this.spawn(progress);
           this.spawnTimer = CS.lerp(lv.spawn[0], lv.spawn[1], progress) * (0.85 + Math.random() * 0.3);
@@ -329,6 +357,10 @@ window.CS = window.CS || {};
       for (var i = this.list.length - 1; i >= 0; i--) {
         var o = this.list[i];
         if (!this.frozen) o.left -= dt;     // Feather Frenzy holds the queue still
+        if (!o.cust) {
+          if (o.left <= 0) { this.complete(o, false); onExpire(o); }
+          continue;
+        }
         var c = o.cust, g = c.group, moved = 0;
         c.t += dt;
 

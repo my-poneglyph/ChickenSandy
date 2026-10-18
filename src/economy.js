@@ -35,6 +35,8 @@ window.CS = window.CS || {};
       staff: [],        // [{ kind, training: [id, ...] }]
       layout: null,     // CS.layout.serialize()
       career: { days: 0, served: 0, earned: 0, tips: 0, best: 0 },
+      bosses: [],       // ids of the castle bosses fed, first time round
+      bossDays: [],     // every boss day beaten, so a lap's bosses gate too
       chef: blankChef()
     };
   }
@@ -50,6 +52,10 @@ window.CS = window.CS || {};
   function upgrade(id) {
     for (var i = 0; i < CS.UPGRADES.length; i++) {
       if (CS.UPGRADES[i].id === id) return CS.UPGRADES[i];
+    }
+    // a boss's trophy is owned the same way a piece of gear is
+    for (var j = 0; j < CS.TROPHIES.length; j++) {
+      if (CS.TROPHIES[j].id === id) return CS.TROPHIES[j];
     }
     return null;
   }
@@ -73,6 +79,8 @@ window.CS = window.CS || {};
       s.wallet = typeof d.wallet === 'number' && isFinite(d.wallet) ? Math.max(0, d.wallet) : 0;
       s.day = Math.max(1, parseInt(d.day, 10) || 1);
       s.owned = (d.owned || []).filter(upgrade);
+      s.bosses = (d.bosses || []).filter(function (id) { return typeof id === 'string'; });
+      s.bossDays = (d.bossDays || []).filter(function (n) { return typeof n === 'number'; });
       s.stock = d.stock && typeof d.stock === 'object' ? d.stock : {};
       s.staff = (d.staff || []).filter(function (h) { return h && CS.STAFF_DEFS[h.kind]; })
         .map(function (h) { return { kind: h.kind, training: (h.training || []).slice() }; });
@@ -388,7 +396,9 @@ window.CS = window.CS || {};
       L.outgoings = Math.round((L.rent + L.wages) * 100) / 100;
       L.profit = Math.round((L.net - L.outgoings) * 100) / 100;
       L.passed = L.profit >= 0;
-      L.banked = Math.max(0, L.profit);
+      // a boss's bounty is paid on top, and is nobody's share of the takings
+      L.bounty = L.bounty || 0;
+      L.banked = Math.max(0, L.profit) + L.bounty;
 
       E.state.wallet = Math.round((E.state.wallet + L.banked) * 100) / 100;
       E.state.career.days++;
@@ -409,6 +419,30 @@ window.CS = window.CS || {};
       return E.state.day;
     },
 
+    /* ------------------------------------------------------- the bosses
+       A fed boss pays its bounty into the day's books (settle() banks it)
+       and, the first time round, leaves its trophy. Returns the trophy if
+       this was the first time, so the result card can show it off. */
+    bossBeaten: function (day) { return E.state.bossDays.indexOf(day) >= 0; },
+
+    beatBoss: function (boss, day) {
+      if (E.ledger) E.ledger.bounty = boss.bounty;
+      if (E.state.bossDays.indexOf(day) < 0) E.state.bossDays.push(day);
+      var first = E.state.bosses.indexOf(boss.id) < 0;
+      if (first) E.state.bosses.push(boss.id);
+      var trophy = null;
+      if (boss.trophy && !E.has(boss.trophy.id)) {
+        E.state.owned.push(boss.trophy.id);
+        trophy = boss.trophy;
+      }
+      E.save();
+      return trophy;
+    },
+
+    trophies: function () {
+      return CS.TROPHIES.filter(function (t) { return E.has(t.id); });
+    },
+
     stars: function (ledger) {
       if (!ledger || !ledger.passed) return 0;
       var ratio = ledger.net / Math.max(1, ledger.outgoings);
@@ -417,6 +451,11 @@ window.CS = window.CS || {};
       return n;
     }
   };
+
+  function bossMod(lv, key) {
+    var m = lv && lv.boss && lv.boss.mods;
+    return m && m[key] ? m[key] : 1;
+  }
 
   /* The fryer clock, after whatever you have bolted to the fryers. Everything
      that starts a basket goes through here rather than reading CS.COOK, so a
@@ -429,8 +468,9 @@ window.CS = window.CS || {};
     var gentle = lv && lv.grace ? lv.grace : 1;
     return {
       done: base.done, burnt: base.burnt, label: base.label,
-      cook: base.cook * E.mod('fryCook'),
-      grace: base.grace * E.mod('fryGrace') * gentle * (1 + E.skill('sizzle'))
+      // and a boss can bend the fryers for the day (a dragon's breath, say)
+      cook: base.cook * E.mod('fryCook') * bossMod(lv, 'fryCook'),
+      grace: base.grace * E.mod('fryGrace') * gentle * (1 + E.skill('sizzle')) * bossMod(lv, 'fryGrace')
     };
   };
 

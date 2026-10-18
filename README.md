@@ -358,13 +358,72 @@ may ask for, and `grace` stretches the burn timer while you are new.
 | 7 | Turn Up the Heat | 2:50 | $16 | 3 | Hot sauce |
 | 8 | Sides Please | 2:55 | $18 | 3 | Ketchup cups |
 | 9 | Dip Into It | 3:00 | $21 | 3 | BBQ and hot sauce cups |
-| 10 | Lunch Rush | 3:05 | $25 | 4 | A fourth ticket, shorter tempers |
-| 11 | The Works | 3:10 | $30 | 4 | Fully loaded sandwiches |
-| 12+ | Overtime *n* | 3:10 | +$4/day | 4 | Endless: faster arrivals, less patience |
+| **10** | **Castle boss: Grumbold** | 3:30 | none | 3 | See *The castle bosses* below |
 
 Within a single day the spawn interval and customer patience interpolate from the
 day's `spawn[0]`/`limit[0]` to `spawn[1]`/`limit[1]`, and ticket complexity ramps
-with them — so the last minute of Day 11 is a very different shift from the first.
+with them — so the last minute of a day is a very different shift from the first.
+
+### Chapters
+
+After the nine learning days the campaign runs in **chapters of ten**: nine ordinary
+days, then a castle boss on every tenth (Day 10, 20, 30…). Inside a chapter the
+difficulty and the rent **hold still**. You get nine days at one level of pressure
+to bank money, hire and train the crew and kit out the kitchen, so you walk into
+the boss stronger than you walked out of the last one. The difficulty only steps up
+once the boss is fed. The first day of each chapter lists what got harder, and every
+day card counts down to the next boss.
+
+| Days | Chapter | Rent | Tickets | Tougher because |
+| --- | --- | --- | --- | --- |
+| 11–19 | Market Season I–IX | $25 | 4 | A fourth ticket, shorter tempers |
+| 21–29 | Tournament Season | $30 | 4 | Fully loaded sandwiches, faster arrivals |
+| 31+ | Harvest Festival, The Long Winter… | +$8 a chapter | 4–5 | Faster arrivals, shorter tempers, a fifth ticket from Day 41 |
+
+All of it is `CS.CHAPTERS` and `CS.levelFor()` in `src/config.js`.
+
+### The castle bosses
+
+Every tenth day one of the castle's residents comes down to the shop to be fed.
+There are no ordinary customers that day. The boss lands in the dining room, and
+its **courses** go onto the rail a few at a time as gold tickets. Each one you serve
+flies over the counter into its mouth and fills its **hunger meter**. Let a course go
+cold and it roars, shakes the kitchen, and gets hungrier: the meter drops by one.
+
+* **Fill the meter before closing** and it celebrates, pays a **bounty** on top of
+  the day's takings, and the first time round leaves a **trophy**: a permanent
+  perk, like a piece of equipment. Then the next chapter opens.
+* **Run out of time** and it is still hungry. You keep every penny you took (there
+  is no rent on a boss day), and go back to the shop to get stronger and try again.
+  The way past a boss is to feed it.
+
+From the play camera the boss stands behind the kitchen's tall back wall, so the
+hunger panel (bottom right; under the rail on a phone) carries a live **boss cam**:
+a second camera that sees only the boss, drawn into the HUD the same way as the
+plate inspector. Its head turns to follow Sandy round the kitchen.
+
+| Day | Boss | Twist | Courses | Bounty | Trophy |
+| --- | --- | --- | --- | --- | --- |
+| 10 | **Grumbold**, the Gatehouse Ogre | *Big Appetite*: plain food, fries with everything, three at once | 8 | $120 | The Gatehouse Key: customers wait 8% longer |
+| 20 | **Ignatia**, the Ember Wyrm of the Keep | *Dragonfire*: fryers 30% faster but burn 40% sooner; hot sauce on every sandwich | 10 | $200 | An Ember Scale: fryers 8% faster |
+| 30 | **Lord Morrowgast**, the Lantern Lich | *Exacting Taste*: fully loaded with side cups; patient, but his chill slows the fryers 20% | 10 | $300 | The Lich's Hourglass: food sits 15% longer |
+| 40 | **The Brass Colossus** | *Clockwork*: four on the rail at once, short fuses | 12 | $400 | The Clockwork Heart: one more customer in the queue |
+| 50 | **Count Cockatrix**, the Shadow Rooster | *Stone Glare*: turns a station to stone for a few seconds; fully loaded, four at once | 14 | $600 | The Golden Comb: customers wait 10% longer, food sits 10% longer |
+
+Each has a backstory on its day card. Grumbold has waited three hundred years for a
+hot lunch. Morrowgast was the royal chef before you. Cockatrix is Sandy's uncle, the
+black sheep of the family. After Day 50 they come round again **Ascended**: three more
+courses a lap, shorter fuses and a bigger bounty.
+
+Every boss is built in code like everything else (`src/bosses.js`) and baked to a
+few dozen draw calls. Each one wears a napkin. They arrive in their own way: the ogre
+and the Colossus drop from the sky with a thud, the dragon flies in, and the lich
+rises out of the floor. A reveal camera swings round to watch the boss land while
+you read its card, and again when it is full. The music adds timpani and brass for
+the day. A station under the Shadow Rooster's glare refuses the chef and the helpers
+alike until the stone cracks, and the glare never picks a fryer with food in it.
+
+The bosses, their numbers and their lines are all in `CS.BOSSES` in `src/config.js`.
 
 ---
 
@@ -532,6 +591,7 @@ src/
   interact.js                 item data + resolve(): the single "what does E do" rule
   orders.js                   customer lifecycle, tickets, order matching, tips
   staff.js                    assistant pathfinding and the job board
+  bosses.js                   the castle bosses: models, reactions, hunger meter, boss cam
   ui.js                       ticket rail, held-item card, hint line, screens
   shop.js                     the between-days buy screen
   editor.js                   the drag-and-drop kitchen grid

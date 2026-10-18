@@ -358,15 +358,16 @@ window.CS = window.CS || {};
     if (!hand) setHeld(null);
     CS.orders.complete(o, true);
     CS.audio.cash();
-    CS.ui.toast(CS.money(took) + '   ORDER #' + String(o.id).padStart(2, '0') + ' UP!' +
-      (hand ? '  (' + hand.name + ')' : ''), 'good');
+    var sv = stations.filter(function (s) { return s.type === 'serve'; })[0];
+    if (o.boss) CS.bosses.feed(o, plate, sv);     // over the counter and into its mouth
+    CS.ui.toast(CS.money(took) + '   ' + (o.boss ? 'COURSE ' + o.course : 'ORDER #' + String(o.id).padStart(2, '0')) +
+      ' UP!' + (hand ? '  (' + hand.name + ')' : ''), 'good');
 
     // every order out of the window is experience for the chef
     var extras = o.sandwich ? o.sandwich.toppings.length + o.sandwich.sauces.length : 0;
     extras += (o.fries ? 1 : 0) + o.cups.length;
     earnXP(CS.XP.perOrder + extras * CS.XP.perExtra);
 
-    var sv = stations.filter(function (s) { return s.type === 'serve'; })[0];
     if (sv) CS.fx.burst(sv.x, sv.topY + 0.5, sv.z, 16, { color: 0xffd464, life: 0.8, vy: 2.2 });
 
     /* ---- the tip ----
@@ -404,6 +405,12 @@ window.CS = window.CS || {};
   function onExpire(o) {
     var lost = CS.econ.walkout();
     S.combo = 1;
+    if (o.boss) {
+      // a cold course: the boss roars, the kitchen shakes, and it is hungrier
+      CS.bosses.anger(o);
+      CS.ui.toast('Course ' + o.course + ' went cold! -' + CS.money(lost), 'bad');
+      return;
+    }
     CS.audio.fail();
     CS.ui.toast('Order #' + String(o.id).padStart(2, '0') + ' walked out! -' +
       CS.money(lost), 'bad');
@@ -851,6 +858,8 @@ window.CS = window.CS || {};
     });
     CS.econ.open(S.level);
     CS.orders.reset(S.level);
+    S.victoryT = 0;
+    CS.bosses.unstone();
     CS.staff.spawn();
     CS.ui.clearTickets();
     CS.fx.clear();
@@ -869,6 +878,7 @@ window.CS = window.CS || {};
     CS.grounds.sync();          // a wing you just bought clears its garden
     S.target = null;
     CS.staff.clear();
+    CS.bosses.clear();
     placePlayer(CS.SPAWN.col, CS.SPAWN.row);
   }
 
@@ -880,8 +890,17 @@ window.CS = window.CS || {};
     S.day = day;
     S.level = CS.levelFor(day);
     S.phase = 'intro';
-    CS.audio.startMusic('calm');       // the town theme carries on under the day card
     CS.ui.setLevel(S.level);
+    if (S.level.boss) {
+      // the boss arrives while you read its card: the camera swings round
+      // to watch it land, and the drums come in
+      CS.bosses.spawn(S.level.boss);
+      CS.bosses.showcase(true);
+      CS.audio.startMusic('boss');
+      CS.ui.showBossIntro(S.level, function () { startDay(); });
+      return;
+    }
+    CS.audio.startMusic('calm');       // the town theme carries on under the day card
     CS.ui.showLevelIntro(S.level, function () { startDay(); });
   }
 
@@ -892,8 +911,12 @@ window.CS = window.CS || {};
     CS.ui.setHudVisible(true);
     CS.ui.setLevel(S.level);
     CS.audio.resume();
-    CS.audio.startMusic('shift');
-    CS.ui.toast('DAY ' + S.day + ' -- ' + S.level.name, 'good');
+    var boss = S.level.boss;
+    CS.bosses.showcase(false);
+    if (boss && !CS.bosses.active()) CS.bosses.spawn(boss);     // a retry from the shop
+    CS.audio.startMusic(boss ? 'boss' : 'shift');
+    CS.ui.toast(boss ? 'FEED ' + boss.fullName.toUpperCase() + '!  ' + boss.courses + ' COURSES'
+      : 'DAY ' + S.day + ' -- ' + S.level.name, 'good');
   }
 
   function pause() {
@@ -921,6 +944,24 @@ window.CS = window.CS || {};
 
     // a day that paid its way is worth a chunk of experience on top
     if (CS.econ.takings() >= CS.econ.ledger.rent + CS.econ.wages()) earnXP(CS.XP.perDay);
+
+    var boss = S.level.boss;
+    if (boss) {
+      CS.bosses.unstone();
+      var won = CS.bosses.full(), trophy = null;
+      var ate = CS.bosses.fed(), need = CS.bosses.need();
+      if (won) { trophy = CS.econ.beatBoss(boss, S.day); earnXP(boss.xp); }
+      var BL = CS.econ.settle();
+      CS.audio.startMusic('calm');
+      CS.audio[won ? 'victory' : 'over']();
+      // the boss stays in the dining room behind the card: delighted, or sulking
+      CS.bosses.showcase(true);
+      if (!won) CS.bosses.sulk();
+      CS.ui.showBossResult(S.level, BL, { won: won, trophy: trophy, ate: ate, need: need },
+        function () { CS.econ.advance(); openShop(); },   // on to the next chapter
+        function () { openShop(); });                     // back to the shop, then try again
+      return;
+    }
 
     var L = CS.econ.settle();
     CS.audio[L.passed ? 'victory' : 'over']();
@@ -953,6 +994,7 @@ window.CS = window.CS || {};
     S.phase = 'over';
     CS.audio.startMusic('calm');
     CS.staff.clear();
+    CS.bosses.clear();
     CS.ui.showQuit(openShop, function () {
       CS.econ.reset();
       rebuildKitchen();
@@ -1095,12 +1137,27 @@ window.CS = window.CS || {};
       CS.ui.setMoves(1 - P.dashCd / DASH_CD, P.grounded ? MAX_FLAPS : P.flaps, MAX_FLAPS, !P.grounded);
       CS.ui.setPower(frenzyLength() > 0,
         FR.t > 0 ? FR.t / frenzyLength() : 1 - FR.cd / CS.FRENZY.cooldown, FR.t > 0);
-      if (S.time <= 0) endDay();
+
+      /* The boss is full: no more courses, the rail clears, the camera
+         swings round for its celebration, then the shutters come down. */
+      if (S.level.boss && CS.bosses.full() && !S.victoryT) {
+        S.victoryT = 4.0;
+        CS.orders.halted = true;
+        CS.orders.list.slice().forEach(function (o) { CS.orders.complete(o, true); });
+        CS.bosses.showcase(true);
+        CS.ui.toast(S.level.boss.fullName.toUpperCase() + ' IS FULL!', 'tip');
+      }
+      if (S.victoryT > 0) {
+        S.time += dt;                  // the clock stops while it celebrates
+        S.victoryT -= dt;
+        if (S.victoryT <= 0) endDay();
+      } else if (S.time <= 0) endDay();
     } else {
       // keep the kitchen alive behind menus
       CS.orders.update(0, 0, function () {});
     }
 
+    CS.bosses.update(dt, { stations: stations, player: P, playing: S.phase === 'play' });
     CS.fx.update(dt);
     CS.steam.update(dt);
     CS.world.tick(clock.elapsedTime);
@@ -1160,7 +1217,32 @@ window.CS = window.CS || {};
       camTarget.z + Math.cos(camYaw) * horiz
     );
     camera.lookAt(camTarget.x, camTarget.y + cm.lift, camTarget.z);
+
+    /* A boss's reveal and victory take the camera for a moment, easing
+       between the cinematic and the play camera rather than cutting. */
+    var cine = CS.bosses.cinematic(clock.elapsedTime);
+    cineK += ((cine ? 1 : 0) - cineK) * Math.min(1, dt * 1.6);
+    if (cineK > 0.001) {
+      if (cine) lastCine = cine;
+      var c = lastCine, e = cineK * cineK * (3 - 2 * cineK);
+      lookAtV.set(camTarget.x, camTarget.y + cm.lift, camTarget.z);
+      camera.position.set(
+        camera.position.x + (c.x - camera.position.x) * e,
+        camera.position.y + (c.y - camera.position.y) * e,
+        camera.position.z + (c.z - camera.position.z) * e);
+      lookAtV.set(lookAtV.x + (c.lx - lookAtV.x) * e, lookAtV.y + (c.ly - lookAtV.y) * e, lookAtV.z + (c.lz - lookAtV.z) * e);
+      camera.lookAt(lookAtV);
+    }
+    // and when it stamps, roars or lands, the whole kitchen shakes
+    var sh = CS.bosses.shake();
+    if (sh > 0.001) {
+      var a = sh * sh * 0.35;
+      camera.position.x += (Math.random() - 0.5) * a;
+      camera.position.y += (Math.random() - 0.5) * a;
+      camera.rotation.z += (Math.random() - 0.5) * a * 0.04;
+    }
   }
+  var cineK = 0, lastCine = null, lookAtV = new THREE.Vector3();
 
   function loop() {
     requestAnimationFrame(loop);
@@ -1177,6 +1259,40 @@ window.CS = window.CS || {};
     CS.mirror.render(renderer, scene, camera);
     renderer.render(scene, camera);
     renderInspect();
+    renderBossCam();
+  }
+
+  /* The boss cam: a second camera that sees only layer 2 -- the boss --
+     drawn into the hunger panel the same scissored way as the plate
+     inspector. The shadow maps are left as the main pass drew them. */
+  var bossCam = null;
+  function renderBossCam() {
+    if (S.phase !== 'play' && S.phase !== 'pause') return;
+    var pv = CS.bosses.portrait();
+    if (!pv) return;
+    var r = pv.el.getBoundingClientRect();
+    if (r.width < 12 || r.height < 12) return;
+    if (!bossCam) {
+      bossCam = new THREE.PerspectiveCamera(28, 1, 0.5, 80);
+      bossCam.layers.set(2);
+    }
+    bossCam.aspect = r.width / r.height;
+    bossCam.updateProjectionMatrix();
+    bossCam.position.set(pv.x, pv.y, pv.z);
+    bossCam.lookAt(pv.lx, pv.ly, pv.lz);
+    var vpH = CS.platform.size().h, y = vpH - r.bottom;
+    var auto = renderer.shadowMap.autoUpdate, bg = scene.background;
+    renderer.shadowMap.autoUpdate = false;
+    scene.background = null;              // the panel's own dark backdrop
+    renderer.setScissorTest(true);
+    renderer.setViewport(r.left, y, r.width, r.height);
+    renderer.setScissor(r.left, y, r.width, r.height);
+    renderer.render(scene, bossCam);
+    renderer.setScissorTest(false);
+    scene.background = bg;
+    renderer.shadowMap.autoUpdate = auto;
+    var vp = CS.platform.size();
+    renderer.setViewport(0, 0, vp.w, vp.h);
   }
 
   /* ------------------------------------------------------------- startup */
@@ -1213,6 +1329,7 @@ window.CS = window.CS || {};
     CS.mirror.auto(lowSpec);
     CS.orders.init(scene);
     CS.staff.init(scene);
+    CS.bosses.init(scene, { lowSpec: lowSpec });
     // the castle grounds outside: built once, never rebuilt with the kitchen
     CS.grounds.build(scene, { lowSpec: lowSpec });
 

@@ -298,7 +298,7 @@ window.CS = window.CS || {};
   function nearest(h, stations, test) {
     var best = null, bestD = Infinity;
     stations.forEach(function (st) {
-      if (!test(st) || claimedBy(st, h)) return;
+      if (st.stoned || !test(st) || claimedBy(st, h)) return;
       if (!adjacentTiles(st).length) return;      // walled in: unusable
       var d = Math.abs(st.col - h.col) + Math.abs(st.row - h.row);
       if (d < bestD) { bestD = d; best = st; }
@@ -995,7 +995,8 @@ window.CS = window.CS || {};
 
     turnToward(h, Math.atan2(d.x - h.x, d.z - h.z), dt);
 
-    if (task.wait && task.wait(h, d)) { h.state = 'idle'; h.timer = 0; return 0; }
+    // a station turned to stone under them: stand and wait for it to crack
+    if (d.stoned || (task.wait && task.wait(h, d))) { h.state = 'idle'; h.timer = 0; return 0; }
 
     h.state = 'work';
     h.timer += dt;
