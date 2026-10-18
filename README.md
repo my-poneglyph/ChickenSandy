@@ -109,15 +109,20 @@ feedback. Outside Telegram none of that runs, and the Telegram SDK is only fetch
 when the page is served over http(s) — opened from the filesystem the game makes no
 network requests at all.
 
-On phones the game also asks for **fullscreen** (`requestFullscreen()`, Bot API 8.0),
-which drops Telegram's header and hands the whole screen to the kitchen. Telegram
-then floats its close and menu buttons over the top-right of the canvas, so the HUD
-is kept inside the safe region: `safeAreaInset` (the device's notch and home
-indicator) and `contentSafeAreaInset` (Telegram's own chrome) are summed into the
-`--sat` / `--sar` / `--sab` / `--sal` CSS variables that `#hud` is inset by, and
-re-read whenever the mode changes or the phone rotates. Desktop and web Telegram
-clients don't support fullscreen — they answer with `fullscreenFailed` and keep the
-expanded layout. Add `?tgfs=0` to the URL to opt out and test the windowed layout.
+The game goes **fullscreen the moment it opens** (`requestFullscreen()`, Bot API 8.0),
+which drops Telegram's header and hands the whole screen to the kitchen. For that to
+happen at once rather than seconds later, the Telegram SDK is loaded the way Telegram
+asks — in the `<head>`, before any other script — so `ready()`, `expand()` and the
+fullscreen request run before the 3D scene has even started building. A client still
+busy opening the app can drop the request, so it is made a second time 0.6s later if
+we are not fullscreen by then. It is asked for on every Telegram client, not just
+phones; one that can't do it answers `fullscreenFailed` with `UNSUPPORTED`, is not
+asked again, and keeps the expanded layout. Telegram then floats its close and menu
+buttons over the top-right of the canvas, so the HUD is kept inside the safe region:
+`safeAreaInset` (the device's notch and home indicator) and `contentSafeAreaInset`
+(Telegram's own chrome) are summed into the `--sat` / `--sar` / `--sab` / `--sal` CSS
+variables that `#hud` is inset by, and re-read whenever the mode changes or the phone
+rotates. Add `?tgfs=0` to the URL to opt out and test the windowed layout.
 
 ## Controls
 

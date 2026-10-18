@@ -8,6 +8,16 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>Chicken Sandy — Sandwich Shift</title>
+<!-- The Telegram Mini App SDK, loaded the way Telegram asks: in the head,
+     before anything else, so ready(), expand() and requestFullscreen() can run
+     the moment the page opens instead of seconds later. Written in only when
+     served over http(s): opened straight off the filesystem the game makes no
+     network requests at all. -->
+<script>
+  if (location.protocol !== 'file:') {
+    document.write('<script src="https://telegram.org/js/telegram-web-app.js"><\/script>');
+  }
+</script>
 <style>
   :root{
     --wood:#3f62ad; --wood-dk:#14203d; --wood-md:#23345e; --cream:#fbf3e2;
@@ -773,57 +783,74 @@ window.CS = window.CS || {};
       P.initTelegram(fire);
     },
 
-    /* Load the Telegram SDK only when we could plausibly be inside Telegram.
-       Opened from the filesystem we never touch the network at all. */
+    /* index.html loads the Telegram SDK in its head, so it is normally here
+       already. If that was blocked (a browser refusing document.write), fall
+       back to fetching it now. Opened from the filesystem we never touch the
+       network at all. */
     initTelegram: function (onReady) {
       if (location.protocol === 'file:') return;
+      if (window.Telegram && window.Telegram.WebApp) { P.setupTelegram(onReady); return; }
       var s = document.createElement('script');
       s.src = 'https://telegram.org/js/telegram-web-app.js';
       s.async = true;
       s.onerror = function () { /* offline or blocked: plain web game */ };
-      s.onload = function () {
-        var tg = window.Telegram && window.Telegram.WebApp;
-        if (!tg || !tg.platform || tg.platform === 'unknown') return;
-        P.tg = tg;
-        document.body.classList.add('tg');
-        try { tg.ready(); } catch (e) {}
-        try { tg.expand(); } catch (e) {}
-        try { tg.disableVerticalSwipes && tg.disableVerticalSwipes(); } catch (e) {}
-        try { tg.setHeaderColor && tg.setHeaderColor('#1a1d2e'); } catch (e) {}
-        try { tg.setBackgroundColor && tg.setBackgroundColor('#1a1d2e'); } catch (e) {}
-        try { tg.onEvent('viewportChanged', onReady); } catch (e) {}
+      s.onload = function () { P.setupTelegram(onReady); };
+      document.head.appendChild(s);
+    },
 
-        /* Go edge-to-edge. requestFullscreen is Bot API 8.0 and phone-only —
-           desktop and web clients answer with fullscreenFailed, where the
-           expand() above is already the right answer. The insets move whenever
-           the mode changes or the phone rotates, so track them too. */
-        var syncFullscreen = function () {
-          P.fullscreen = !!tg.isFullscreen;
-          document.body.classList.toggle('tg-fullscreen', P.fullscreen);
-          P.applySafeArea();
-          onReady();
-        };
-        try { tg.onEvent('fullscreenChanged', syncFullscreen); } catch (e) {}
-        try { tg.onEvent('fullscreenFailed', syncFullscreen); } catch (e) {}
-        try { tg.onEvent('safeAreaChanged', syncFullscreen); } catch (e) {}
-        try { tg.onEvent('contentSafeAreaChanged', syncFullscreen); } catch (e) {}
+    setupTelegram: function (onReady) {
+      var tg = window.Telegram && window.Telegram.WebApp;
+      if (!tg || !tg.platform || tg.platform === 'unknown') return;
+      P.tg = tg;
+      document.body.classList.add('tg');
+      try { tg.ready(); } catch (e) {}
+      try { tg.expand(); } catch (e) {}
+      try { tg.disableVerticalSwipes && tg.disableVerticalSwipes(); } catch (e) {}
+      try { tg.setHeaderColor && tg.setHeaderColor('#1a1d2e'); } catch (e) {}
+      try { tg.setBackgroundColor && tg.setBackgroundColor('#1a1d2e'); } catch (e) {}
+      try { tg.onEvent('viewportChanged', onReady); } catch (e) {}
+
+      /* Go edge-to-edge as the app opens. requestFullscreen is Bot API 8.0;
+         a client that cannot do it answers fullscreenFailed with UNSUPPORTED,
+         and the expand() above is already the right answer there. It is
+         asked for on every client, not just phones: which clients support
+         it is the client's call, and asking costs nothing. A request made
+         while the client is still opening the app can be dropped, so if we
+         are not fullscreen shortly afterwards it is asked for once more.
+         The insets move whenever the mode changes or the phone rotates, so
+         track them too. */
+      var unsupported = false;
+      var syncFullscreen = function (ev) {
+        if (ev && ev.error === 'UNSUPPORTED') unsupported = true;
+        P.fullscreen = !!tg.isFullscreen;
+        document.body.classList.toggle('tg-fullscreen', P.fullscreen);
         P.applySafeArea();
-
-        // Telegram clients are always touch, even on desktop tablets
-        var phone = tg.platform === 'android' || tg.platform === 'ios';
-        if (phone) {
-          document.body.classList.add('touch', 'coarse');
-          P.touch = true; P.coarse = true;
-        }
-
-        var canFullscreen = phone && tg.requestFullscreen &&
-          tg.isVersionAtLeast && tg.isVersionAtLeast('8.0');
-        if (canFullscreen && location.search.indexOf('tgfs=0') < 0) {
-          try { tg.requestFullscreen(); } catch (e) {}
-        }
         onReady();
       };
-      document.head.appendChild(s);
+      try { tg.onEvent('fullscreenChanged', syncFullscreen); } catch (e) {}
+      try { tg.onEvent('fullscreenFailed', syncFullscreen); } catch (e) {}
+      try { tg.onEvent('safeAreaChanged', syncFullscreen); } catch (e) {}
+      try { tg.onEvent('contentSafeAreaChanged', syncFullscreen); } catch (e) {}
+      P.applySafeArea();
+
+      // Telegram clients are always touch, even on desktop tablets
+      var phone = tg.platform === 'android' || tg.platform === 'ios';
+      if (phone) {
+        document.body.classList.add('touch', 'coarse');
+        P.touch = true; P.coarse = true;
+      }
+
+      var canFullscreen = tg.requestFullscreen &&
+        tg.isVersionAtLeast && tg.isVersionAtLeast('8.0');
+      if (canFullscreen && location.search.indexOf('tgfs=0') < 0) {
+        var ask = function () {
+          if (unsupported || tg.isFullscreen) return;
+          try { tg.requestFullscreen(); } catch (e) {}
+        };
+        ask();
+        setTimeout(ask, 600);
+      }
+      onReady();
     }
   };
 })(window.CS);
