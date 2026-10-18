@@ -8,6 +8,16 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>Chicken Sandy — Sandwich Shift</title>
+<!-- The Telegram Mini App SDK, loaded the way Telegram asks: in the head,
+     before anything else, so ready(), expand() and requestFullscreen() can run
+     the moment the page opens instead of seconds later. Written in only when
+     served over http(s): opened straight off the filesystem the game makes no
+     network requests at all. -->
+<script>
+  if (location.protocol !== 'file:') {
+    document.write('<script src="https://telegram.org/js/telegram-web-app.js"><\/script>');
+  }
+</script>
 <style>
   :root{
     --wood:#3f62ad; --wood-dk:#14203d; --wood-md:#23345e; --cream:#fbf3e2;
