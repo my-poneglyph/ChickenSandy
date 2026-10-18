@@ -458,8 +458,16 @@ The rules that keep them out of your way:
   thrown away.** A counter or fryer is checked again the moment a hand arrives,
   because you may well have used it while they were walking over; if it is taken
   they find another. A hand with nowhere to put food keeps hold of it and waits.
-* **A hand only adds to a plate if the result still matches an open ticket**, so they
-  can fill a plate in but never spoil one.
+* **Every plate is built for one ticket.** Each plate in the kitchen — yours first,
+  then any in a helper's arms, then the counters — is paired with the open ticket it
+  is closest to becoming, and no two plates share a ticket. A hand only adds what
+  *that* ticket still wants, so one mayo order means mayo on one sandwich, not on
+  every bun on the pass. A bare plate (no bun) is set out for a fries-and-dips order.
+* **Raw food never goes on a counter.** If the fryer a hand was heading for gets
+  taken, they wait for another, and if none comes free they put the chicken or
+  potatoes back in the crate (no cost).
+* **Loose food gets plated.** Fries, chicken or a filled cup left on a counter are
+  carried onto the plate whose ticket wants them, so the counters never silt up.
 * They never take the last free counter for anything that is not urgent. Only the
   runner touches the serving window, and only the garnish hand puts toppings or
   sandwich sauces on — and only ones an open ticket is still asking for.
@@ -478,6 +486,14 @@ go up, so training is usually better value than a second hire.
 Paths are a breadth-first flood over open floor, recomputed per trip rather than
 cached, because the layout is editable and a cached graph would go stale the moment
 you moved a counter.
+
+Helpers keep out of each other's way. Each has an idle spot of its own, never next
+to a station, and walks back to it along a proper path. A hand picks a side of a
+station nobody else is planted on. A waypoint counts as reached once a hand is near
+it, so two helpers following the same route don't shove each other off it forever.
+If a hand stops making progress, it replans around everyone in the way. If there
+is no way round, the one carrying nothing (or the later hire) steps aside, and the
+chef always has right of way.
 
 ### The kitchen editor
 
