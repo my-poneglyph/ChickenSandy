@@ -517,6 +517,63 @@
     .stat{min-width:78px;}
     .stat .v{font-size:16px;}
   }
+
+  /* ---------- the castle bosses ---------- */
+  /* A boss's card sits low over a clear backdrop, so the boss stays in view. */
+  #screen.cine{
+    align-items:flex-end;
+    background:linear-gradient(0deg,#151236f2 0%,#15123699 38%,#15123600 68%);
+  }
+  .card.bosscard{
+    width:min(780px,96vw);max-height:58vh;overflow-y:auto;
+    background:linear-gradient(180deg,#2c1a3ef0,#150d24f5);border-color:#e0b04a;
+  }
+  .card.bosscard h1{font-size:34px;}
+  .bossflag{
+    display:inline-block;font-size:11px;letter-spacing:3px;color:#1a1020;
+    background:var(--boss,var(--gold));padding:3px 14px;border-radius:999px;margin-bottom:8px;
+    box-shadow:0 0 18px var(--boss,var(--gold));
+  }
+  .story{margin:4px 0 2px;}
+  .story p{text-align:left;font-style:italic;color:#e8dcc4;margin-bottom:6px;}
+  .trophy{border:2px solid #e0b04a;border-radius:10px;padding:8px 12px;background:#2a1e10;margin:10px 0;text-align:left;}
+  .trophy h3{font-size:12px;color:var(--gold);margin-bottom:4px;letter-spacing:1px;}
+  .nextboss{color:#e6c27a;}
+  .ticket.boss{border-color:#e0b04a;box-shadow:0 0 0 2px #e0b04a77,0 4px 0 rgba(0,0,0,.4);}
+  .ticket.boss .thead{background:linear-gradient(90deg,#5a1a6a,#8a2a2e);}
+
+  /* The boss's panel, bottom right: a clear window the boss cam is drawn
+     into (see renderBossCam in game.js), and the hunger meter under it. */
+  #bossHud{position:absolute;right:12px;bottom:12px;width:min(270px,34vw);text-align:center;}
+  #bossHud.hidden{display:none;}
+  #bossHud .bcam{
+    height:150px;border:3px solid #c9a04a;border-bottom:0;border-radius:10px 10px 0 0;
+    box-shadow:inset 0 0 0 2px #14203d,inset 0 -30px 30px -20px #00000088;
+  }
+  #bossHud .binfo{border-radius:0 0 10px 10px;padding:6px 10px 7px;}
+  #bossHud .bname{font-size:11px;color:var(--gold);letter-spacing:2px;margin-bottom:4px;}
+  #bossHud .bmeter{height:13px;background:#1a1020;border:2px solid #e0b04a;border-radius:7px;overflow:hidden;}
+  #bossHud .bmeter i{display:block;height:100%;width:0;transition:width .45s ease-out;
+    background:linear-gradient(90deg,var(--boss,#c8402e),#ffe27a);}
+  #bossHud .bcount{font-size:10px;margin-top:3px;color:#ffe7a8;}
+  #bossHud.fed{animation:bossfed .5s ease-out;}
+  #bossHud.angry{animation:bossangry .6s ease-out;}
+  @keyframes bossfed{40%{transform:scale(1.06);}}
+  @keyframes bossangry{
+    20%{transform:translateX(-8px);}
+    40%{transform:translateX(8px);}
+    60%{transform:translateX(-5px);}
+  }
+  body.mobile #bossHud{right:auto;bottom:auto;left:50%;transform:translateX(-50%);top:calc(56px + var(--ticketH,60px));width:36vw;}
+  body.mobile #bossHud .bcam{height:58px;border-width:2px;}
+  body.mobile #bossHud .binfo{padding:2px 5px 3px;border-width:2px;}
+  body.mobile #bossHud.fed,body.mobile #bossHud.angry{animation:none;}
+  body.mobile #bossHud .bname{font-size:7px;letter-spacing:1px;margin-bottom:2px;}
+  body.mobile #bossHud .bmeter{height:8px;}
+  body.mobile #bossHud .bcount{font-size:7px;}
+  body.mobile .card.bosscard{max-height:62vh;}
+  body.mobile .card.bosscard h1{font-size:20px;}
+  body.mobile .story p{font-size:9px;line-height:1.5;}
 </style>
 </head>
 <body>
@@ -965,24 +1022,42 @@ window.CS = window.CS || {};
       friesChance: 0.5, cupChance: 0.5, twoCupChance: 0.15, maxTop: 2, maxSauce: 2,
       tops: ALL_TOPS, sauces: ALL_SAUCES, cups: ALL_CUPS,
       howto: 'Some tickets want two cups. Two of the same counts as two.',
-      unlocks: ['BBQ and hot sauce cups'] },
+      unlocks: ['BBQ and hot sauce cups'] }
+  ];
 
-    { name: 'Lunch Rush', tag: 'Four tickets on the rail at once.',
-      seconds: 185, rent: 25, maxOrders: 4, grace: 1.0,
+  /* ------------------------------------------------------------ chapters
+     After the nine learning days the campaign runs in chapters of ten: nine
+     ordinary days, then a castle boss on every tenth (day 10, 20, 30...).
+
+     Inside a chapter the difficulty and the rent hold STILL. That is the
+     point of them: nine days at one level of pressure to bank money, hire
+     and train the crew and kit out the kitchen, so you walk into the boss
+     stronger than you walked out of the last one. The difficulty only steps
+     up once the boss is fed, when the next chapter opens. The first day of
+     each chapter says what has got harder. */
+  CS.CHAPTER_LEN = 10;
+
+  CS.CHAPTERS = [
+    null,     // chapter 1 is the nine learning days above
+    { season: 'Market Season', tag: 'The town market is open, and so is the castle gate.',
+      seconds: 185, rent: 25, maxOrders: 4,
       spawn: [7.4, 6.0], limit: [76, 64],
       friesChance: 0.55, cupChance: 0.5, twoCupChance: 0.2, maxTop: 2, maxSauce: 2,
-      tops: ALL_TOPS, sauces: ALL_SAUCES, cups: ALL_CUPS,
       howto: 'Helpers earn their keep now. Hire some in the shop.',
-      unlocks: ['A fourth ticket', 'Shorter tempers'] },
-
-    { name: 'The Works', tag: 'Everything on everything.',
-      seconds: 190, rent: 30, maxOrders: 4, grace: 1.0,
+      harder: ['A fourth ticket', 'Shorter tempers'] },
+    { season: 'Tournament Season', tag: 'Knights in from every corner of the realm, all of them starving.',
+      seconds: 190, rent: 30, maxOrders: 4,
       spawn: [6.6, 5.0], limit: [70, 56],
       friesChance: 0.6, cupChance: 0.55, twoCupChance: 0.3, maxTop: 3, maxSauce: 3,
-      tops: ALL_TOPS, sauces: ALL_SAUCES, cups: ALL_CUPS,
       howto: 'Fully loaded sandwiches. Save Feather Frenzy for a full rail.',
-      unlocks: ['Fully loaded sandwiches'] }
+      harder: ['Fully loaded sandwiches', 'Faster arrivals'] }
   ];
+  // past the hand-built chapters, every new one turns the screw a notch more
+  var SEASONS = ['Harvest Festival', 'The Long Winter', 'Thaw Fair', 'Midsummer Revels',
+    'Royal Wedding Season', 'The Dragon Moon'];
+
+  CS.chapterOf = function (day) { return Math.floor((day - 1) / CS.CHAPTER_LEN) + 1; };
+  CS.isBossDay = function (day) { return day > 0 && day % CS.CHAPTER_LEN === 0; };
 
   function cloneLevel(l) {
     var o = {}, k;
@@ -990,24 +1065,186 @@ window.CS = window.CS || {};
     return o;
   }
 
-  /* Past the hand-built days the shop just keeps getting busier, forever. */
+  function chapterDef(ch) {
+    if (CS.CHAPTERS[ch - 1]) return cloneLevel(CS.CHAPTERS[ch - 1]);
+    var base = cloneLevel(CS.CHAPTERS[CS.CHAPTERS.length - 1]);
+    var k = ch - CS.CHAPTERS.length;           // 1 for the first chapter past the table
+    base.season = SEASONS[(k - 1) % SEASONS.length] + (k > SEASONS.length ? ' ' + (1 + Math.floor((k - 1) / SEASONS.length)) : '');
+    base.tag = 'Word of your kitchen has spread. The whole kingdom is queueing.';
+    base.rent = 30 + k * 8;
+    base.maxOrders = 4 + (k >= 2 ? 1 : 0);
+    base.spawn = [Math.max(3.4, 6.6 - k * 0.55), Math.max(2.8, 5.0 - k * 0.45)];
+    base.limit = [Math.max(46, 70 - k * 5), Math.max(36, 56 - k * 5)];
+    base.howto = '';
+    base.harder = ['Faster arrivals', 'Shorter tempers', 'Higher rent'];
+    if (k === 2) base.harder.unshift('A fifth ticket');
+    return base;
+  }
+
+  var ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX'];
+
   CS.levelFor = function (day) {
-    if (day <= CS.LEVELS.length) {
+    if (CS.isBossDay(day)) return CS.bossLevel(day);
+    if (day < CS.CHAPTER_LEN) {
       var lv = cloneLevel(CS.LEVELS[day - 1]);
       lv.day = day;
+      lv.chapter = 1;
       return lv;
     }
-    var over = day - CS.LEVELS.length;
-    var l = cloneLevel(CS.LEVELS[CS.LEVELS.length - 1]);
-    l.day = day;
-    l.name = 'Overtime ' + over;
-    l.tag = 'No end in sight. Keep frying.';
-    l.rent = 30 + over * 4;
-    l.spawn = [Math.max(3.4, 6.6 - over * 0.40), Math.max(2.8, 5.0 - over * 0.35)];
-    l.limit = [Math.max(46, 70 - over * 3), Math.max(36, 56 - over * 3)];
-    l.unlocks = [];
-    l.howto = '';
+    var ch = CS.chapterOf(day), c = chapterDef(ch);
+    var nth = day - (ch - 1) * CS.CHAPTER_LEN;     // 1..9 within the chapter
+    var l = {
+      day: day, chapter: ch, name: c.season + ' ' + ROMAN[nth - 1], tag: c.tag,
+      seconds: c.seconds, rent: c.rent, maxOrders: c.maxOrders, grace: 1.0,
+      spawn: c.spawn, limit: c.limit,
+      friesChance: c.friesChance, cupChance: c.cupChance, twoCupChance: c.twoCupChance,
+      maxTop: c.maxTop, maxSauce: c.maxSauce,
+      tops: ALL_TOPS.slice(), sauces: ALL_SAUCES.slice(), cups: ALL_CUPS.slice(),
+      howto: nth === 1 ? c.howto : '',
+      unlocks: nth === 1 ? c.harder : []
+    };
     return l;
+  };
+
+  /* ------------------------------------------------------------- bosses
+     Every tenth day a castle boss comes down to the shop to be fed. There
+     are no ordinary customers that day: the boss sends its courses to the
+     rail a few at a time, and every one you serve fills its hunger meter.
+     Fill it before closing and it goes away happy, leaves a bounty and a
+     trophy that helps you for good. Let a course go cold and it roars,
+     shakes the kitchen and gets hungrier. The way past a boss is to feed
+     it; the shop is never taken off you for failing, you just try again.
+
+     `look` picks the model in bosses.js. `mods` bends the kitchen for the
+     day; `force` puts a sauce on every sandwich; `glare` turns a station
+     to stone every `every` seconds for `dur`. Once all five are fed they
+     come back Ascended -- hungrier, and harder to please.                */
+  CS.BOSSES = [
+    {
+      id: 'ogre', look: 'ogre', css: '#7d9a5a',
+      name: 'Grumbold', title: 'The Gatehouse Ogre',
+      story: [
+        'For three hundred years Grumbold has held the castle\'s north gate, and for three hundred years nobody has brought him lunch.',
+        'The last royal cook left him one cold drumstick and a promise to come back with a hot one. She never did. He has been hungry, and grumpy, ever since.',
+        'Today he has smelt your fryer from the gatehouse. He has brought his own fork.'
+      ],
+      quirk: { name: 'Big Appetite', text: 'Plain, hearty food, and lots of it. He wants fries with nearly everything, and three courses on the rail at once.' },
+      seconds: 210, courses: 8, atOnce: 3, limit: [95, 85],
+      friesChance: 0.75, cupChance: 0.15, twoCupChance: 0, maxTop: 1, maxSauce: 1,
+      tops: ['lettuce'], sauces: ['mayo'], cups: ['ketchup'],
+      bounty: 120, xp: 160,
+      roars: ['MORE!', 'GRUMBOLD HUNGRY!', 'WHERE IS LUNCH?!'],
+      cheers: ['Mmmf. Good.', 'HOT drumstick!', 'Three hundred years...'],
+      trophy: { id: 'trophy-ogre', name: 'The Gatehouse Key', blurb: 'Customers wait 8% longer: word is the ogre eats here.', mod: { patience: 1.08 } }
+    },
+    {
+      id: 'dragon', look: 'dragon', css: '#c23a22',
+      name: 'Ignatia', title: 'The Ember Wyrm of the Keep',
+      story: [
+        'Ignatia roosts on top of the castle keep. The king pays her in feasts to keep the town warm through the winter, and it has been a long, cold, badly-catered winter.',
+        'Dragons, it turns out, adore anything fried. She has heard there is a chicken who fries chickens, and she finds this extremely funny.',
+        'She has tied on a napkin. She likes it hot.'
+      ],
+      quirk: { name: 'Dragonfire', text: 'Her breath heats your oil: fryers cook 30% faster, but food burns 40% sooner. Every sandwich wants hot sauce.' },
+      seconds: 210, courses: 10, atOnce: 3, limit: [88, 76],
+      friesChance: 0.5, cupChance: 0.35, twoCupChance: 0.1, maxTop: 2, maxSauce: 2,
+      tops: ALL_TOPS, sauces: ALL_SAUCES, cups: ['hot', 'bbq'], force: 'hot',
+      mods: { fryCook: 0.7, fryGrace: 0.6 },
+      bounty: 200, xp: 240,
+      roars: ['IT IS COLD!', 'I SAID HOT!', 'FEED THE FLAME!'],
+      cheers: ['Ahh, crispy.', 'Spicy enough.', 'Delicious, little chicken.'],
+      trophy: { id: 'trophy-dragon', name: 'An Ember Scale', blurb: 'Fryers cook 8% faster: a dragon scale under every pan.', mod: { fryCook: 0.92 } }
+    },
+    {
+      id: 'lich', look: 'lich', css: '#5fd3e0',
+      name: 'Lord Morrowgast', title: 'The Lantern Lich of the Crypt Kitchens',
+      story: [
+        'Long ago Morrowgast was the castle\'s royal chef, the one who stood where you stand now.',
+        'He swore to make a sandwich so perfect it would last forever, and bound his soul into the recipe to see it done. It did not work. Now he haunts the crypt kitchens, tasting everything and finding it all wanting.',
+        'He has waited four hundred years. He can wait a little longer, but his standards are exacting.'
+      ],
+      quirk: { name: 'Exacting Taste', text: 'Fully loaded orders with side cups. The dead are patient, so his courses wait longer, but his chill slows the fryers by 20%.' },
+      seconds: 220, courses: 10, atOnce: 3, limit: [110, 96],
+      friesChance: 0.55, cupChance: 0.7, twoCupChance: 0.35, maxTop: 3, maxSauce: 2,
+      tops: ALL_TOPS, sauces: ALL_SAUCES, cups: ALL_CUPS,
+      mods: { fryCook: 1.2 },
+      bounty: 300, xp: 320,
+      roars: ['UNWORTHY!', 'IT LACKS... EVERYTHING.', 'AGAIN!'],
+      cheers: ['...Acceptable.', 'Almost perfect.', 'I remember this taste.'],
+      trophy: { id: 'trophy-lich', name: 'The Lich\'s Hourglass', blurb: 'Food sits 15% longer before it burns.', mod: { fryGrace: 1.15 } }
+    },
+    {
+      id: 'colossus', look: 'colossus', css: '#c8963c',
+      name: 'The Brass Colossus', title: 'Clockwork Guardian of the Treasury',
+      story: [
+        'The royal artificers built the Colossus to guard the treasury. When the treasury moved, nobody remembered to switch it off.',
+        'It has stood in the dark for a century learning one thing from the mice in its gears: hunger. Its furnace runs on gravy now. Fried chicken burns hotter.',
+        'It has calculated that your shop can feed it. It is rarely wrong.'
+      ],
+      quirk: { name: 'Clockwork', text: 'Courses arrive like clockwork: four on the rail at once with short fuses. Keep every fryer busy.' },
+      seconds: 220, courses: 12, atOnce: 4, limit: [74, 64],
+      friesChance: 0.6, cupChance: 0.5, twoCupChance: 0.25, maxTop: 2, maxSauce: 2,
+      tops: ALL_TOPS, sauces: ALL_SAUCES, cups: ALL_CUPS,
+      bounty: 400, xp: 400,
+      roars: ['FUEL LOW.', 'INSUFFICIENT.', 'FEED. THE. FURNACE.'],
+      cheers: ['FUEL ACCEPTED.', 'PRESSURE: NOMINAL.', 'DELICIOUS (ESTIMATE).'],
+      trophy: { id: 'trophy-colossus', name: 'The Clockwork Heart', blurb: 'One more customer in the queue: the treasury is paying for lunch.', mod: { orders: 1 } }
+    },
+    {
+      id: 'rooster', look: 'rooster', css: '#7dff6a',
+      name: 'Count Cockatrix', title: 'The Shadow Rooster',
+      story: [
+        'Every family has one. Sandy\'s is Uncle Cockatrix, who left the farm young, learnt a little dark magic and turned a whole bakery to stone with one look because the croissants were dry.',
+        'He has heard his niece is the finest cook in the kingdom, and he has come to the castle to find out for himself.',
+        'He is very particular. He is very hungry. And he is not leaving until he is fed.'
+      ],
+      quirk: { name: 'Stone Glare', text: 'Every so often his glare turns one of your stations to stone for a few seconds. Fully loaded orders, four at once.' },
+      seconds: 230, courses: 14, atOnce: 4, limit: [80, 68],
+      friesChance: 0.6, cupChance: 0.6, twoCupChance: 0.3, maxTop: 3, maxSauce: 3,
+      tops: ALL_TOPS, sauces: ALL_SAUCES, cups: ALL_CUPS,
+      glare: { every: 16, dur: 6 },
+      bounty: 600, xp: 520,
+      roars: ['DRY! LIKE THE CROISSANTS!', 'YOU CALL THIS COOKING?', 'LOOK AT ME, NIECE.'],
+      cheers: ['Hm. Not dry.', 'Your mother\'s recipe...', 'Perhaps you ARE the best.'],
+      trophy: { id: 'trophy-rooster', name: 'The Golden Comb', blurb: 'Customers wait 10% longer and food sits 10% longer before it burns.', mod: { patience: 1.10, fryGrace: 1.10 } }
+    }
+  ];
+
+  /* Trophies are permanent, like equipment, and live in the same owned
+     list, so CS.econ.mod() folds them in without knowing they are special. */
+  CS.TROPHIES = CS.BOSSES.map(function (b) {
+    var t = b.trophy;
+    return { id: t.id, kind: 'trophy', name: t.name, blurb: t.blurb, mod: t.mod, boss: b.id };
+  });
+
+  /* The boss for a boss day, and the day it makes. A boss you have already
+     fed comes back Ascended on the next lap: more courses, shorter fuses. */
+  CS.bossFor = function (day) {
+    var n = day / CS.CHAPTER_LEN - 1;                      // 0 for day 10
+    var lap = Math.floor(n / CS.BOSSES.length);
+    var b = cloneLevel(CS.BOSSES[n % CS.BOSSES.length]);
+    b.lap = lap;
+    b.fullName = (lap ? 'Ascended ' : '') + b.name + (lap > 1 ? ' ' + ROMAN[Math.min(8, lap - 1)] : '');
+    b.courses += lap * 3;
+    b.limit = [b.limit[0] * Math.pow(0.88, lap), b.limit[1] * Math.pow(0.88, lap)];
+    b.bounty = Math.round(b.bounty * (1 + lap * 0.75));
+    b.xp = Math.round(b.xp * (1 + lap * 0.5));
+    if (b.glare) b.glare = { every: Math.max(9, b.glare.every - lap * 2), dur: b.glare.dur };
+    return b;
+  };
+
+  CS.bossLevel = function (day) {
+    var b = CS.bossFor(day);
+    return {
+      day: day, chapter: CS.chapterOf(day), boss: b,
+      name: b.fullName, tag: b.title,
+      seconds: b.seconds, rent: 0, maxOrders: b.atOnce, grace: 1.0,
+      spawn: [3.0, 2.2], limit: b.limit,
+      friesChance: b.friesChance, cupChance: b.cupChance, twoCupChance: b.twoCupChance,
+      maxTop: b.maxTop, maxSauce: b.maxSauce,
+      tops: b.tops.slice(), sauces: b.sauces.slice(), cups: b.cups.slice(),
+      howto: b.quirk.text, unlocks: []
+    };
   };
 
   /* Star thresholds as multiples of the day's rent. */
@@ -1606,6 +1843,8 @@ window.CS = window.CS || {};
       staff: [],        // [{ kind, training: [id, ...] }]
       layout: null,     // CS.layout.serialize()
       career: { days: 0, served: 0, earned: 0, tips: 0, best: 0 },
+      bosses: [],       // ids of the castle bosses fed, first time round
+      bossDays: [],     // every boss day beaten, so a lap's bosses gate too
       chef: blankChef()
     };
   }
@@ -1621,6 +1860,10 @@ window.CS = window.CS || {};
   function upgrade(id) {
     for (var i = 0; i < CS.UPGRADES.length; i++) {
       if (CS.UPGRADES[i].id === id) return CS.UPGRADES[i];
+    }
+    // a boss's trophy is owned the same way a piece of gear is
+    for (var j = 0; j < CS.TROPHIES.length; j++) {
+      if (CS.TROPHIES[j].id === id) return CS.TROPHIES[j];
     }
     return null;
   }
@@ -1644,6 +1887,8 @@ window.CS = window.CS || {};
       s.wallet = typeof d.wallet === 'number' && isFinite(d.wallet) ? Math.max(0, d.wallet) : 0;
       s.day = Math.max(1, parseInt(d.day, 10) || 1);
       s.owned = (d.owned || []).filter(upgrade);
+      s.bosses = (d.bosses || []).filter(function (id) { return typeof id === 'string'; });
+      s.bossDays = (d.bossDays || []).filter(function (n) { return typeof n === 'number'; });
       s.stock = d.stock && typeof d.stock === 'object' ? d.stock : {};
       s.staff = (d.staff || []).filter(function (h) { return h && CS.STAFF_DEFS[h.kind]; })
         .map(function (h) { return { kind: h.kind, training: (h.training || []).slice() }; });
@@ -1959,7 +2204,9 @@ window.CS = window.CS || {};
       L.outgoings = Math.round((L.rent + L.wages) * 100) / 100;
       L.profit = Math.round((L.net - L.outgoings) * 100) / 100;
       L.passed = L.profit >= 0;
-      L.banked = Math.max(0, L.profit);
+      // a boss's bounty is paid on top, and is nobody's share of the takings
+      L.bounty = L.bounty || 0;
+      L.banked = Math.max(0, L.profit) + L.bounty;
 
       E.state.wallet = Math.round((E.state.wallet + L.banked) * 100) / 100;
       E.state.career.days++;
@@ -1980,6 +2227,30 @@ window.CS = window.CS || {};
       return E.state.day;
     },
 
+    /* ------------------------------------------------------- the bosses
+       A fed boss pays its bounty into the day's books (settle() banks it)
+       and, the first time round, leaves its trophy. Returns the trophy if
+       this was the first time, so the result card can show it off. */
+    bossBeaten: function (day) { return E.state.bossDays.indexOf(day) >= 0; },
+
+    beatBoss: function (boss, day) {
+      if (E.ledger) E.ledger.bounty = boss.bounty;
+      if (E.state.bossDays.indexOf(day) < 0) E.state.bossDays.push(day);
+      var first = E.state.bosses.indexOf(boss.id) < 0;
+      if (first) E.state.bosses.push(boss.id);
+      var trophy = null;
+      if (boss.trophy && !E.has(boss.trophy.id)) {
+        E.state.owned.push(boss.trophy.id);
+        trophy = boss.trophy;
+      }
+      E.save();
+      return trophy;
+    },
+
+    trophies: function () {
+      return CS.TROPHIES.filter(function (t) { return E.has(t.id); });
+    },
+
     stars: function (ledger) {
       if (!ledger || !ledger.passed) return 0;
       var ratio = ledger.net / Math.max(1, ledger.outgoings);
@@ -1988,6 +2259,11 @@ window.CS = window.CS || {};
       return n;
     }
   };
+
+  function bossMod(lv, key) {
+    var m = lv && lv.boss && lv.boss.mods;
+    return m && m[key] ? m[key] : 1;
+  }
 
   /* The fryer clock, after whatever you have bolted to the fryers. Everything
      that starts a basket goes through here rather than reading CS.COOK, so a
@@ -2000,8 +2276,9 @@ window.CS = window.CS || {};
     var gentle = lv && lv.grace ? lv.grace : 1;
     return {
       done: base.done, burnt: base.burnt, label: base.label,
-      cook: base.cook * E.mod('fryCook'),
-      grace: base.grace * E.mod('fryGrace') * gentle * (1 + E.skill('sizzle'))
+      // and a boss can bend the fryers for the day (a dragon's breath, say)
+      cook: base.cook * E.mod('fryCook') * bossMod(lv, 'fryCook'),
+      grace: base.grace * E.mod('fryGrace') * gentle * (1 + E.skill('sizzle')) * bossMod(lv, 'fryGrace')
     };
   };
 
@@ -2233,10 +2510,29 @@ window.CS = window.CS || {};
     s.start(t); s.stop(t + 0.12);
   }
 
+  /* Timpani: a sine that drops a little in pitch as it rings, over a
+     thump of filtered noise for the stick. */
+  function timpani(m, t, vol) {
+    var f = mtof(m), o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = 'sine';
+    o.frequency.setValueAtTime(f * 1.06, t);
+    o.frequency.exponentialRampToValueAtTime(f, t + 0.15);
+    shape(g, t, vol, 0.005, 0.05, 0.7);
+    o.connect(g); g.connect(musicGain);
+    o.start(t); o.stop(t + 0.85);
+    var s = ctx.createBufferSource(); s.buffer = noiseBuf;
+    var lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 380;
+    var ng = ctx.createGain(); shape(ng, t, vol * 0.5, 0.002, 0.01, 0.12);
+    s.connect(lp); lp.connect(ng); ng.connect(musicGain);
+    s.start(t); s.stop(t + 0.2);
+  }
+
   function scheduleStep(i, t) {
     var bar = Math.floor(i / 16) % BARS, s = i % 16;
     var ch = PROG[bar];
-    var shift = mood === 'shift';
+    // a boss day plays the whole band, with timpani and a low brass stab
+    var boss = mood === 'boss';
+    var shift = mood === 'shift' || boss;
 
     if (s === 0) strings(ch, t);
 
@@ -2262,6 +2558,14 @@ window.CS = window.CS || {};
     }
 
     if (shift && (s === 4 || s === 12)) brush(t, s === 12 ? 0.028 : 0.018);
+
+    if (boss) {
+      if (s === 0 || s === 6 || s === 8) timpani(ch.root - 12, t, s === 0 ? 0.30 : 0.18);
+      if (s === 0 && bar % 2 === 0) {
+        voice('sawtooth', mtof(ch.root + 12), t, 0.022, 0.03, 0.30, 0.35, musicGain);
+        voice('square', mtof(ch.root + 19), t, 0.012, 0.03, 0.30, 0.35, musicGain);
+      }
+    }
 
     if (i === BARS * 16 - 1) loopCount++;
   }
@@ -2545,6 +2849,63 @@ window.CS = window.CS || {};
       setTimeout(function () {
         tone(2093, 0.9, 'sine', 0.12); tone(2637, 0.8, 'sine', 0.07); tone(3136, 0.7, 'sine', 0.05);
       }, 360);
+    },
+
+    /* ---- the castle bosses ----
+       A roar is a sawtooth growl through a lowpass that opens and closes,
+       with a rough tremolo and a bed of noise under it. Each boss pitches
+       and colours it differently: the ogre bellows, the dragon shrieks, the
+       lich howls like wind in a crypt, the Colossus blasts a steam whistle,
+       and Cockatrix crows. */
+    bossRoar: function (look) {
+      if (muted || !ensure()) return;
+      var R = {
+        ogre:     { f0: 110, f1: 70,  dur: 1.2, cut: 900,  nz: 500,  nv: 0.20, type: 'sawtooth' },
+        dragon:   { f0: 260, f1: 120, dur: 1.3, cut: 2400, nz: 1800, nv: 0.26, type: 'sawtooth' },
+        lich:     { f0: 330, f1: 180, dur: 1.6, cut: 1200, nz: 900,  nv: 0.16, type: 'triangle' },
+        colossus: { f0: 180, f1: 175, dur: 1.2, cut: 2600, nz: 3200, nv: 0.22, type: 'square' },
+        rooster:  { f0: 520, f1: 820, dur: 0.9, cut: 3000, nz: 2200, nv: 0.12, type: 'sawtooth' }
+      }[look] || { f0: 140, f1: 80, dur: 1.2, cut: 1000, nz: 600, nv: 0.2, type: 'sawtooth' };
+      var t = ctx.currentTime;
+      var o = ctx.createOscillator(), lp = ctx.createBiquadFilter(), g = ctx.createGain();
+      o.type = R.type;
+      o.frequency.setValueAtTime(R.f0, t);
+      o.frequency.exponentialRampToValueAtTime(R.f1, t + R.dur);
+      lp.type = 'lowpass'; lp.Q.value = 4;
+      lp.frequency.setValueAtTime(R.cut * 0.3, t);
+      lp.frequency.linearRampToValueAtTime(R.cut, t + R.dur * 0.25);
+      lp.frequency.linearRampToValueAtTime(R.cut * 0.25, t + R.dur);
+      shape(g, t, 0.24, 0.06, R.dur * 0.55, R.dur * 0.45);
+      var trem = ctx.createOscillator(), ta = ctx.createGain();
+      trem.frequency.value = look === 'lich' ? 5 : 23; ta.gain.value = 0.08;
+      trem.connect(ta); ta.connect(g.gain);
+      o.connect(lp); lp.connect(g); g.connect(master);
+      o.start(t); o.stop(t + R.dur + 0.1); trem.start(t); trem.stop(t + R.dur + 0.1);
+      noise(R.dur, R.nz, R.nv, 0.6);
+      if (look === 'rooster') {     // cock-a-doodle: two more rising whoops
+        setTimeout(function () { tone(620, 0.22, 'sawtooth', 0.09, 940); }, 260);
+        setTimeout(function () { tone(700, 0.45, 'sawtooth', 0.09, 520); }, 520);
+      }
+    },
+    bossStomp: function () {
+      tone(70, 0.5, 'sine', 0.5, 38);
+      noise(0.5, 180, 0.4, 0.7);
+      setTimeout(function () { noise(0.6, 900, 0.10, 0.5); }, 60);      // things rattling on the shelves
+    },
+    bossChomp: function () {
+      [0, 130, 260].forEach(function (d) {
+        setTimeout(function () { noise(0.09, 700, 0.28, 1.2); tone(150, 0.08, 'square', 0.12, 90); }, d);
+      });
+      setTimeout(function () { tone(330, 0.25, 'sine', 0.12, 220); }, 420);     // gulp
+    },
+    glare: function () {
+      tone(300, 0.6, 'sine', 0.14, 1800);
+      tone(450, 0.6, 'triangle', 0.08, 2700);
+      setTimeout(function () { noise(0.4, 300, 0.25, 0.6); }, 500);
+    },
+    stoneCrack: function () {
+      noise(0.08, 2600, 0.25, 2.0);
+      setTimeout(function () { noise(0.25, 500, 0.22, 0.8); }, 70);
     },
 
     /* Feather Frenzy: a rising rush of air under a shimmer of bells, like a
@@ -5689,6 +6050,8 @@ window.CS = window.CS || {};
   /* st: station, held: current item (or null). Returns {ok, text, run}. */
   CS.resolve = function (st, held) {
     var G = CS.game;
+    // the Shadow Rooster's glare: nothing works until the stone cracks
+    if (st.stoned) return blocked('Turned to stone! Wait for it to crack');
 
     switch (st.type) {
       /* ---------------------------------------------------------- crates */
@@ -5939,7 +6302,7 @@ window.CS = window.CS || {};
     init: function (sc) { scene = sc; this.level = CS.levelFor(1); },
 
     reset: function (level) {
-      this.list.forEach(function (o) { scene.remove(o.cust.group); CS.dispose(o.cust.group); });
+      this.list.forEach(function (o) { if (o.cust) { scene.remove(o.cust.group); CS.dispose(o.cust.group); } });
       this.leaving.forEach(function (c) { scene.remove(c.group); CS.dispose(c.group); });
       this.coins.forEach(function (c) { scene.remove(c.m); });
       this.list.length = 0;
@@ -5948,6 +6311,8 @@ window.CS = window.CS || {};
       this.level = level || CS.levelFor(1);
       this.spawnTimer = CS.FIRST_SPAWN;
       this.frozen = false;
+      this.halted = false;     // a fed boss stops ordering
+      this.courses = 0;
       nextId = 1;
     },
 
@@ -6010,6 +6375,7 @@ window.CS = window.CS || {};
     /* How long the queue may get: the day's own limit, plus anything the
        Roadside Sign bought you. */
     cap: function () {
+      if (this.level.boss) return this.level.boss.atOnce;     // a boss sets its own pace
       return Math.min(CS.MAX_ORDERS_CAP,
         this.level.maxOrders + CS.econ.mod('orders'));
     },
@@ -6024,8 +6390,32 @@ window.CS = window.CS || {};
       return free.length ? CS.pick(free) : ri(CS.CRITTERS.length);
     },
 
+    /* A boss day has no queue. The boss stands in the dining room and its
+       courses go straight onto the rail, never more than it still needs to
+       be full. They carry the boss's colour and name in place of a
+       customer's, and no model of their own. */
+    spawnCourse: function (progress) {
+      var b = this.level.boss;
+      if (CS.bosses.remaining() - this.list.length <= 0) return null;
+      var t = this.makeTicket(progress);
+      if (b.force) {
+        if (!t.sandwich) t.sandwich = { toppings: [], sauces: [] };
+        if (t.sandwich.sauces.indexOf(b.force) < 0) t.sandwich.sauces.push(b.force);
+        t.price = CS.econ.priceOf(t);
+      }
+      t.boss = true;
+      t.course = ++this.courses;
+      t.cust = null;
+      t.critter = { name: b.fullName, look: b.look };
+      t.css = b.css;
+      this.list.push(t);
+      CS.bosses.ordered(t);
+      return t;
+    },
+
     spawn: function (progress) {
       if (this.list.length >= this.cap()) return null;
+      if (this.level.boss) return this.spawnCourse(progress);
       var t = this.makeTicket(progress);
       var idx = this.list.length;
       var seed = ri(1000);
@@ -6088,6 +6478,7 @@ window.CS = window.CS || {};
       if (i >= 0) this.list.splice(i, 1);
       order.done = true;
       var c = order.cust;
+      if (!c) return;                  // a boss's course: the boss reacts, see bosses.js
       c.happy = happy;
       c.t = 0;
       c.state = 'leave';
@@ -6133,7 +6524,7 @@ window.CS = window.CS || {};
        instead of standing nose to nose forever. */
     separate: function () {
       var R = 0.36, all = [];
-      this.list.forEach(function (o) { all.push(o.cust.group); });
+      this.list.forEach(function (o) { if (o.cust) all.push(o.cust.group); });
       this.leaving.forEach(function (c) { all.push(c.group); });
       for (var i = 0; i < all.length; i++) {
         for (var j = i + 1; j < all.length; j++) {
@@ -6164,7 +6555,7 @@ window.CS = window.CS || {};
       var lv = this.level;
 
       this.spawnTimer -= dt;
-      if (this.spawnTimer <= 0) {
+      if (this.spawnTimer <= 0 && !this.halted) {
         if (this.list.length < this.cap()) {
           this.spawn(progress);
           this.spawnTimer = CS.lerp(lv.spawn[0], lv.spawn[1], progress) * (0.85 + Math.random() * 0.3);
@@ -6177,6 +6568,10 @@ window.CS = window.CS || {};
       for (var i = this.list.length - 1; i >= 0; i--) {
         var o = this.list[i];
         if (!this.frozen) o.left -= dt;     // Feather Frenzy holds the queue still
+        if (!o.cust) {
+          if (o.left <= 0) { this.complete(o, false); onExpire(o); }
+          continue;
+        }
         var c = o.cust, g = c.group, moved = 0;
         c.t += dt;
 
@@ -7172,7 +7567,7 @@ window.CS = window.CS || {};
   function nearest(h, stations, test) {
     var best = null, bestD = Infinity;
     stations.forEach(function (st) {
-      if (!test(st) || claimedBy(st, h)) return;
+      if (st.stoned || !test(st) || claimedBy(st, h)) return;
       if (!adjacentTiles(st).length) return;      // walled in: unusable
       var d = Math.abs(st.col - h.col) + Math.abs(st.row - h.row);
       if (d < bestD) { bestD = d; best = st; }
@@ -7869,7 +8264,8 @@ window.CS = window.CS || {};
 
     turnToward(h, Math.atan2(d.x - h.x, d.z - h.z), dt);
 
-    if (task.wait && task.wait(h, d)) { h.state = 'idle'; h.timer = 0; return 0; }
+    // a station turned to stone under them: stand and wait for it to crack
+    if (d.stoned || (task.wait && task.wait(h, d))) { h.state = 'idle'; h.timer = 0; return 0; }
 
     h.state = 'work';
     h.timer += dt;
@@ -7999,6 +8395,969 @@ window.CS = window.CS || {};
 
 </script>
 <script>
+/* ---- src/bosses.js ---- */
+/* The castle bosses.
+
+   Every tenth day one of the castle's great and terrible residents comes
+   down to the shop to be fed (see CS.BOSSES in config.js for who they are
+   and what they want). This file is everything about the one standing in
+   the dining room: the five models, how they arrive, breathe, watch the
+   chef, chomp a course, roar when one goes cold and celebrate when they
+   are full; the hunger meter in the HUD; the Shadow Rooster's stone glare;
+   and the camera work for the reveal and the victory.
+
+   Like everything else the models are built in code from smooth
+   primitives, then baked so a boss costs a few dozen draw calls rather
+   than a few hundred. Each is about five and a half units tall -- around
+   five times a customer -- so it stands head and shoulders over the
+   kitchen's back wall, watching you cook.                                 */
+window.CS = window.CS || {};
+(function (CS) {
+  'use strict';
+
+  var scene = null, light = null, hud = null;
+  var B = null;                 // the boss on the floor, or null
+  var flights = [];             // plates arcing from the window into its mouth
+  var stones = [];              // stations under the Shadow Rooster's glare
+  var beams = [];               // and the glare itself, fading
+  var cine = { on: false };     // the reveal / victory camera
+
+  function add(p, m) { p.add(m); return m; }
+
+  /* A material of its own (not from the shared cache), for glowing parts
+     whose colour or strength is animated per boss. */
+  function glow(hex) { return new THREE.MeshBasicMaterial({ color: CS.linear(hex) }); }
+
+  /* A cylinder from point a to point b: bones, struts, staves. */
+  var UP = new THREE.Vector3(0, 1, 0);
+  function strut(parent, a, b, r0, r1, m) {
+    var va = new THREE.Vector3(a[0], a[1], a[2]), vb = new THREE.Vector3(b[0], b[1], b[2]);
+    var dir = vb.clone().sub(va), len = dir.length();
+    var mesh = CS.cyl(r1, r0, len, m, 0, 0, 0, 10);
+    mesh.position.copy(va).add(vb).multiplyScalar(0.5);
+    mesh.quaternion.setFromUnitVectors(UP, dir.normalize());
+    parent.add(mesh);
+    return mesh;
+  }
+
+  /* A flat membrane through a fan of points -- a dragon's wing. */
+  function membrane(parent, pts, m) {
+    var pos = [];
+    for (var i = 1; i < pts.length - 1; i++) {
+      pos.push(pts[0][0], pts[0][1], pts[0][2], pts[i][0], pts[i][1], pts[i][2], pts[i + 1][0], pts[i + 1][1], pts[i + 1][2]);
+    }
+    var geo = new THREE.BufferGeometry();
+    geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    geo.setAttribute('uv', new THREE.Float32BufferAttribute(new Array(pos.length / 3 * 2).fill(0), 2));
+    geo.computeVertexNormals();
+    var mesh = new THREE.Mesh(geo, CS.mat(m));
+    mesh.castShadow = true;
+    parent.add(mesh);
+    return mesh;
+  }
+
+  /* Giant cutlery, for the bosses who brought their own. Built standing up
+     along +y from the fist that holds it. */
+  var SILVER = { color: 0xd8dde6, rough: 0.2, metal: 0.9 };
+  function fork(parent) {
+    var g = add(parent, new THREE.Group());
+    add(g, CS.cyl(0.07, 0.08, 1.5, SILVER, 0, 0.55, 0, 10));
+    add(g, CS.box(0.42, 0.14, 0.08, SILVER, 0, 1.33, 0));
+    [-0.15, 0, 0.15].forEach(function (x) { add(g, CS.box(0.06, 0.55, 0.06, SILVER, x, 1.65, 0)); });
+    return g;
+  }
+  function knife(parent) {
+    var g = add(parent, new THREE.Group());
+    add(g, CS.cyl(0.08, 0.09, 0.9, { color: 0x5a3a22, rough: 0.7 }, 0, 0.3, 0, 10));
+    add(g, CS.box(0.08, 1.15, 0.3, SILVER, 0, 1.3, 0.04));
+    return g;
+  }
+  /* A napkin tucked in at the neck. Every one of them wears one. */
+  function napkin(parent, w, h, x, y, z, tilt) {
+    var g = add(parent, new THREE.Group());
+    g.position.set(x, y, z);
+    g.rotation.x = tilt;
+    // a triangle of linen, point down, with a red-checked border
+    [[1, 0xc8402e, 0], [0.84, 0xf6f0e2, 0.012]].forEach(function (l) {
+      var t = add(g, CS.cone(w * 0.58 * l[0], h * l[0], { color: l[1], rough: 0.9 }, 0, -h * l[0] / 2, l[2], 3));
+      t.rotation.x = Math.PI; t.scale.z = 0.08;
+    });
+    for (var c = 0; c < 5; c++) {
+      add(g, CS.box(w * 0.07, w * 0.07, 0.02, { color: 0xc8402e, rough: 0.9 }, (c - 2) * w * 0.14, -h * 0.12, 0.03));
+    }
+    [-1, 1].forEach(function (s) { add(g, CS.ball(0.13, 0.1, 0.1, { color: 0xf6f0e2, rough: 0.9 }, s * 0.12, 0.02, 0.02)); });
+    return g;
+  }
+
+  /* An arm on a shoulder pivot, hanging down -y. `parts` gets the pivot. */
+  function pivot(parent, x, y, z) {
+    var g = new THREE.Group();
+    g.position.set(x, y, z);
+    parent.add(g);
+    return g;
+  }
+
+  /* ================================================================ OGRE */
+  function ogre() {
+    var g = new THREE.Group(), P = {};
+    var SKIN = { color: 0x86a35c, rough: 0.75 }, SKIN_D = { color: 0x627d42, rough: 0.8 };
+    var BELLY = { color: 0xb1c283, rough: 0.8 };
+    var LEATHER = { color: 0x6a4528, rough: 0.85 }, IRON = { color: 0x70757f, rough: 0.35, metal: 0.8 };
+    var IVORY = { color: 0xf1e6c8, rough: 0.4 }, CAPE = { color: 0x8a2c2c, rough: 0.9, side: true };
+    var GOLD = { color: 0xf2bf3e, rough: 0.3, metal: 0.8 }, DARK = { color: 0x1e1828, rough: 0.2 };
+    P.eyeMat = glow(0xffe27a);
+
+    [-1, 1].forEach(function (s) {
+      add(g, CS.ball(0.44, 0.64, 0.46, SKIN, s * 0.62, 0.62, 0));
+      add(g, CS.ball(0.52, 0.25, 0.68, SKIN_D, s * 0.66, 0.16, 0.18));
+      for (var i = -1; i <= 1; i++) add(g, CS.ball(0.12, 0.09, 0.1, IVORY, s * 0.66 + i * 0.2, 0.12, 0.8));
+    });
+    add(g, CS.cyl(1.05, 1.25, 0.8, LEATHER, 0, 1.25, 0, 20));
+
+    var body = P.body = pivot(g, 0, 1.5, 0);
+    add(body, CS.ball(1.38, 1.25, 1.12, SKIN, 0, 0.95, 0));
+    add(body, CS.ball(1.02, 0.95, 0.55, BELLY, 0, 0.72, 0.64));
+    var belt = add(body, CS.torus(1.2, 0.12, 0, LEATHER, 0, 0.2, 0));
+    belt.rotation.x = Math.PI / 2; belt.scale.y = 0.9;
+    add(body, CS.box(0.46, 0.34, 0.12, GOLD, 0, 0.2, 1.06));
+    napkin(body, 1.15, 0.95, 0, 2.02, 0.92, -0.32);
+    var cape = add(body, CS.shell(1.46, 1.55, 1.25, CAPE, Math.PI, Math.PI, 0.25, 1.6));
+    cape.position.set(0, 1.0, -0.08);
+    [-1, 1].forEach(function (s) {
+      add(body, CS.ball(0.64, 0.42, 0.64, IRON, s * 1.24, 1.86, 0));
+      for (var r = 0; r < 3; r++) add(body, CS.ball(0.06, 0.06, 0.06, GOLD, s * (1.0 + r * 0.22), 2.18, 0.3));
+    });
+
+    ['armL', 'armR'].forEach(function (id, i) {
+      var s = i ? 1 : -1;
+      var a = P[id] = pivot(body, s * 1.4, 1.72, 0);
+      add(a, CS.ball(0.42, 0.74, 0.42, SKIN, 0, -0.6, 0));
+      add(a, CS.cyl(0.45, 0.45, 0.42, LEATHER, 0, -1.48, 0.05, 16));
+      add(a, CS.ball(0.4, 0.62, 0.4, SKIN, 0, -1.42, 0.05));
+      add(a, CS.ball(0.5, 0.45, 0.5, SKIN_D, 0, -2.02, 0.12));
+      var tool = i ? knife(a) : fork(a);
+      tool.position.set(0, -2.0, 0.2);
+      tool.rotation.x = 1.1;
+    });
+
+    var head = P.head = pivot(body, 0, 2.45, 0.15);
+    add(head, CS.ball(0.84, 0.76, 0.8, SKIN, 0, 0.35, 0));
+    var brow = add(head, CS.box(1.2, 0.22, 0.35, SKIN_D, 0, 0.64, 0.56)); brow.rotation.x = 0.25;
+    [-1, 1].forEach(function (s) {
+      add(head, new THREE.Mesh(CS.ball(1, 1, 1).geometry, P.eyeMat)).position.set(s * 0.3, 0.45, 0.72);
+      head.children[head.children.length - 1].scale.set(0.15, 0.12, 0.08);
+      add(head, CS.ball(0.06, 0.07, 0.04, DARK, s * 0.3, 0.45, 0.79));
+      var ear = add(head, CS.cone(0.2, 0.55, SKIN, s * 0.86, 0.42, -0.05, 8));
+      ear.rotation.z = -s * 1.25;
+      var horn = add(head, CS.cone(0.13, 0.7, IVORY, s * 0.62, 1.02, 0.05, 10));
+      horn.rotation.z = -s * 0.65;
+    });
+    add(head, CS.ball(0.25, 0.2, 0.22, SKIN_D, 0, 0.28, 0.86));
+    add(head, CS.shell(0.88, 0.62, 0.84, IRON, 0, Math.PI * 2, 0, Math.PI * 0.42)).position.y = 0.5;
+    var band = add(head, CS.torus(0.85, 0.06, 0, IRON, 0, 0.66, 0)); band.rotation.x = Math.PI / 2;
+    add(head, CS.box(0.14, 0.45, 0.1, IRON, 0, 0.66, 0.84));
+    add(head, CS.ball(0.5, 0.12, 0.38, DARK, 0, 0.04, 0.45));      // the inside of the mouth
+    var jaw = P.jaw = pivot(head, 0, 0.12, 0.22);
+    add(jaw, CS.ball(0.7, 0.32, 0.62, SKIN, 0, -0.12, 0.25));
+    [-1, 1].forEach(function (s) {
+      add(jaw, CS.cone(0.09, 0.42, IVORY, s * 0.34, 0.12, 0.72, 8));
+    });
+    P.mouth = pivot(head, 0, 0.12, 0.85);
+    return { group: g, parts: P, scale: 1.12, arrive: 'drop', lightColor: 0xffd27a, lightY: 3.4 };
+  }
+
+  /* ============================================================== DRAGON */
+  function dragon() {
+    var g = new THREE.Group(), P = {};
+    var SCALE = { color: 0xc23a22, rough: 0.45, metal: 0.1 }, SCALE_D = { color: 0x8f2414, rough: 0.5 };
+    var BELLY = { color: 0xf0b44a, rough: 0.5 }, HORN = { color: 0xefe3c2, rough: 0.4 };
+    var WING = { color: 0xa3281c, rough: 0.6, side: true }, CLAW = { color: 0x2a1e1a, rough: 0.3 };
+    var DARK = { color: 0x1e1010, rough: 0.3 };
+    P.eyeMat = glow(0xffb21e);
+
+    [-1, 1].forEach(function (s) {
+      add(g, CS.ball(0.78, 0.72, 0.98, SCALE, s * 0.86, 0.72, -0.1));
+      add(g, CS.ball(0.4, 0.22, 0.72, SCALE_D, s * 0.92, 0.18, 0.55));
+      [-0.18, 0, 0.18].forEach(function (x) {
+        var c = add(g, CS.cone(0.07, 0.28, CLAW, s * 0.92 + x, 0.14, 1.25, 8));
+        c.rotation.x = Math.PI / 2;
+      });
+    });
+
+    // the tail curls round the right side on the floor
+    var tail = P.tail = pivot(g, 0.2, 0, -0.9);
+    var tp = [[0, 0.5, 0], [0.7, 0.4, -0.45], [1.45, 0.34, -0.45], [2.05, 0.3, -0.05], [2.35, 0.27, 0.6], [2.25, 0.25, 1.25]];
+    tp.forEach(function (p, i) {
+      var r = 0.5 * (1 - i * 0.13);
+      add(tail, CS.ball(r, r * 0.85, r, SCALE, p[0], p[1], p[2]));
+      if (i < tp.length - 1) {
+        var sp = add(tail, CS.cone(0.09, 0.3, SCALE_D, p[0], p[1] + r * 0.8, p[2], 6));
+        sp.rotation.z = -0.3;
+      }
+    });
+    var spade = add(tail, CS.cone(0.32, 0.6, SCALE_D, 2.2, 0.25, 1.75, 4));
+    spade.rotation.x = Math.PI / 2; spade.scale.z = 0.3;
+
+    var body = P.body = pivot(g, 0, 1.0, 0);
+    add(body, CS.ball(1.15, 1.45, 1.05, SCALE, 0, 1.2, 0));
+    for (var i = 0; i < 6; i++) {
+      var y = 0.35 + i * 0.32, k = (y - 1.2) / 1.45;
+      var zr = 1.05 * Math.sqrt(Math.max(0, 1 - k * k));
+      add(body, CS.ball(0.72 - Math.abs(k) * 0.3, 0.17, 0.28, BELLY, 0, y, zr - 0.12));
+    }
+    for (var j = 0; j < 6; j++) {
+      var sy = 0.5 + j * 0.42, sk = (sy - 1.2) / 1.45;
+      var bz = -1.05 * Math.sqrt(Math.max(0, 1 - sk * sk));
+      var spine = add(body, CS.cone(0.13, 0.42, SCALE_D, 0, sy, bz - 0.05, 6));
+      spine.rotation.x = -1.1;
+    }
+    napkin(body, 0.95, 0.75, 0, 2.3, 0.82, -0.45);
+
+    ['armL', 'armR'].forEach(function (id, i) {
+      var s = i ? 1 : -1;
+      var a = P[id] = pivot(body, s * 0.82, 1.9, 0.55);
+      add(a, CS.ball(0.2, 0.42, 0.2, SCALE, 0, -0.34, 0.05));
+      add(a, CS.ball(0.17, 0.36, 0.17, SCALE, 0, -0.8, 0.18));
+      add(a, CS.ball(0.2, 0.15, 0.22, SCALE_D, 0, -1.12, 0.26));
+      if (i) { var f = fork(a); f.position.set(0, -1.12, 0.3); f.rotation.x = 0.9; f.scale.setScalar(0.75); }
+    });
+
+    // wings: an arm bone to the elbow, three fingers fanning out, and the
+    // membrane stretched between them
+    ['wingL', 'wingR'].forEach(function (id, i) {
+      var s = i ? 1 : -1;
+      var w = P[id] = pivot(body, s * 0.6, 2.25, -0.75);
+      var elbow = [s * 1.6, 1.05, -0.3];
+      var tips = [[s * 3.0, 2.1, -0.6], [s * 3.35, 0.7, -0.7], [s * 2.7, -0.55, -0.6]];
+      strut(w, [0, 0, 0], elbow, 0.12, 0.09, SCALE_D);
+      tips.forEach(function (t) { strut(w, elbow, t, 0.07, 0.03, SCALE_D); });
+      membrane(w, [elbow, [0, 0, 0], tips[0], tips[1], tips[2], [s * 0.4, -0.85, -0.3]], WING);
+      add(w, CS.cone(0.08, 0.3, HORN, elbow[0], elbow[1] + 0.2, elbow[2], 6));
+    });
+
+    var neck = pivot(body, 0, 2.45, 0.2);
+    add(neck, CS.ball(0.52, 0.55, 0.5, SCALE, 0, 0.2, 0.05));
+    add(neck, CS.ball(0.46, 0.5, 0.45, SCALE, 0, 0.7, 0.3));
+    add(neck, CS.ball(0.3, 0.42, 0.22, BELLY, 0, 0.5, 0.42));
+    var head = P.head = pivot(neck, 0, 1.25, 0.55);
+    add(head, CS.ball(0.62, 0.5, 0.66, SCALE, 0, 0, 0));
+    add(head, CS.ball(0.42, 0.32, 0.62, SCALE, 0, -0.08, 0.62));
+    [-1, 1].forEach(function (s) {
+      add(head, CS.ball(0.05, 0.04, 0.03, DARK, s * 0.14, 0.06, 1.18));
+      var eye = add(head, new THREE.Mesh(CS.ball(1, 1, 1).geometry, P.eyeMat));
+      eye.position.set(s * 0.34, 0.17, 0.44); eye.scale.set(0.13, 0.1, 0.08);
+      add(head, CS.box(0.03, 0.14, 0.02, DARK, s * 0.34, 0.17, 0.52));
+      var brow = add(head, CS.box(0.3, 0.1, 0.3, SCALE_D, s * 0.32, 0.32, 0.4)); brow.rotation.z = s * 0.35;
+      var horn = add(head, CS.cone(0.13, 0.95, HORN, s * 0.3, 0.42, -0.35, 10));
+      horn.rotation.x = -1.05; horn.rotation.z = -s * 0.2;
+      var frill = add(head, CS.cone(0.1, 0.42, SCALE_D, s * 0.6, 0.0, -0.2, 6));
+      frill.rotation.z = -s * 1.4;
+    });
+    add(head, CS.ball(0.3, 0.1, 0.48, { color: 0x5a1010, rough: 0.6 }, 0, -0.24, 0.55));
+    var jaw = P.jaw = pivot(head, 0, -0.22, 0.12);
+    add(jaw, CS.ball(0.38, 0.13, 0.62, SCALE_D, 0, -0.06, 0.45));
+    for (var t = 0; t < 5; t++) {
+      [-1, 1].forEach(function (s) {
+        add(jaw, CS.cone(0.035, 0.12, HORN, s * (0.24 - t * 0.03), 0.06, 0.25 + t * 0.17, 5));
+      });
+    }
+    P.mouth = pivot(head, 0, -0.2, 0.95);
+    P.nose = pivot(head, 0, 0.06, 1.2);
+    return { group: g, parts: P, scale: 1.08, arrive: 'fly', lightColor: 0xff8a3a, lightY: 3.0 };
+  }
+
+  /* ================================================================ LICH */
+  function lich() {
+    var g = new THREE.Group(), P = {};
+    var ROBE = { color: 0x3a2858, rough: 0.85 }, ROBE_D = { color: 0x271a3e, rough: 0.9, side: true };
+    var GOLD = { color: 0xe6b84a, rough: 0.3, metal: 0.8 }, BONE = { color: 0xe9e1c9, rough: 0.6 };
+    var HAT = { color: 0xdedad0, rough: 0.95 }, WOOD = { color: 0x3d2a1e, rough: 0.8 };
+    var DARK = { color: 0x0e0a14, rough: 0.5 };
+    P.eyeMat = glow(0x6ff0ff);
+    P.lampMat = glow(0x9ff8ff);
+
+    // the whole lich floats, so everything hangs off one pivot that bobs
+    var body = P.body = pivot(g, 0, 0.55, 0);
+    add(body, CS.cyl(0.78, 1.55, 3.0, ROBE, 0, 1.5, 0, 24));
+    for (var i = 0; i < 16; i++) {
+      var a = i / 16 * Math.PI * 2;
+      var tat = add(body, CS.cone(0.24, 0.6, ROBE_D, Math.sin(a) * 1.42, -0.1, Math.cos(a) * 1.42, 5));
+      tat.rotation.x = Math.PI;
+    }
+    var hem = add(body, CS.torus(1.5, 0.05, 0, GOLD, 0, 0.18, 0)); hem.rotation.x = Math.PI / 2;
+    [-1, 1].forEach(function (s) {
+      var stole = add(body, CS.box(0.24, 2.3, 0.08, GOLD, s * 0.32, 1.75, 1.08));
+      stole.rotation.x = -0.26;
+    });
+    add(body, CS.ball(0.98, 0.72, 0.78, ROBE, 0, 3.1, 0));
+    var col = add(body, CS.torus(0.62, 0.08, 0, GOLD, 0, 3.55, 0.05)); col.rotation.x = Math.PI / 2;
+    add(body, new THREE.Mesh(CS.ball(1, 1, 1).geometry, P.eyeMat)).position.set(0, 3.15, 0.8);
+    body.children[body.children.length - 1].scale.set(0.13, 0.16, 0.08);
+    // a ragged chef's apron over the robe: he was the royal cook once
+    var apron = add(body, CS.box(0.72, 1.05, 0.05, { color: 0xcfc6b0, rough: 0.95 }, 0, 1.95, 1.04)); apron.rotation.x = -0.26;
+    napkin(body, 0.8, 0.55, 0, 3.4, 0.72, -0.5);
+
+    ['armL', 'armR'].forEach(function (id, i) {
+      var s = i ? 1 : -1;
+      var a = P[id] = pivot(body, s * 1.0, 3.3, 0);
+      add(a, CS.cyl(0.24, 0.44, 1.5, ROBE, 0, -0.72, 0, 16));
+      add(a, CS.box(0.26, 0.22, 0.16, BONE, 0, -1.58, 0.05));
+      for (var f = 0; f < 4; f++) {
+        strut(a, [-0.09 + f * 0.06, -1.66, 0.08], [-0.1 + f * 0.065, -1.95, 0.16], 0.025, 0.02, BONE);
+      }
+      if (!i) {
+        // the lantern staff
+        strut(a, [0, -3.4, 0.15], [0, 1.25, 0.15], 0.07, 0.06, WOOD);
+        var lamp = P.lantern = pivot(a, 0, 1.55, 0.15);
+        add(lamp, CS.box(0.42, 0.06, 0.42, GOLD, 0, 0.28, 0));
+        add(lamp, CS.box(0.42, 0.06, 0.42, GOLD, 0, -0.28, 0));
+        [[-1, -1], [-1, 1], [1, -1], [1, 1]].forEach(function (c) {
+          add(lamp, CS.box(0.04, 0.56, 0.04, GOLD, c[0] * 0.19, 0, c[1] * 0.19));
+        });
+        add(lamp, new THREE.Mesh(CS.ball(1, 1, 1).geometry, P.lampMat)).scale.set(0.16, 0.2, 0.16);
+        add(lamp, CS.cone(0.26, 0.24, GOLD, 0, 0.42, 0, 4)).rotation.y = Math.PI / 4;
+      } else {
+        // a tasting ladle, for finding everything wanting
+        var ladle = pivot(a, 0, -1.7, 0.2);
+        ladle.rotation.x = 1.0;
+        add(ladle, CS.cyl(0.04, 0.04, 1.3, SILVER, 0, 0.6, 0, 8));
+        add(ladle, CS.shell(0.22, 0.16, 0.22, SILVER, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2)).position.y = 1.3;
+      }
+    });
+
+    var head = P.head = pivot(body, 0, 3.85, 0.1);
+    add(head, CS.shell(0.78, 0.86, 0.78, ROBE_D, Math.PI * 0.85, Math.PI * 1.3, 0, Math.PI * 0.72)).position.y = 0.12;
+    add(head, CS.ball(0.48, 0.52, 0.5, BONE, 0, 0.1, 0));
+    [-1, 1].forEach(function (s) {
+      add(head, CS.ball(0.14, 0.13, 0.07, DARK, s * 0.18, 0.18, 0.41));
+      var e = add(head, new THREE.Mesh(CS.ball(1, 1, 1).geometry, P.eyeMat));
+      e.position.set(s * 0.18, 0.18, 0.45); e.scale.set(0.065, 0.065, 0.04);
+      add(head, CS.ball(0.12, 0.08, 0.1, BONE, s * 0.3, -0.02, 0.32));
+    });
+    var nose = add(head, CS.cone(0.06, 0.12, DARK, 0, 0.0, 0.48, 3)); nose.rotation.x = Math.PI;
+    for (var u = 0; u < 6; u++) add(head, CS.box(0.05, 0.08, 0.05, BONE, -0.13 + u * 0.052, -0.14, 0.42));
+    add(head, CS.ball(0.28, 0.08, 0.2, DARK, 0, -0.2, 0.3));
+    var jaw = P.jaw = pivot(head, 0, -0.18, 0.1);
+    add(jaw, CS.box(0.46, 0.14, 0.36, BONE, 0, -0.1, 0.18));
+    for (var d = 0; d < 6; d++) add(jaw, CS.box(0.05, 0.07, 0.05, BONE, -0.13 + d * 0.052, -0.01, 0.33));
+    var hat = pivot(head, 0.04, 0.55, -0.04);
+    hat.rotation.z = -0.14;
+    add(hat, CS.cyl(0.44, 0.4, 0.75, HAT, 0, 0.36, 0, 18));
+    add(hat, CS.ball(0.62, 0.36, 0.6, HAT, 0, 0.82, 0));
+    add(hat, CS.ball(0.18, 0.16, 0.18, { color: 0xb8b2a6, rough: 0.95 }, 0.3, 0.75, 0.35));   // a moth hole, patched
+    P.mouth = pivot(head, 0, -0.12, 0.5);
+    return { group: g, parts: P, scale: 1.15, arrive: 'rise', pose: { lx: -0.7, lz: -0.35 }, lightColor: 0x7ff4ff, lightY: 4.2, float: true };
+  }
+
+  /* ============================================================ COLOSSUS */
+  function colossus() {
+    var g = new THREE.Group(), P = {};
+    var BRASS = { color: 0xc8963c, rough: 0.35, metal: 0.85 }, BRASS_D = { color: 0x8a6426, rough: 0.4, metal: 0.85 };
+    var IRON = { color: 0x3a3f48, rough: 0.5, metal: 0.7 }, RIVET = { color: 0xf2cf6a, rough: 0.3, metal: 0.9 };
+    P.eyeMat = glow(0xff9a3a);
+    P.fireMat = glow(0xff6a1a);
+    P.beaconMat = glow(0xff3030);
+
+    [-1, 1].forEach(function (s) {
+      add(g, CS.box(1.0, 0.26, 1.35, IRON, s * 0.72, 0.13, 0.2));
+      add(g, CS.box(0.86, 0.92, 0.96, BRASS_D, s * 0.72, 0.68, 0.05));
+      add(g, CS.ball(0.32, 0.32, 0.32, IRON, s * 0.72, 1.22, 0.05));
+      add(g, CS.box(0.76, 0.9, 0.82, BRASS, s * 0.72, 1.6, 0));
+    });
+    add(g, CS.box(1.9, 0.5, 1.1, IRON, 0, 2.05, 0));
+
+    var body = P.body = pivot(g, 0, 2.2, 0);
+    add(body, CS.box(2.7, 2.1, 1.7, { color: 0xc8963c, rough: 0.35, metal: 0.85, round: 0.32 }, 0, 1.15, 0));
+    add(body, CS.box(2.0, 1.5, 0.12, BRASS_D, 0, 1.2, 0.86));
+    for (var r = 0; r < 8; r++) {
+      add(body, CS.ball(0.06, 0.06, 0.04, RIVET, -0.9 + r * 0.257, 1.9, 0.93));
+      add(body, CS.ball(0.06, 0.06, 0.04, RIVET, -0.9 + r * 0.257, 0.5, 0.93));
+    }
+    add(body, CS.torus(0.56, 0.11, 0, BRASS, 0, 1.15, 0.94));
+    add(body, new THREE.Mesh(CS.cyl(0.5, 0.5, 0.04, IRON).geometry, P.fireMat)).position.set(0, 1.15, 0.9);
+    body.children[body.children.length - 1].rotation.x = Math.PI / 2;
+    // the furnace door is its mouth: it swings open to take a course
+    var jaw = P.jaw = pivot(body, 0, 0.6, 1.0);
+    var door = add(jaw, CS.cyl(0.55, 0.55, 0.08, IRON, 0, 0.55, 0.02, 24)); door.rotation.x = Math.PI / 2;
+    for (var b = 0; b < 4; b++) add(jaw, CS.box(0.06, 0.8, 0.06, BRASS_D, -0.27 + b * 0.18, 0.55, 0.08));
+    add(jaw, CS.ball(0.08, 0.08, 0.08, RIVET, 0.42, 0.55, 0.1));
+    P.mouth = pivot(body, 0, 1.15, 1.0);
+    napkin(body, 1.0, 0.5, 0, 2.18, 0.86, -0.1);
+
+    P.chimneys = [];
+    [-1, 1].forEach(function (s) {
+      add(body, CS.cyl(0.2, 0.24, 1.2, IRON, s * 0.8, 2.55, -0.55, 12));
+      add(body, CS.cyl(0.28, 0.28, 0.12, BRASS_D, s * 0.8, 3.16, -0.55, 12));
+      P.chimneys.push(pivot(body, s * 0.8, 3.25, -0.55));
+    });
+
+    P.gears = [];
+    ['armL', 'armR'].forEach(function (id, i) {
+      var s = i ? 1 : -1;
+      var gear = pivot(body, s * 1.42, 1.75, 0);
+      var wheel = add(gear, CS.cyl(0.52, 0.52, 0.16, BRASS_D, 0, 0, 0, 20)); wheel.rotation.z = Math.PI / 2;
+      for (var t = 0; t < 10; t++) {
+        var ta = t / 10 * Math.PI * 2;
+        add(gear, CS.box(0.18, 0.18, 0.16, BRASS_D, 0, Math.cos(ta) * 0.58, Math.sin(ta) * 0.58)).rotation.x = ta;
+      }
+      add(gear, CS.ball(0.14, 0.14, 0.14, RIVET, s * 0.1, 0, 0));
+      P.gears.push(gear);
+
+      var a = P[id] = pivot(body, s * 1.62, 1.75, 0);
+      add(a, CS.ball(0.42, 0.42, 0.42, IRON, 0, 0, 0));
+      add(a, CS.cyl(0.28, 0.28, 1.0, BRASS, 0, -0.62, 0, 14));
+      add(a, CS.ball(0.3, 0.3, 0.3, IRON, 0, -1.15, 0));
+      add(a, CS.cyl(0.33, 0.26, 0.9, BRASS_D, 0, -1.62, 0.02, 14));
+      add(a, CS.box(0.5, 0.36, 0.42, IRON, 0, -2.18, 0.05));
+      [-0.16, 0, 0.16].forEach(function (x) { add(a, CS.box(0.11, 0.3, 0.11, IRON, x, -2.48, 0.12)); });
+      if (i) { var f = fork(a); f.position.set(0, -2.25, 0.18); f.rotation.x = 1.15; f.scale.setScalar(1.1); }
+    });
+
+    var head = P.head = pivot(body, 0, 2.38, 0.05);
+    add(head, CS.cyl(0.6, 0.64, 0.36, IRON, 0, 0.1, 0, 20));
+    add(head, CS.shell(0.62, 0.58, 0.6, BRASS, 0, Math.PI * 2, 0, Math.PI / 2)).position.y = 0.28;
+    add(head, new THREE.Mesh(CS.box(0.86, 0.13, 0.06).geometry, P.eyeMat)).position.set(0, 0.42, 0.54);
+    add(head, CS.cyl(0.03, 0.03, 0.6, IRON, 0, 1.1, 0, 6));
+    add(head, new THREE.Mesh(CS.ball(1, 1, 1).geometry, P.beaconMat)).position.set(0, 1.45, 0);
+    head.children[head.children.length - 1].scale.setScalar(0.1);
+    return { group: g, parts: P, scale: 1.08, arrive: 'drop', lightColor: 0xff8a3a, lightY: 3.4 };
+  }
+
+  /* ============================================================= ROOSTER */
+  function rooster() {
+    var g = new THREE.Group(), P = {};
+    var PLUME = { color: 0x2b2340, rough: 0.4, metal: 0.35 }, PLUME_L = { color: 0x46386a, rough: 0.45, metal: 0.25 };
+    var IRID = { color: 0x2f8a5e, rough: 0.3, metal: 0.55 }, COMB = { color: 0xd8283a, rough: 0.5 };
+    var BEAK = { color: 0xf0b030, rough: 0.35 }, LEG = { color: 0xc9b26a, rough: 0.6 };
+    var CAPE_OUT = { color: 0x1a1422, rough: 0.7, side: true }, CAPE_IN = { color: 0x8a1424, rough: 0.7, side: true };
+    var GOLD = { color: 0xf2bf3e, rough: 0.3, metal: 0.85 };
+    P.eyeMat = glow(0x7dff6a);
+
+    [-1, 1].forEach(function (s) {
+      strut(g, [s * 0.45, 1.2, 0], [s * 0.5, 0.15, 0.1], 0.12, 0.1, LEG);
+      [-0.45, 0, 0.45].forEach(function (a) {
+        strut(g, [s * 0.5, 0.1, 0.1], [s * 0.5 + Math.sin(a) * 0.5, 0.05, 0.1 + Math.cos(a) * 0.5], 0.06, 0.04, LEG);
+      });
+      strut(g, [s * 0.5, 0.35, 0.05], [s * 0.5, 0.3, -0.3], 0.05, 0.02, LEG);
+    });
+
+    var body = P.body = pivot(g, 0, 1.1, 0);
+    add(body, CS.ball(1.15, 1.2, 1.05, PLUME, 0, 1.05, -0.1));
+    add(body, CS.ball(0.9, 0.95, 0.72, PLUME_L, 0, 1.2, 0.45));
+    var tail = P.tail = pivot(body, 0, 1.3, -0.95);
+    for (var i = 0; i < 7; i++) {
+      var f = pivot(tail, 0, 0, 0);
+      f.rotation.z = (i - 3) * 0.3;
+      f.rotation.x = -0.55;
+      add(f, CS.ball(0.17, 1.45, 0.07, i % 2 ? IRID : PLUME, 0, 1.25, 0));
+      add(f, CS.ball(0.12, 0.3, 0.05, i % 2 ? PLUME_L : IRID, 0, 2.55, 0.02));
+    }
+    var cape = add(body, CS.shell(1.32, 1.5, 1.2, CAPE_OUT, Math.PI, Math.PI, 0.25, 1.35));
+    cape.position.set(0, 1.25, -0.05);
+    var lining = add(body, CS.shell(1.26, 1.44, 1.14, CAPE_IN, Math.PI, Math.PI, 0.25, 1.35));
+    lining.position.set(0, 1.25, -0.05);
+    [-1, 1].forEach(function (s) {
+      var c = add(body, CS.cone(0.3, 1.0, CAPE_IN, s * 0.62, 2.4, -0.3, 4));
+      c.rotation.z = -s * 0.35; c.rotation.x = -0.2; c.scale.z = 0.25;
+    });
+    napkin(body, 0.85, 0.65, 0, 2.05, 0.92, -0.4);
+
+    ['armL', 'armR'].forEach(function (id, i) {
+      var s = i ? 1 : -1;
+      var w = P[id] = pivot(body, s * 1.02, 1.6, -0.05);
+      add(w, CS.ball(0.32, 0.85, 0.85, PLUME, 0, -0.38, -0.1));
+      for (var k = 0; k < 4; k++) {
+        add(w, CS.ball(0.08, 0.42, 0.18, IRID, 0, -1.0 - k * 0.04, 0.3 - k * 0.3));
+      }
+    });
+
+    add(body, CS.ball(0.55, 0.62, 0.5, PLUME_L, 0, 2.3, 0.25));
+    var head = P.head = pivot(body, 0, 2.95, 0.42);
+    add(head, CS.ball(0.52, 0.5, 0.5, PLUME, 0, 0, 0));
+    [[-0.28, 0.42, 0.16], [-0.1, 0.55, 0.2], [0.08, 0.62, 0.22], [0.25, 0.55, 0.2], [0.4, 0.4, 0.15]].forEach(function (c) {
+      add(head, CS.ball(c[2], c[2] * 1.15, 0.1, COMB, 0, c[1], c[0]));
+    });
+    var crown = add(head, CS.torus(0.32, 0.05, 0, GOLD, 0, 0.38, -0.28)); crown.rotation.x = Math.PI / 2 - 0.3;
+    for (var cpt = 0; cpt < 5; cpt++) {
+      var ca = cpt / 5 * Math.PI * 2;
+      add(head, CS.cone(0.05, 0.16, GOLD, Math.sin(ca) * 0.3, 0.5, -0.28 + Math.cos(ca) * 0.3, 4));
+    }
+    [-1, 1].forEach(function (s) {
+      var e = add(head, new THREE.Mesh(CS.ball(1, 1, 1).geometry, P.eyeMat));
+      e.position.set(s * 0.28, 0.12, 0.36); e.scale.set(0.1, 0.09, 0.06);
+      var lid = add(head, CS.box(0.22, 0.06, 0.12, PLUME, s * 0.28, 0.22, 0.38)); lid.rotation.z = s * 0.4;
+    });
+    add(head, CS.torus(0.13, 0.025, 0, GOLD, 0.28, 0.12, 0.43));        // a monocle
+    strut(head, [0.4, 0.05, 0.42], [0.55, -0.6, 0.35], 0.01, 0.01, GOLD);
+    var beak = add(head, CS.cone(0.17, 0.52, BEAK, 0, -0.02, 0.66, 10)); beak.rotation.x = Math.PI / 2;
+    var jaw = P.jaw = pivot(head, 0, -0.1, 0.36);
+    var low = add(jaw, CS.cone(0.12, 0.38, BEAK, 0, -0.02, 0.2, 10)); low.rotation.x = Math.PI / 2; low.scale.y = 0.6;
+    [-1, 1].forEach(function (s) { add(head, CS.ball(0.1, 0.18, 0.08, COMB, s * 0.08, -0.38, 0.42)); });
+    P.mouth = pivot(head, 0, -0.06, 0.8);
+    P.eyes = pivot(head, 0, 0.12, 0.42);
+    return { group: g, parts: P, scale: 1.14, arrive: 'drop', lightColor: 0x9dff8a, lightY: 3.8 };
+  }
+
+  var LOOKS = { ogre: ogre, dragon: dragon, lich: lich, colossus: colossus, rooster: rooster };
+
+  /* ----------------------------------------------------------- the HUD */
+  function buildHud() {
+    if (hud) return hud;
+    var el = document.createElement('div');
+    el.id = 'bossHud';
+    el.className = 'hidden';
+    // the cam is a clear window onto the canvas underneath: the portrait is
+    // drawn there, so only the meter below it gets a panel's background
+    el.innerHTML = '<div class="bcam"></div><div class="binfo panel"><div class="bname"></div>' +
+      '<div class="bmeter"><i></i></div><div class="bcount"></div></div>';
+    document.getElementById('hud').appendChild(el);
+    hud = { el: el, cam: el.querySelector('.bcam'), name: el.querySelector('.bname'), fill: el.querySelector('.bmeter i'),
+      count: el.querySelector('.bcount'), meter: el.querySelector('.bmeter') };
+    return hud;
+  }
+
+  function showHud() {
+    var h = buildHud();
+    if (!B) { h.el.classList.add('hidden'); return; }
+    h.el.classList.remove('hidden');
+    h.name.textContent = B.def.fullName.toUpperCase() + ' · HUNGER';
+    h.el.style.setProperty('--boss', B.def.css);
+    var f = B.fed / B.need;
+    h.fill.style.width = (Math.min(1, f) * 100).toFixed(1) + '%';
+    h.count.textContent = B.full ? 'FULL!' : B.fed + ' / ' + B.need + ' COURSES';
+  }
+
+  function bumpHud(cls) {
+    if (!hud) return;
+    hud.el.classList.remove('fed', 'angry');
+    void hud.el.offsetWidth;          // restart the animation
+    hud.el.classList.add(cls);
+  }
+
+  /* --------------------------------------------------------- reactions */
+  function say(lines, kind) {
+    if (!lines || !lines.length) return;
+    CS.ui.toast(B.def.name.toUpperCase() + ': "' + CS.pick(lines) + '"', kind);
+  }
+
+  function setState(s, dur) { B.state = s; B.st = 0; B.dur = dur || 0; }
+
+  function worldOf(obj) { return obj.getWorldPosition(new THREE.Vector3()); }
+
+  /* A burst of big soft puffs: dust on landing, smoke, fire, wisps. */
+  function cloud(x, y, z, n, o) {
+    for (var i = 0; i < n; i++) {
+      CS.steam.puff(x + (Math.random() - 0.5) * (o.spread || 1), y + Math.random() * (o.lift || 0.3),
+        z + (Math.random() - 0.5) * (o.spread || 1),
+        { color: o.color, size: o.size || 0.8, life: o.life || 1.4, rise: o.rise == null ? 0.6 : o.rise,
+          opacity: o.opacity || 0.7, grow: o.grow || 2.2, drift: 0.4 });
+    }
+  }
+
+  function landed() {
+    var p = B.g.position;
+    B.shake = Math.max(B.shake, 1.0);
+    cloud(p.x, 0.2, p.z + 0.6, 14, { color: 0xb8a68a, size: 1.0, spread: 4.5, life: 1.6, rise: 0.4 });
+    CS.audio.bossStomp();
+    setTimeout(function () { if (B) { CS.audio.bossRoar(B.def.look); setState('roar', 1.6); B.shake = Math.max(B.shake, 0.6); } }, 380);
+  }
+
+  /* ------------------------------------------------------------ module */
+  CS.bosses = {
+    init: function (sc, opts) {
+      scene = sc;
+      // one light for whichever boss is in, made once and never removed:
+      // adding or taking away a light recompiles every material in the scene
+      if (!(opts && opts.lowSpec)) {
+        light = new THREE.PointLight(0xffffff, 0, 14, 2);
+        scene.add(light);
+      }
+    },
+
+    /* Bring the boss for a boss day in. It arrives at once, during the
+       reveal on the day card, so you meet it before you have to feed it. */
+    spawn: function (def) {
+      CS.bosses.clear();
+      var m = LOOKS[def.look]();
+      CS.bake(m.group);
+      var root = new THREE.Group();
+      root.add(m.group);
+      m.group.scale.setScalar(m.scale);
+      var shadow = CS.models.blobShadow();
+      shadow.scale.set(5.5, 1, 4.2);
+      shadow.position.y = 0.02;
+      root.add(shadow);
+      CS.noMirror(root);
+      // layer 2 is the boss cam's: it sees the boss and nothing else, lit by
+      // the same lights as the kitchen so it looks the same in both
+      root.traverse(function (o) { o.layers.enable(2); });
+      scene.traverse(function (o) { if (o.isLight) o.layers.enable(2); });
+      var top = new THREE.Box3().setFromObject(m.group).max.y;
+      var x = CS.DOOR_X, z = CS.OZ - 5.0;
+      root.position.set(x, 0, z);
+      scene.add(root);
+      B = {
+        def: def, g: root, model: m.group, m: m, parts: m.parts, shadow: shadow,
+        state: 'arrive', st: 0, dur: 0, t: 0, y: 0, vy: 0,
+        fed: 0, need: def.courses, full: false, shake: 0, top: top,
+        yaw: 0, jaw: 0, glareT: def.glare ? 9 : 0, impatient: 0
+      };
+      // where it starts from depends on how it travels
+      if (m.arrive === 'rise') B.y = -6.5;
+      else B.y = m.arrive === 'fly' ? 13 : 16;
+      m.group.position.y = B.y;
+      if (light) { light.color.copy(CS.linear(m.lightColor)); light.position.set(x, m.lightY, z + 1.6); }
+      showHud();
+    },
+
+    clear: function () {
+      if (B) { scene.remove(B.g); CS.dispose(B.g); }
+      B = null;
+      flights.forEach(function (f) { scene.remove(f.m); CS.dispose(f.m); });
+      flights.length = 0;
+      CS.bosses.unstone();
+      beams.forEach(function (b) { scene.remove(b.m); });
+      beams.length = 0;
+      if (light) light.intensity = 0;
+      cine.on = false;
+      showHud();
+    },
+
+    active: function () { return !!B; },
+    boss: function () { return B ? B.def : null; },
+    full: function () { return !!(B && B.full); },
+    fed: function () { return B ? B.fed : 0; },
+    need: function () { return B ? B.need : 0; },
+
+    /* How many more courses the rail may ask for: plates already flying
+       through the window count as eaten. */
+    remaining: function () { return B ? B.need - B.fed - flights.length : 0; },
+
+    ordered: function () {
+      if (B && B.state === 'idle' && Math.random() < 0.5) { setState('point', 0.9); }
+    },
+
+    /* A course went out of the window: the plate arcs over the counter and
+       into the boss's mouth, and only counts once it lands. */
+    feed: function (order, plate, from) {
+      if (!B) return;
+      var m = CS.models.item(plate);
+      m.scale.setScalar(1.6);
+      CS.noMirror(m);
+      var a = from ? new THREE.Vector3(from.x, from.topY + 0.5, from.z) : worldOf(B.parts.mouth);
+      m.position.copy(a);
+      scene.add(m);
+      flights.push({ m: m, a: a, t: 0, dur: 0.75 });
+      if (B.state === 'idle' || B.state === 'point') setState('gape', 0.75);
+    },
+
+    /* A course went cold on the rail. */
+    anger: function () {
+      if (!B || B.full) return;
+      B.fed = Math.max(0, B.fed - 1);
+      setState('roar', 1.6);
+      B.shake = Math.max(B.shake, 0.85);
+      CS.audio.bossRoar(B.def.look);
+      say(B.def.roars, 'bad');
+      bumpHud('angry');
+      showHud();
+    },
+
+    /* The camera for the reveal (on the day card) and the victory lap: a
+       slow sway in front of the boss from high in the kitchen, looking up
+       at it over the back wall. null when the normal cameras are in charge. */
+    showcase: function (on) { cine.on = !!on && !!B; },
+
+    /* Closing time and it is still hungry. */
+    sulk: function () { if (B && !B.full) { setState('sulk'); CS.audio.bossRoar(B.def.look); } },
+
+    /* Framed so the whole boss sits in the top half of the screen, clear of
+       the card along the bottom: high enough that its feet just show over
+       the kitchen's back wall, looking down past them. */
+    cinematic: function (time) {
+      if (!cine.on || !B) return null;
+      var p = B.g.position, a = Math.sin(time * 0.3) * 0.32;
+      var r = 19;
+      return {
+        x: p.x + Math.sin(a) * r, y: 8.5, z: p.z + Math.cos(a) * r,
+        lx: p.x, ly: -2.0, lz: p.z
+      };
+    },
+
+    /* How hard to shake the camera this frame. */
+    shake: function () { return B ? B.shake : 0; },
+
+    /* The boss cam in the hunger panel: from the play camera the boss is
+       behind the kitchen's back wall, so the HUD carries a live portrait of
+       its head and shoulders -- chomping, roaring, glaring -- drawn by
+       game.js with a camera that sees only layer 2. */
+    portrait: function () {
+      if (!B || !hud || hud.el.classList.contains('hidden')) return null;
+      var p = B.g.position, ly = B.top - 1.7 + Math.max(0, B.model.position.y);
+      return { el: hud.cam, x: p.x, y: ly + 0.35, z: p.z + 8.5, lx: p.x, ly: ly, lz: p.z };
+    },
+
+    isStoned: function (st) { return !!st.stoned; },
+
+    unstone: function () {
+      stones.forEach(function (s) { s.st.stoned = 0; scene.remove(s.m); });
+      stones.length = 0;
+    },
+
+    /* `ctx`: stations, the chef (player), and whether the shift is running.
+       Runs every frame, behind menus too, so the boss is alive on the day
+       card and the result screen. */
+    update: function (dt, ctx) {
+      updateBeams(dt);
+      if (!B) return;
+      B.t += dt; B.st += dt;
+      B.shake = Math.max(0, B.shake - dt * 1.8);
+      var P = B.parts, def = B.def, m = B.m;
+
+      /* ---- arriving ---- */
+      if (B.state === 'arrive') {
+        if (m.arrive === 'rise') {
+          B.y = Math.min(0, B.y + dt * 4.2);
+          if (Math.random() < dt * 30) cloud(B.g.position.x, 0.1, B.g.position.z, 1, { color: 0x6ff0ff, size: 0.9, spread: 3, opacity: 0.5, rise: 1.4 });
+          if (B.y >= 0) { B.y = 0; B.shake = 0.5; CS.audio.bossRoar(def.look); setState('roar', 1.6); }
+        } else {
+          var gr = m.arrive === 'fly' ? 9 : 34;
+          B.vy -= gr * dt;
+          if (m.arrive === 'fly') B.vy = Math.max(B.vy, -7);       // wings out, coming in to land
+          B.y += B.vy * dt;
+          if (B.y <= 0) { B.y = 0; B.vy = 0; setState('idle'); landed(); }
+        }
+      } else if (B.dur && B.st >= B.dur) {
+        setState(B.full ? 'happy' : 'idle');
+      }
+
+      /* ---- watching the chef: the head turns to follow her round the kitchen ---- */
+      var want = 0;
+      if (ctx.player) {
+        want = Math.atan2(ctx.player.x - B.g.position.x, ctx.player.z - B.g.position.z);
+        want = CS.clamp(want, -0.75, 0.75);
+      }
+      if (B.state === 'happy') want = Math.sin(B.t * 2) * 0.5;
+      if (B.state === 'sulk') want = -0.55;
+      B.yaw += (want - B.yaw) * Math.min(1, dt * 2.5);
+      P.head.rotation.y = B.yaw;
+      P.head.rotation.x = 0.18 + (B.state === 'roar' ? -0.35 : 0);
+
+      /* ---- breathing ---- */
+      var br = Math.sin(B.t * 1.6);
+      P.body.scale.set(1 - br * 0.012, 1 + br * 0.022, 1 - br * 0.012);
+
+      /* ---- impatience: a course on the rail is about to go cold ---- */
+      var urgent = 0;
+      CS.orders.list.forEach(function (o) { if (o.boss && o.left / o.limit < 0.3) urgent = 1; });
+      B.impatient += (urgent - B.impatient) * Math.min(1, dt * 3);
+
+      /* ---- jaw, arms and the whole body, by state ---- */
+      var jaw = 0.04 + Math.max(0, Math.sin(B.t * 0.7)) * 0.04;
+      var lx = Math.sin(B.t * 1.1) * 0.08, rx = -Math.sin(B.t * 1.1) * 0.08;
+      var lz = -0.12, rz = 0.12, bounce = 0, spin = 0;
+      if (B.impatient > 0.1 && B.state === 'idle') {
+        // drumming on its belly, glaring at the window
+        rx = -0.9 - Math.abs(Math.sin(B.t * 7)) * 0.5 * B.impatient;
+        lx = -0.9 - Math.abs(Math.cos(B.t * 7)) * 0.5 * B.impatient;
+      }
+      switch (B.state) {
+        case 'arrive':
+          lx = rx = -2.2; lz = -0.6; rz = 0.6;
+          break;
+        case 'point':
+          rx = -1.6 + Math.sin(B.st * 8) * 0.1;
+          break;
+        case 'gape':
+          jaw = 0.65; lx = rx = -1.2;
+          break;
+        case 'eat':
+          jaw = Math.abs(Math.sin(B.st * 15)) * 0.55;
+          lx = -1.4 - Math.sin(B.st * 15) * 0.2; rx = -1.4 + Math.sin(B.st * 15) * 0.2;
+          bounce = Math.abs(Math.sin(B.st * 7.5)) * 0.08;
+          break;
+        case 'roar':
+          var k = Math.min(1, B.st * 5) * Math.min(1, (B.dur - B.st) * 3);
+          jaw = 0.9 * k; lx = rx = -2.5 * k; lz = -0.7 * k; rz = 0.7 * k;
+          if (Math.random() < dt * 14) {
+            var mp = worldOf(P.mouth);
+            if (def.look === 'dragon') {
+              cloud(mp.x, mp.y + 0.2, mp.z + 0.4, 1, { color: CS.pick([0xff7a1e, 0xffb23a, 0xff4a1a]), size: 0.6, spread: 0.5, rise: 3.2, life: 0.9, opacity: 0.9 });
+            } else if (def.look === 'colossus') {
+              P.chimneys.forEach(function (c) { var w = worldOf(c); cloud(w.x, w.y, w.z, 1, { color: 0xe8e4dc, size: 0.7, spread: 0.3, rise: 2.4 }); });
+            } else {
+              cloud(mp.x, mp.y, mp.z + 0.3, 1, { color: def.look === 'lich' ? 0x6ff0ff : 0xf4efe4, size: 0.4, spread: 0.6, rise: 1.6, life: 0.7, opacity: 0.45 });
+            }
+          }
+          break;
+        case 'sulk':
+          // arms folded, looking away: it is not leaving, and it is not impressed
+          lx = rx = -1.35; lz = 0.55; rz = -0.55; jaw = 0.02;
+          break;
+        case 'glare':
+          jaw = 0.2; P.head.rotation.x = 0.3;
+          break;
+        case 'happy':
+          bounce = Math.abs(Math.sin(B.st * 5)) * 0.45;
+          lx = rx = -2.6 + Math.sin(B.st * 10) * 0.3; lz = -0.5; rz = 0.5;
+          jaw = 0.35 + Math.sin(B.st * 10) * 0.2;
+          spin = Math.sin(B.st * 2.5) * 0.25;
+          if (Math.random() < dt * 8) {
+            var hp = B.g.position;
+            CS.fx.burst(hp.x + (Math.random() - 0.5) * 4, 4 + Math.random() * 2, hp.z + 1, 3,
+              { color: CS.pick([0xffd464, 0xff9db2, 0xfff2c8]), life: 1.2, vy: 2.5, g: -2 });
+          }
+          break;
+      }
+      B.jaw += (jaw - B.jaw) * Math.min(1, dt * 14);
+      P.jaw.rotation.x = B.jaw;
+      function ease(o, k, v) { o.rotation[k] += (v - o.rotation[k]) * Math.min(1, dt * 9); }
+      var pose = m.pose || {};
+      ease(P.armL, 'x', lx + (pose.lx || 0)); ease(P.armR, 'x', rx + (pose.rx || 0));
+      ease(P.armL, 'z', lz + (pose.lz || 0)); ease(P.armR, 'z', rz + (pose.rz || 0));
+
+      var hover = m.float ? 0.25 + Math.sin(B.t * 1.4) * 0.18 : 0;
+      B.model.position.y = B.y + bounce + hover;
+      B.model.rotation.y = spin;
+      var sh = Math.max(0.25, 1 - Math.max(0, B.y + hover) / 12);
+      B.shadow.scale.set(5.5 * sh, 1, 4.2 * sh);
+
+      /* ---- the look's own details ---- */
+      var eyeK = 0.85 + Math.sin(B.t * 3) * 0.15;
+      if (def.look === 'dragon') {
+        var flap = B.state === 'arrive' ? Math.sin(B.t * 9) * 0.7 : (B.state === 'roar' || B.state === 'happy' ? Math.sin(B.t * 6) * 0.45 : Math.sin(B.t * 0.9) * 0.08);
+        P.wingL.rotation.z = -0.15 + flap; P.wingR.rotation.z = 0.15 - flap;
+        P.wingL.rotation.y = 0.35; P.wingR.rotation.y = -0.35;
+        P.tail.rotation.y = Math.sin(B.t * 0.8) * 0.12;
+        if (Math.random() < dt * 1.2) {
+          var n = worldOf(P.nose);
+          cloud(n.x, n.y, n.z, 1, { color: 0x4a4048, size: 0.35, spread: 0.2, rise: 1.0, life: 1.6, opacity: 0.5 });
+        }
+      } else if (def.look === 'lich') {
+        P.lantern.rotation.z = Math.sin(B.t * 1.3) * 0.12;
+        var fl = 0.8 + Math.sin(B.t * 11) * 0.1 + Math.sin(B.t * 17) * 0.1;
+        P.lampMat.color.copy(CS.linear(0x9ff8ff)).multiplyScalar(fl);
+        if (Math.random() < dt * 3) {
+          var lp = worldOf(P.lantern);
+          CS.fx.spawn(lp.x, lp.y, lp.z, { color: 0x6ff0ff, life: 1.4, vy: 0.6, g: 0.3 });
+        }
+        if (light) light.intensity = 0.9 * fl;
+      } else if (def.look === 'colossus') {
+        P.gears[0].rotation.x += dt * 1.6; P.gears[1].rotation.x -= dt * 1.6;
+        P.beaconMat.color.setRGB(Math.sin(B.t * 4) > 0 ? 1 : 0.15, 0.05, 0.05);
+        P.fireMat.color.copy(CS.linear(0xff6a1a)).multiplyScalar(0.75 + Math.sin(B.t * 5) * 0.25);
+        if (Math.random() < dt * 2.5) {
+          var c = worldOf(CS.pick(P.chimneys));
+          cloud(c.x, c.y, c.z, 1, { color: 0xd8d4cc, size: 0.5, spread: 0.2, rise: 1.4, life: 1.8, opacity: 0.6 });
+        }
+      } else if (def.look === 'rooster') {
+        P.tail.rotation.y = Math.sin(B.t * 0.7) * 0.1;
+        if (B.state === 'glare') eyeK = 2.2;
+      }
+      P.eyeMat.color.copy(CS.linear(def.look === 'rooster' ? 0x7dff6a : def.look === 'lich' ? 0x6ff0ff : def.look === 'dragon' ? 0xffb21e : def.look === 'colossus' ? 0xff9a3a : 0xffe27a)).multiplyScalar(eyeK);
+      if (light && def.look !== 'lich') light.intensity = B.state === 'roar' ? 1.4 : 0.55;
+
+      /* ---- courses flying in through the window ---- */
+      for (var i = flights.length - 1; i >= 0; i--) {
+        var f = flights[i];
+        f.t += dt;
+        var u = Math.min(1, f.t / f.dur), to = worldOf(P.mouth);
+        f.m.position.lerpVectors(f.a, to, u);
+        f.m.position.y += Math.sin(u * Math.PI) * 2.6;
+        f.m.rotation.y += dt * 9;
+        f.m.scale.setScalar(1.6 * (1 - u * 0.55));
+        if (u >= 1) {
+          scene.remove(f.m); CS.dispose(f.m);
+          flights.splice(i, 1);
+          B.fed++;
+          CS.fx.burst(to.x, to.y, to.z + 0.3, 14, { color: CS.pick([0xf0b53c, 0xd99a4e, 0x6fbf3a]), life: 0.7, vy: 1.6 });
+          CS.audio.bossChomp();
+          if (B.fed >= B.need) {
+            B.full = true;
+            setState('happy');
+            CS.audio.bossRoar(def.look);
+            B.shake = 0.5;
+          } else {
+            setState('eat', 1.1);
+            if (Math.random() < 0.6) say(def.cheers, 'tip');
+          }
+          bumpHud('fed');
+          showHud();
+        }
+      }
+
+      /* ---- the Shadow Rooster's stone glare ---- */
+      if (def.glare && ctx.playing && !B.full && B.state !== 'arrive') {
+        B.glareT -= dt;
+        if (B.glareT <= 0) {
+          B.glareT = def.glare.every * (0.85 + Math.random() * 0.3);
+          glare(ctx.stations);
+        }
+      }
+      for (var s = stones.length - 1; s >= 0; s--) {
+        var stn = stones[s];
+        stn.st.stoned -= dt;
+        // the stone shivers as it is about to crack
+        stn.m.position.x = stn.st.x + (stn.st.stoned < 1.2 ? Math.sin(B.t * 60) * 0.03 : 0);
+        if (stn.st.stoned <= 0 || !ctx.playing) {
+          stn.st.stoned = 0;
+          scene.remove(stn.m);
+          CS.fx.burst(stn.st.x, stn.st.topY + 0.3, stn.st.z, 16, { color: 0x9a948c, life: 0.7, vy: 2.0 });
+          CS.audio.stoneCrack();
+          stones.splice(s, 1);
+        }
+      }
+    }
+  };
+
+  /* Turn one station to stone: never the window or the bin, and never a
+     fryer with something in it -- burning a basket you could not reach
+     would be cruel, not hard. */
+  var GLARE_TYPES = ['counter', 'crate', 'plates', 'buns', 'topping', 'sauce', 'cups', 'fryer'];
+  function glare(stations) {
+    var pick = stations.filter(function (st) {
+      if (GLARE_TYPES.indexOf(st.type) < 0 || st.stoned) return false;
+      if (st.type === 'fryer' && (st.item || st.cook)) return false;
+      return true;
+    });
+    if (!pick.length) return;
+    var st = CS.pick(pick);
+    setState('glare', 0.9);
+    CS.audio.glare();
+    var eye = worldOf(B.parts.eyes || B.parts.mouth);
+    var to = new THREE.Vector3(st.x, st.topY + 0.3, st.z);
+    var dir = to.clone().sub(eye), len = dir.length();
+    var beam = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.16, len, 8, 1, true),
+      new THREE.MeshBasicMaterial({ color: CS.linear(0x7dff6a), transparent: true, opacity: 0.85, depthWrite: false }));
+    beam.position.copy(eye).add(to).multiplyScalar(0.5);
+    beam.quaternion.setFromUnitVectors(UP, dir.normalize());
+    CS.noMirror(beam);
+    scene.add(beam);
+    beams.push({ m: beam, t: 0 });
+
+    var h = Math.max(0.6, st.topY + 0.12);
+    var rock = CS.box(CS.TILE * 0.98, h, CS.TILE * 0.98, { color: 0x8f8a85, rough: 1.0, opacity: 0.88 }, st.x, h / 2, st.z);
+    rock.castShadow = false;
+    scene.add(rock);
+    st.stoned = B.def.glare.dur;
+    stones.push({ st: st, m: rock });
+    CS.fx.burst(st.x, st.topY + 0.4, st.z, 18, { color: 0x7dff6a, life: 0.6, vy: 2.2 });
+    var nm = st.def && st.def.name ? st.def.name : st.type;
+    CS.ui.toast(B.def.name.toUpperCase() + ' TURNED THE ' + nm.toUpperCase() + ' TO STONE!', 'bad');
+  }
+
+  function updateBeams(dt) {
+    for (var i = beams.length - 1; i >= 0; i--) {
+      var b = beams[i];
+      b.t += dt;
+      b.m.material.opacity = Math.max(0, 0.85 * (1 - b.t / 0.6));
+      if (b.t >= 0.6) { scene.remove(b.m); b.m.geometry.dispose(); b.m.material.dispose(); beams.splice(i, 1); }
+    }
+  }
+})(window.CS);
+
+</script>
+<script>
 /* ---- src/ui.js ---- */
 /* All DOM work: ticket rail, held-item card, hint line, toasts and screens. */
 window.CS = window.CS || {};
@@ -8014,8 +9373,9 @@ window.CS = window.CS || {};
   }
 
   function ticketHTML(o) {
-    var h = '<div class="thead"><span class="face" style="background:' + o.css + '"></span>ORDER #' +
-      String(o.id).padStart(2, '0') + '</div><div class="tbody">';
+    var h = '<div class="thead"><span class="face" style="background:' + o.css + '"></span>' +
+      (o.boss ? '&#9819; COURSE ' + o.course : 'ORDER #' + String(o.id).padStart(2, '0')) +
+      '</div><div class="tbody">';
 
     if (o.sandwich) {
       h += '<div class="line"><span class="bullet">&#9656;</span><span>Chicken Sandwich</span></div>';
@@ -8159,7 +9519,7 @@ window.CS = window.CS || {};
         var t = ticketEls[o.id];
         if (!t) {
           var d = document.createElement('div');
-          d.className = 'ticket';
+          d.className = 'ticket' + (o.boss ? ' boss' : '');
           d.innerHTML = ticketHTML(o);
           el.tickets.appendChild(d);
           t = ticketEls[o.id] = { root: d, fill: d.querySelector('.bar i'), bar: d.querySelector('.bar') };
@@ -8217,9 +9577,11 @@ window.CS = window.CS || {};
     showScreen: function (html, extra) {
       el.screen.innerHTML = '<div class="card' + (extra ? ' ' + extra : '') + '">' + html + '</div>';
       el.screen.classList.remove('hidden');
+      // a boss card sits low, over a clear backdrop, so you can see the boss
+      el.screen.classList.toggle('cine', !!extra && extra.indexOf('bosscard') >= 0);
       return el.screen.querySelector('.card');
     },
-    hideScreen: function () { el.screen.classList.add('hidden'); el.screen.innerHTML = ''; },
+    hideScreen: function () { el.screen.classList.add('hidden'); el.screen.classList.remove('cine'); el.screen.innerHTML = ''; },
 
     howToHTML: function () {
       var touch = CS.platform && CS.platform.coarse;
@@ -8288,7 +9650,8 @@ window.CS = window.CS || {};
     /* Shown before every day: what is new, how long, and what it takes to pass. */
     showLevelIntro: function (lv, onStart) {
       var unlocks = (lv.unlocks && lv.unlocks.length)
-        ? '<div class="col" style="flex:1 1 100%"><h3>NEW TODAY</h3><ul>' +
+        ? '<div class="col" style="flex:1 1 100%"><h3>' +
+          (lv.day > CS.CHAPTER_LEN ? 'A NEW CHAPTER &#183; TOUGHER FROM TODAY' : 'NEW TODAY') + '</h3><ul>' +
           lv.unlocks.map(function (u) { return '<li>&#9656; <b>' + u + '</b></li>'; }).join('') +
           '</ul></div>'
         : '';
@@ -8302,10 +9665,15 @@ window.CS = window.CS || {};
           }).join(', ') + '</p>'
         : '';
       var mins = Math.floor(lv.seconds / 60), secs = lv.seconds % 60;
+      // how long until the castle sends someone down to be fed
+      var bossDay = Math.ceil(lv.day / CS.CHAPTER_LEN) * CS.CHAPTER_LEN;
+      var nb = CS.bossFor(bossDay), left = bossDay - lv.day;
+      var bossLine = '<p class="nextboss">&#9819; Castle boss in <b>' + left + ' day' + (left > 1 ? 's' : '') +
+        '</b> (Day ' + bossDay + '): ' + nb.fullName + ', ' + nb.title + '</p>';
       var c = this.showScreen(
         '<h1>DAY ' + lv.day + '</h1>' +
         '<h2>' + lv.name.toUpperCase() + '</h2>' +
-        '<p>' + lv.tag + '</p>' + crewLine +
+        '<p>' + lv.tag + '</p>' + crewLine + bossLine +
         '<div class="cols">' + unlocks + howto +
         '<div class="col"><h3>THE SHIFT</h3><ul>' +
         '<li>Length: <b>' + mins + ':' + (secs < 10 ? '0' : '') + secs + '</b></li>' +
@@ -8388,6 +9756,74 @@ window.CS = window.CS || {};
         '</div>');
       c.querySelector('#nextBtn').onclick = onNext;
       c.querySelector('#retryBtn').onclick = onRetry;
+      this.setHudVisible(false);
+    },
+
+    /* A boss day's card: who is coming down from the castle, why, and what
+       it wants. It sits low over a clear backdrop, so the boss landing in
+       the dining room is in view the whole time you read it. */
+    showBossIntro: function (lv, onStart) {
+      var b = lv.boss;
+      var mins = Math.floor(lv.seconds / 60), secs = lv.seconds % 60;
+      var him = { ogre: 'HIM', dragon: 'HER', lich: 'HIM', colossus: 'IT', rooster: 'HIM' }[b.look] || 'IT';
+      var c = this.showScreen(
+        '<div class="bossflag" style="--boss:' + b.css + '">&#9819; CASTLE BOSS &#183; DAY ' + lv.day + '</div>' +
+        '<h1>' + b.fullName.toUpperCase() + '</h1>' +
+        '<h2>' + b.title.toUpperCase() + '</h2>' +
+        '<div class="story">' + b.story.map(function (s) { return '<p>' + s + '</p>'; }).join('') + '</div>' +
+        '<div class="cols">' +
+        '<div class="col"><h3>' + b.quirk.name.toUpperCase() + '</h3><ul><li>' + b.quirk.text + '</li></ul></div>' +
+        '<div class="col"><h3>THE FEAST</h3><ul>' +
+        '<li>Courses to serve: <b>' + b.courses + '</b></li>' +
+        '<li>On the rail at once: <b>' + b.atOnce + '</b></li>' +
+        '<li>Time: <b>' + mins + ':' + (secs < 10 ? '0' : '') + secs + '</b> &#183; no rent today</li>' +
+        '<li>A cold course makes ' + him.toLowerCase() + ' <b>hungrier</b></li>' +
+        '<li>Bounty: <b>' + CS.money(b.bounty) + '</b>' +
+          (CS.econ.has(b.trophy.id) ? '' : ' + <b>' + b.trophy.name + '</b>') + '</li>' +
+        '</ul></div>' +
+        '</div>' +
+        '<button class="big" id="goBtn">FEED ' + him + '</button>', 'bosscard');
+      c.querySelector('#goBtn').onclick = onStart;
+      this.setHudVisible(false);
+    },
+
+    /* The end of a boss day. Fed: the bounty, the trophy, and on to the next
+       chapter. Still hungry: you keep every penny you took, and go back to
+       the shop to get stronger and try again -- the way on is to feed it. */
+    showBossResult: function (lv, L, r, onNext, onRetry) {
+      var b = lv.boss;
+      function line(label, n, cls) {
+        return '<div class="scoreline"><span>' + label + '</span><span' +
+          (cls ? ' class="' + cls + '"' : '') + '>' + n + '</span></div>';
+      }
+      var body =
+        line(L.served + ' course' + (L.served === 1 ? '' : 's') + ' served', CS.money(L.gross - L.tips)) +
+        (L.tipCount ? line('tips (' + L.tipCount + ')', CS.money(L.tips), 'tipval') : '') +
+        (L.waste > 0 ? line('waste &amp; cold courses', '-' + CS.money(L.waste), 'badval') : '') +
+        (L.wages > 0 ? line('wages', '-' + CS.money(L.wages)) : '') +
+        (L.bounty ? line('&#9819; bounty', CS.money(L.bounty), 'tipval') : '') +
+        '<div class="scoreline rule big-line"><span>BANKED</span><span class="tipval">' + CS.money(L.banked) + '</span></div>' +
+        line('in the wallet', CS.money(CS.econ.state.wallet));
+      var trophy = r.trophy
+        ? '<div class="trophy"><h3>&#127942; TROPHY WON &#183; ' + r.trophy.name.toUpperCase() + '</h3><p>' + r.trophy.blurb + '</p></div>'
+        : '';
+      var who = b.fullName.toUpperCase();
+      var c = this.showScreen(
+        '<div class="bossflag" style="--boss:' + b.css + '">&#9819; CASTLE BOSS &#183; DAY ' + lv.day + '</div>' +
+        '<h1>' + (r.won ? who + ' IS FULL!' : who + ' IS STILL HUNGRY') + '</h1>' +
+        '<h2>' + (r.won
+          ? 'Every course eaten. ' + b.cheers[b.cheers.length - 1]
+          : 'Ate ' + r.ate + ' of ' + r.need + ' courses before closing. Get stronger in the shop and try again.') + '</h2>' +
+        trophy +
+        '<div class="receipt">' + body + '</div>' +
+        '<div class="krow">' +
+        (r.won
+          ? '<button class="big" id="nextBtn">DAY ' + (lv.day + 1) + ' &#183; NEXT CHAPTER &#9656;</button>'
+          : '<button class="big" id="retryBtn">BACK TO THE SHOP</button>') +
+        '</div>', 'bosscard');
+      var n = c.querySelector('#nextBtn'), t = c.querySelector('#retryBtn');
+      if (n) n.onclick = onNext;
+      if (t) t.onclick = onRetry;
       this.setHudVisible(false);
     },
 
@@ -8588,6 +10024,24 @@ window.CS = window.CS || {};
       (state.ok ? '' : ' disabled') + '>' + label + '</button></div>';
   }
 
+  /* What the castle bosses have left you, and who is next. */
+  function trophyHTML() {
+    var day = CS.econ.state.day;
+    var bossDay = Math.ceil(day / CS.CHAPTER_LEN) * CS.CHAPTER_LEN, nb = CS.bossFor(bossDay);
+    var left = bossDay - day;
+    var out = '<div class="buyrow"><div class="buyname">&#9819; ' +
+      (left ? 'Next castle boss in ' + left + ' day' + (left > 1 ? 's' : '') : 'The castle boss is TODAY') +
+      ' &#183; ' + nb.fullName + '<span>' + nb.title + '. ' + nb.quirk.name + ': ' + nb.quirk.text + '</span></div></div>';
+    var won = CS.econ.trophies();
+    if (!won.length) {
+      out += '<div class="buyrow dim"><div class="buyname">No trophies yet<span>Feed a castle boss to win one. Each one helps you for good.</span></div></div>';
+    }
+    won.forEach(function (t) {
+      out += '<div class="buyrow"><div class="buyname">&#127942; ' + t.name + '<span>' + t.blurb + '</span></div></div>';
+    });
+    return out;
+  }
+
   function headerHTML() {
     var w = CS.econ.state.wallet;
     var lv = CS.levelFor(CS.econ.state.day);
@@ -8610,6 +10064,7 @@ window.CS = window.CS || {};
     card.querySelector('#sLand').innerHTML = landHTML();
     card.querySelector('#sStaff').innerHTML = staffHTML();
     card.querySelector('#sChef').innerHTML = chefHTML();
+    card.querySelector('#sTrophy').innerHTML = trophyHTML();
     bind();
   }
 
@@ -8651,6 +10106,7 @@ window.CS = window.CS || {};
         '<h3>Equipment</h3><div id="sGear"></div>' +
         '<h3>Kit &#183; buy it, then place it in the kitchen</h3><div id="sParts"></div>' +
         '<h3>The Building</h3><div id="sLand"></div>' +
+        '<h3>Trophy Hall &#183; the castle bosses</h3><div id="sTrophy"></div>' +
         '</div>' +
         '<div class="krow">' +
         '<button class="btn" id="sEdit">KITCHEN</button>' +
@@ -9408,15 +10864,16 @@ window.CS = window.CS || {};
     if (!hand) setHeld(null);
     CS.orders.complete(o, true);
     CS.audio.cash();
-    CS.ui.toast(CS.money(took) + '   ORDER #' + String(o.id).padStart(2, '0') + ' UP!' +
-      (hand ? '  (' + hand.name + ')' : ''), 'good');
+    var sv = stations.filter(function (s) { return s.type === 'serve'; })[0];
+    if (o.boss) CS.bosses.feed(o, plate, sv);     // over the counter and into its mouth
+    CS.ui.toast(CS.money(took) + '   ' + (o.boss ? 'COURSE ' + o.course : 'ORDER #' + String(o.id).padStart(2, '0')) +
+      ' UP!' + (hand ? '  (' + hand.name + ')' : ''), 'good');
 
     // every order out of the window is experience for the chef
     var extras = o.sandwich ? o.sandwich.toppings.length + o.sandwich.sauces.length : 0;
     extras += (o.fries ? 1 : 0) + o.cups.length;
     earnXP(CS.XP.perOrder + extras * CS.XP.perExtra);
 
-    var sv = stations.filter(function (s) { return s.type === 'serve'; })[0];
     if (sv) CS.fx.burst(sv.x, sv.topY + 0.5, sv.z, 16, { color: 0xffd464, life: 0.8, vy: 2.2 });
 
     /* ---- the tip ----
@@ -9454,6 +10911,12 @@ window.CS = window.CS || {};
   function onExpire(o) {
     var lost = CS.econ.walkout();
     S.combo = 1;
+    if (o.boss) {
+      // a cold course: the boss roars, the kitchen shakes, and it is hungrier
+      CS.bosses.anger(o);
+      CS.ui.toast('Course ' + o.course + ' went cold! -' + CS.money(lost), 'bad');
+      return;
+    }
     CS.audio.fail();
     CS.ui.toast('Order #' + String(o.id).padStart(2, '0') + ' walked out! -' +
       CS.money(lost), 'bad');
@@ -9901,6 +11364,8 @@ window.CS = window.CS || {};
     });
     CS.econ.open(S.level);
     CS.orders.reset(S.level);
+    S.victoryT = 0;
+    CS.bosses.unstone();
     CS.staff.spawn();
     CS.ui.clearTickets();
     CS.fx.clear();
@@ -9919,6 +11384,7 @@ window.CS = window.CS || {};
     CS.grounds.sync();          // a wing you just bought clears its garden
     S.target = null;
     CS.staff.clear();
+    CS.bosses.clear();
     placePlayer(CS.SPAWN.col, CS.SPAWN.row);
   }
 
@@ -9930,8 +11396,17 @@ window.CS = window.CS || {};
     S.day = day;
     S.level = CS.levelFor(day);
     S.phase = 'intro';
-    CS.audio.startMusic('calm');       // the town theme carries on under the day card
     CS.ui.setLevel(S.level);
+    if (S.level.boss) {
+      // the boss arrives while you read its card: the camera swings round
+      // to watch it land, and the drums come in
+      CS.bosses.spawn(S.level.boss);
+      CS.bosses.showcase(true);
+      CS.audio.startMusic('boss');
+      CS.ui.showBossIntro(S.level, function () { startDay(); });
+      return;
+    }
+    CS.audio.startMusic('calm');       // the town theme carries on under the day card
     CS.ui.showLevelIntro(S.level, function () { startDay(); });
   }
 
@@ -9942,8 +11417,12 @@ window.CS = window.CS || {};
     CS.ui.setHudVisible(true);
     CS.ui.setLevel(S.level);
     CS.audio.resume();
-    CS.audio.startMusic('shift');
-    CS.ui.toast('DAY ' + S.day + ' -- ' + S.level.name, 'good');
+    var boss = S.level.boss;
+    CS.bosses.showcase(false);
+    if (boss && !CS.bosses.active()) CS.bosses.spawn(boss);     // a retry from the shop
+    CS.audio.startMusic(boss ? 'boss' : 'shift');
+    CS.ui.toast(boss ? 'FEED ' + boss.fullName.toUpperCase() + '!  ' + boss.courses + ' COURSES'
+      : 'DAY ' + S.day + ' -- ' + S.level.name, 'good');
   }
 
   function pause() {
@@ -9971,6 +11450,24 @@ window.CS = window.CS || {};
 
     // a day that paid its way is worth a chunk of experience on top
     if (CS.econ.takings() >= CS.econ.ledger.rent + CS.econ.wages()) earnXP(CS.XP.perDay);
+
+    var boss = S.level.boss;
+    if (boss) {
+      CS.bosses.unstone();
+      var won = CS.bosses.full(), trophy = null;
+      var ate = CS.bosses.fed(), need = CS.bosses.need();
+      if (won) { trophy = CS.econ.beatBoss(boss, S.day); earnXP(boss.xp); }
+      var BL = CS.econ.settle();
+      CS.audio.startMusic('calm');
+      CS.audio[won ? 'victory' : 'over']();
+      // the boss stays in the dining room behind the card: delighted, or sulking
+      CS.bosses.showcase(true);
+      if (!won) CS.bosses.sulk();
+      CS.ui.showBossResult(S.level, BL, { won: won, trophy: trophy, ate: ate, need: need },
+        function () { CS.econ.advance(); openShop(); },   // on to the next chapter
+        function () { openShop(); });                     // back to the shop, then try again
+      return;
+    }
 
     var L = CS.econ.settle();
     CS.audio[L.passed ? 'victory' : 'over']();
@@ -10003,6 +11500,7 @@ window.CS = window.CS || {};
     S.phase = 'over';
     CS.audio.startMusic('calm');
     CS.staff.clear();
+    CS.bosses.clear();
     CS.ui.showQuit(openShop, function () {
       CS.econ.reset();
       rebuildKitchen();
@@ -10145,12 +11643,27 @@ window.CS = window.CS || {};
       CS.ui.setMoves(1 - P.dashCd / DASH_CD, P.grounded ? MAX_FLAPS : P.flaps, MAX_FLAPS, !P.grounded);
       CS.ui.setPower(frenzyLength() > 0,
         FR.t > 0 ? FR.t / frenzyLength() : 1 - FR.cd / CS.FRENZY.cooldown, FR.t > 0);
-      if (S.time <= 0) endDay();
+
+      /* The boss is full: no more courses, the rail clears, the camera
+         swings round for its celebration, then the shutters come down. */
+      if (S.level.boss && CS.bosses.full() && !S.victoryT) {
+        S.victoryT = 4.0;
+        CS.orders.halted = true;
+        CS.orders.list.slice().forEach(function (o) { CS.orders.complete(o, true); });
+        CS.bosses.showcase(true);
+        CS.ui.toast(S.level.boss.fullName.toUpperCase() + ' IS FULL!', 'tip');
+      }
+      if (S.victoryT > 0) {
+        S.time += dt;                  // the clock stops while it celebrates
+        S.victoryT -= dt;
+        if (S.victoryT <= 0) endDay();
+      } else if (S.time <= 0) endDay();
     } else {
       // keep the kitchen alive behind menus
       CS.orders.update(0, 0, function () {});
     }
 
+    CS.bosses.update(dt, { stations: stations, player: P, playing: S.phase === 'play' });
     CS.fx.update(dt);
     CS.steam.update(dt);
     CS.world.tick(clock.elapsedTime);
@@ -10210,7 +11723,32 @@ window.CS = window.CS || {};
       camTarget.z + Math.cos(camYaw) * horiz
     );
     camera.lookAt(camTarget.x, camTarget.y + cm.lift, camTarget.z);
+
+    /* A boss's reveal and victory take the camera for a moment, easing
+       between the cinematic and the play camera rather than cutting. */
+    var cine = CS.bosses.cinematic(clock.elapsedTime);
+    cineK += ((cine ? 1 : 0) - cineK) * Math.min(1, dt * 1.6);
+    if (cineK > 0.001) {
+      if (cine) lastCine = cine;
+      var c = lastCine, e = cineK * cineK * (3 - 2 * cineK);
+      lookAtV.set(camTarget.x, camTarget.y + cm.lift, camTarget.z);
+      camera.position.set(
+        camera.position.x + (c.x - camera.position.x) * e,
+        camera.position.y + (c.y - camera.position.y) * e,
+        camera.position.z + (c.z - camera.position.z) * e);
+      lookAtV.set(lookAtV.x + (c.lx - lookAtV.x) * e, lookAtV.y + (c.ly - lookAtV.y) * e, lookAtV.z + (c.lz - lookAtV.z) * e);
+      camera.lookAt(lookAtV);
+    }
+    // and when it stamps, roars or lands, the whole kitchen shakes
+    var sh = CS.bosses.shake();
+    if (sh > 0.001) {
+      var a = sh * sh * 0.35;
+      camera.position.x += (Math.random() - 0.5) * a;
+      camera.position.y += (Math.random() - 0.5) * a;
+      camera.rotation.z += (Math.random() - 0.5) * a * 0.04;
+    }
   }
+  var cineK = 0, lastCine = null, lookAtV = new THREE.Vector3();
 
   function loop() {
     requestAnimationFrame(loop);
@@ -10227,6 +11765,40 @@ window.CS = window.CS || {};
     CS.mirror.render(renderer, scene, camera);
     renderer.render(scene, camera);
     renderInspect();
+    renderBossCam();
+  }
+
+  /* The boss cam: a second camera that sees only layer 2 -- the boss --
+     drawn into the hunger panel the same scissored way as the plate
+     inspector. The shadow maps are left as the main pass drew them. */
+  var bossCam = null;
+  function renderBossCam() {
+    if (S.phase !== 'play' && S.phase !== 'pause') return;
+    var pv = CS.bosses.portrait();
+    if (!pv) return;
+    var r = pv.el.getBoundingClientRect();
+    if (r.width < 12 || r.height < 12) return;
+    if (!bossCam) {
+      bossCam = new THREE.PerspectiveCamera(28, 1, 0.5, 80);
+      bossCam.layers.set(2);
+    }
+    bossCam.aspect = r.width / r.height;
+    bossCam.updateProjectionMatrix();
+    bossCam.position.set(pv.x, pv.y, pv.z);
+    bossCam.lookAt(pv.lx, pv.ly, pv.lz);
+    var vpH = CS.platform.size().h, y = vpH - r.bottom;
+    var auto = renderer.shadowMap.autoUpdate, bg = scene.background;
+    renderer.shadowMap.autoUpdate = false;
+    scene.background = null;              // the panel's own dark backdrop
+    renderer.setScissorTest(true);
+    renderer.setViewport(r.left, y, r.width, r.height);
+    renderer.setScissor(r.left, y, r.width, r.height);
+    renderer.render(scene, bossCam);
+    renderer.setScissorTest(false);
+    scene.background = bg;
+    renderer.shadowMap.autoUpdate = auto;
+    var vp = CS.platform.size();
+    renderer.setViewport(0, 0, vp.w, vp.h);
   }
 
   /* ------------------------------------------------------------- startup */
@@ -10263,6 +11835,7 @@ window.CS = window.CS || {};
     CS.mirror.auto(lowSpec);
     CS.orders.init(scene);
     CS.staff.init(scene);
+    CS.bosses.init(scene, { lowSpec: lowSpec });
     // the castle grounds outside: built once, never rebuilt with the kitchen
     CS.grounds.build(scene, { lowSpec: lowSpec });
 

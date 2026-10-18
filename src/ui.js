@@ -12,8 +12,9 @@ window.CS = window.CS || {};
   }
 
   function ticketHTML(o) {
-    var h = '<div class="thead"><span class="face" style="background:' + o.css + '"></span>ORDER #' +
-      String(o.id).padStart(2, '0') + '</div><div class="tbody">';
+    var h = '<div class="thead"><span class="face" style="background:' + o.css + '"></span>' +
+      (o.boss ? '&#9819; COURSE ' + o.course : 'ORDER #' + String(o.id).padStart(2, '0')) +
+      '</div><div class="tbody">';
 
     if (o.sandwich) {
       h += '<div class="line"><span class="bullet">&#9656;</span><span>Chicken Sandwich</span></div>';
@@ -157,7 +158,7 @@ window.CS = window.CS || {};
         var t = ticketEls[o.id];
         if (!t) {
           var d = document.createElement('div');
-          d.className = 'ticket';
+          d.className = 'ticket' + (o.boss ? ' boss' : '');
           d.innerHTML = ticketHTML(o);
           el.tickets.appendChild(d);
           t = ticketEls[o.id] = { root: d, fill: d.querySelector('.bar i'), bar: d.querySelector('.bar') };
@@ -215,9 +216,11 @@ window.CS = window.CS || {};
     showScreen: function (html, extra) {
       el.screen.innerHTML = '<div class="card' + (extra ? ' ' + extra : '') + '">' + html + '</div>';
       el.screen.classList.remove('hidden');
+      // a boss card sits low, over a clear backdrop, so you can see the boss
+      el.screen.classList.toggle('cine', !!extra && extra.indexOf('bosscard') >= 0);
       return el.screen.querySelector('.card');
     },
-    hideScreen: function () { el.screen.classList.add('hidden'); el.screen.innerHTML = ''; },
+    hideScreen: function () { el.screen.classList.add('hidden'); el.screen.classList.remove('cine'); el.screen.innerHTML = ''; },
 
     howToHTML: function () {
       var touch = CS.platform && CS.platform.coarse;
@@ -286,7 +289,8 @@ window.CS = window.CS || {};
     /* Shown before every day: what is new, how long, and what it takes to pass. */
     showLevelIntro: function (lv, onStart) {
       var unlocks = (lv.unlocks && lv.unlocks.length)
-        ? '<div class="col" style="flex:1 1 100%"><h3>NEW TODAY</h3><ul>' +
+        ? '<div class="col" style="flex:1 1 100%"><h3>' +
+          (lv.day > CS.CHAPTER_LEN ? 'A NEW CHAPTER &#183; TOUGHER FROM TODAY' : 'NEW TODAY') + '</h3><ul>' +
           lv.unlocks.map(function (u) { return '<li>&#9656; <b>' + u + '</b></li>'; }).join('') +
           '</ul></div>'
         : '';
@@ -300,10 +304,15 @@ window.CS = window.CS || {};
           }).join(', ') + '</p>'
         : '';
       var mins = Math.floor(lv.seconds / 60), secs = lv.seconds % 60;
+      // how long until the castle sends someone down to be fed
+      var bossDay = Math.ceil(lv.day / CS.CHAPTER_LEN) * CS.CHAPTER_LEN;
+      var nb = CS.bossFor(bossDay), left = bossDay - lv.day;
+      var bossLine = '<p class="nextboss">&#9819; Castle boss in <b>' + left + ' day' + (left > 1 ? 's' : '') +
+        '</b> (Day ' + bossDay + '): ' + nb.fullName + ', ' + nb.title + '</p>';
       var c = this.showScreen(
         '<h1>DAY ' + lv.day + '</h1>' +
         '<h2>' + lv.name.toUpperCase() + '</h2>' +
-        '<p>' + lv.tag + '</p>' + crewLine +
+        '<p>' + lv.tag + '</p>' + crewLine + bossLine +
         '<div class="cols">' + unlocks + howto +
         '<div class="col"><h3>THE SHIFT</h3><ul>' +
         '<li>Length: <b>' + mins + ':' + (secs < 10 ? '0' : '') + secs + '</b></li>' +
@@ -386,6 +395,74 @@ window.CS = window.CS || {};
         '</div>');
       c.querySelector('#nextBtn').onclick = onNext;
       c.querySelector('#retryBtn').onclick = onRetry;
+      this.setHudVisible(false);
+    },
+
+    /* A boss day's card: who is coming down from the castle, why, and what
+       it wants. It sits low over a clear backdrop, so the boss landing in
+       the dining room is in view the whole time you read it. */
+    showBossIntro: function (lv, onStart) {
+      var b = lv.boss;
+      var mins = Math.floor(lv.seconds / 60), secs = lv.seconds % 60;
+      var him = { ogre: 'HIM', dragon: 'HER', lich: 'HIM', colossus: 'IT', rooster: 'HIM' }[b.look] || 'IT';
+      var c = this.showScreen(
+        '<div class="bossflag" style="--boss:' + b.css + '">&#9819; CASTLE BOSS &#183; DAY ' + lv.day + '</div>' +
+        '<h1>' + b.fullName.toUpperCase() + '</h1>' +
+        '<h2>' + b.title.toUpperCase() + '</h2>' +
+        '<div class="story">' + b.story.map(function (s) { return '<p>' + s + '</p>'; }).join('') + '</div>' +
+        '<div class="cols">' +
+        '<div class="col"><h3>' + b.quirk.name.toUpperCase() + '</h3><ul><li>' + b.quirk.text + '</li></ul></div>' +
+        '<div class="col"><h3>THE FEAST</h3><ul>' +
+        '<li>Courses to serve: <b>' + b.courses + '</b></li>' +
+        '<li>On the rail at once: <b>' + b.atOnce + '</b></li>' +
+        '<li>Time: <b>' + mins + ':' + (secs < 10 ? '0' : '') + secs + '</b> &#183; no rent today</li>' +
+        '<li>A cold course makes ' + him.toLowerCase() + ' <b>hungrier</b></li>' +
+        '<li>Bounty: <b>' + CS.money(b.bounty) + '</b>' +
+          (CS.econ.has(b.trophy.id) ? '' : ' + <b>' + b.trophy.name + '</b>') + '</li>' +
+        '</ul></div>' +
+        '</div>' +
+        '<button class="big" id="goBtn">FEED ' + him + '</button>', 'bosscard');
+      c.querySelector('#goBtn').onclick = onStart;
+      this.setHudVisible(false);
+    },
+
+    /* The end of a boss day. Fed: the bounty, the trophy, and on to the next
+       chapter. Still hungry: you keep every penny you took, and go back to
+       the shop to get stronger and try again -- the way on is to feed it. */
+    showBossResult: function (lv, L, r, onNext, onRetry) {
+      var b = lv.boss;
+      function line(label, n, cls) {
+        return '<div class="scoreline"><span>' + label + '</span><span' +
+          (cls ? ' class="' + cls + '"' : '') + '>' + n + '</span></div>';
+      }
+      var body =
+        line(L.served + ' course' + (L.served === 1 ? '' : 's') + ' served', CS.money(L.gross - L.tips)) +
+        (L.tipCount ? line('tips (' + L.tipCount + ')', CS.money(L.tips), 'tipval') : '') +
+        (L.waste > 0 ? line('waste &amp; cold courses', '-' + CS.money(L.waste), 'badval') : '') +
+        (L.wages > 0 ? line('wages', '-' + CS.money(L.wages)) : '') +
+        (L.bounty ? line('&#9819; bounty', CS.money(L.bounty), 'tipval') : '') +
+        '<div class="scoreline rule big-line"><span>BANKED</span><span class="tipval">' + CS.money(L.banked) + '</span></div>' +
+        line('in the wallet', CS.money(CS.econ.state.wallet));
+      var trophy = r.trophy
+        ? '<div class="trophy"><h3>&#127942; TROPHY WON &#183; ' + r.trophy.name.toUpperCase() + '</h3><p>' + r.trophy.blurb + '</p></div>'
+        : '';
+      var who = b.fullName.toUpperCase();
+      var c = this.showScreen(
+        '<div class="bossflag" style="--boss:' + b.css + '">&#9819; CASTLE BOSS &#183; DAY ' + lv.day + '</div>' +
+        '<h1>' + (r.won ? who + ' IS FULL!' : who + ' IS STILL HUNGRY') + '</h1>' +
+        '<h2>' + (r.won
+          ? 'Every course eaten. ' + b.cheers[b.cheers.length - 1]
+          : 'Ate ' + r.ate + ' of ' + r.need + ' courses before closing. Get stronger in the shop and try again.') + '</h2>' +
+        trophy +
+        '<div class="receipt">' + body + '</div>' +
+        '<div class="krow">' +
+        (r.won
+          ? '<button class="big" id="nextBtn">DAY ' + (lv.day + 1) + ' &#183; NEXT CHAPTER &#9656;</button>'
+          : '<button class="big" id="retryBtn">BACK TO THE SHOP</button>') +
+        '</div>', 'bosscard');
+      var n = c.querySelector('#nextBtn'), t = c.querySelector('#retryBtn');
+      if (n) n.onclick = onNext;
+      if (t) t.onclick = onRetry;
       this.setHudVisible(false);
     },
 

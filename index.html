@@ -517,6 +517,63 @@
     .stat{min-width:78px;}
     .stat .v{font-size:16px;}
   }
+
+  /* ---------- the castle bosses ---------- */
+  /* A boss's card sits low over a clear backdrop, so the boss stays in view. */
+  #screen.cine{
+    align-items:flex-end;
+    background:linear-gradient(0deg,#151236f2 0%,#15123699 38%,#15123600 68%);
+  }
+  .card.bosscard{
+    width:min(780px,96vw);max-height:58vh;overflow-y:auto;
+    background:linear-gradient(180deg,#2c1a3ef0,#150d24f5);border-color:#e0b04a;
+  }
+  .card.bosscard h1{font-size:34px;}
+  .bossflag{
+    display:inline-block;font-size:11px;letter-spacing:3px;color:#1a1020;
+    background:var(--boss,var(--gold));padding:3px 14px;border-radius:999px;margin-bottom:8px;
+    box-shadow:0 0 18px var(--boss,var(--gold));
+  }
+  .story{margin:4px 0 2px;}
+  .story p{text-align:left;font-style:italic;color:#e8dcc4;margin-bottom:6px;}
+  .trophy{border:2px solid #e0b04a;border-radius:10px;padding:8px 12px;background:#2a1e10;margin:10px 0;text-align:left;}
+  .trophy h3{font-size:12px;color:var(--gold);margin-bottom:4px;letter-spacing:1px;}
+  .nextboss{color:#e6c27a;}
+  .ticket.boss{border-color:#e0b04a;box-shadow:0 0 0 2px #e0b04a77,0 4px 0 rgba(0,0,0,.4);}
+  .ticket.boss .thead{background:linear-gradient(90deg,#5a1a6a,#8a2a2e);}
+
+  /* The boss's panel, bottom right: a clear window the boss cam is drawn
+     into (see renderBossCam in game.js), and the hunger meter under it. */
+  #bossHud{position:absolute;right:12px;bottom:12px;width:min(270px,34vw);text-align:center;}
+  #bossHud.hidden{display:none;}
+  #bossHud .bcam{
+    height:150px;border:3px solid #c9a04a;border-bottom:0;border-radius:10px 10px 0 0;
+    box-shadow:inset 0 0 0 2px #14203d,inset 0 -30px 30px -20px #00000088;
+  }
+  #bossHud .binfo{border-radius:0 0 10px 10px;padding:6px 10px 7px;}
+  #bossHud .bname{font-size:11px;color:var(--gold);letter-spacing:2px;margin-bottom:4px;}
+  #bossHud .bmeter{height:13px;background:#1a1020;border:2px solid #e0b04a;border-radius:7px;overflow:hidden;}
+  #bossHud .bmeter i{display:block;height:100%;width:0;transition:width .45s ease-out;
+    background:linear-gradient(90deg,var(--boss,#c8402e),#ffe27a);}
+  #bossHud .bcount{font-size:10px;margin-top:3px;color:#ffe7a8;}
+  #bossHud.fed{animation:bossfed .5s ease-out;}
+  #bossHud.angry{animation:bossangry .6s ease-out;}
+  @keyframes bossfed{40%{transform:scale(1.06);}}
+  @keyframes bossangry{
+    20%{transform:translateX(-8px);}
+    40%{transform:translateX(8px);}
+    60%{transform:translateX(-5px);}
+  }
+  body.mobile #bossHud{right:auto;bottom:auto;left:50%;transform:translateX(-50%);top:calc(56px + var(--ticketH,60px));width:36vw;}
+  body.mobile #bossHud .bcam{height:58px;border-width:2px;}
+  body.mobile #bossHud .binfo{padding:2px 5px 3px;border-width:2px;}
+  body.mobile #bossHud.fed,body.mobile #bossHud.angry{animation:none;}
+  body.mobile #bossHud .bname{font-size:7px;letter-spacing:1px;margin-bottom:2px;}
+  body.mobile #bossHud .bmeter{height:8px;}
+  body.mobile #bossHud .bcount{font-size:7px;}
+  body.mobile .card.bosscard{max-height:62vh;}
+  body.mobile .card.bosscard h1{font-size:20px;}
+  body.mobile .story p{font-size:9px;line-height:1.5;}
 </style>
 </head>
 <body>
@@ -598,6 +655,7 @@
 <script src="./src/orders.js"></script>
 <script src="./src/grounds.js"></script>
 <script src="./src/staff.js"></script>
+<script src="./src/bosses.js"></script>
 <script src="./src/ui.js"></script>
 <script src="./src/shop.js"></script>
 <script src="./src/editor.js"></script>

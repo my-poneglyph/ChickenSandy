@@ -215,10 +215,29 @@ window.CS = window.CS || {};
     s.start(t); s.stop(t + 0.12);
   }
 
+  /* Timpani: a sine that drops a little in pitch as it rings, over a
+     thump of filtered noise for the stick. */
+  function timpani(m, t, vol) {
+    var f = mtof(m), o = ctx.createOscillator(), g = ctx.createGain();
+    o.type = 'sine';
+    o.frequency.setValueAtTime(f * 1.06, t);
+    o.frequency.exponentialRampToValueAtTime(f, t + 0.15);
+    shape(g, t, vol, 0.005, 0.05, 0.7);
+    o.connect(g); g.connect(musicGain);
+    o.start(t); o.stop(t + 0.85);
+    var s = ctx.createBufferSource(); s.buffer = noiseBuf;
+    var lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = 380;
+    var ng = ctx.createGain(); shape(ng, t, vol * 0.5, 0.002, 0.01, 0.12);
+    s.connect(lp); lp.connect(ng); ng.connect(musicGain);
+    s.start(t); s.stop(t + 0.2);
+  }
+
   function scheduleStep(i, t) {
     var bar = Math.floor(i / 16) % BARS, s = i % 16;
     var ch = PROG[bar];
-    var shift = mood === 'shift';
+    // a boss day plays the whole band, with timpani and a low brass stab
+    var boss = mood === 'boss';
+    var shift = mood === 'shift' || boss;
 
     if (s === 0) strings(ch, t);
 
@@ -244,6 +263,14 @@ window.CS = window.CS || {};
     }
 
     if (shift && (s === 4 || s === 12)) brush(t, s === 12 ? 0.028 : 0.018);
+
+    if (boss) {
+      if (s === 0 || s === 6 || s === 8) timpani(ch.root - 12, t, s === 0 ? 0.30 : 0.18);
+      if (s === 0 && bar % 2 === 0) {
+        voice('sawtooth', mtof(ch.root + 12), t, 0.022, 0.03, 0.30, 0.35, musicGain);
+        voice('square', mtof(ch.root + 19), t, 0.012, 0.03, 0.30, 0.35, musicGain);
+      }
+    }
 
     if (i === BARS * 16 - 1) loopCount++;
   }
@@ -527,6 +554,63 @@ window.CS = window.CS || {};
       setTimeout(function () {
         tone(2093, 0.9, 'sine', 0.12); tone(2637, 0.8, 'sine', 0.07); tone(3136, 0.7, 'sine', 0.05);
       }, 360);
+    },
+
+    /* ---- the castle bosses ----
+       A roar is a sawtooth growl through a lowpass that opens and closes,
+       with a rough tremolo and a bed of noise under it. Each boss pitches
+       and colours it differently: the ogre bellows, the dragon shrieks, the
+       lich howls like wind in a crypt, the Colossus blasts a steam whistle,
+       and Cockatrix crows. */
+    bossRoar: function (look) {
+      if (muted || !ensure()) return;
+      var R = {
+        ogre:     { f0: 110, f1: 70,  dur: 1.2, cut: 900,  nz: 500,  nv: 0.20, type: 'sawtooth' },
+        dragon:   { f0: 260, f1: 120, dur: 1.3, cut: 2400, nz: 1800, nv: 0.26, type: 'sawtooth' },
+        lich:     { f0: 330, f1: 180, dur: 1.6, cut: 1200, nz: 900,  nv: 0.16, type: 'triangle' },
+        colossus: { f0: 180, f1: 175, dur: 1.2, cut: 2600, nz: 3200, nv: 0.22, type: 'square' },
+        rooster:  { f0: 520, f1: 820, dur: 0.9, cut: 3000, nz: 2200, nv: 0.12, type: 'sawtooth' }
+      }[look] || { f0: 140, f1: 80, dur: 1.2, cut: 1000, nz: 600, nv: 0.2, type: 'sawtooth' };
+      var t = ctx.currentTime;
+      var o = ctx.createOscillator(), lp = ctx.createBiquadFilter(), g = ctx.createGain();
+      o.type = R.type;
+      o.frequency.setValueAtTime(R.f0, t);
+      o.frequency.exponentialRampToValueAtTime(R.f1, t + R.dur);
+      lp.type = 'lowpass'; lp.Q.value = 4;
+      lp.frequency.setValueAtTime(R.cut * 0.3, t);
+      lp.frequency.linearRampToValueAtTime(R.cut, t + R.dur * 0.25);
+      lp.frequency.linearRampToValueAtTime(R.cut * 0.25, t + R.dur);
+      shape(g, t, 0.24, 0.06, R.dur * 0.55, R.dur * 0.45);
+      var trem = ctx.createOscillator(), ta = ctx.createGain();
+      trem.frequency.value = look === 'lich' ? 5 : 23; ta.gain.value = 0.08;
+      trem.connect(ta); ta.connect(g.gain);
+      o.connect(lp); lp.connect(g); g.connect(master);
+      o.start(t); o.stop(t + R.dur + 0.1); trem.start(t); trem.stop(t + R.dur + 0.1);
+      noise(R.dur, R.nz, R.nv, 0.6);
+      if (look === 'rooster') {     // cock-a-doodle: two more rising whoops
+        setTimeout(function () { tone(620, 0.22, 'sawtooth', 0.09, 940); }, 260);
+        setTimeout(function () { tone(700, 0.45, 'sawtooth', 0.09, 520); }, 520);
+      }
+    },
+    bossStomp: function () {
+      tone(70, 0.5, 'sine', 0.5, 38);
+      noise(0.5, 180, 0.4, 0.7);
+      setTimeout(function () { noise(0.6, 900, 0.10, 0.5); }, 60);      // things rattling on the shelves
+    },
+    bossChomp: function () {
+      [0, 130, 260].forEach(function (d) {
+        setTimeout(function () { noise(0.09, 700, 0.28, 1.2); tone(150, 0.08, 'square', 0.12, 90); }, d);
+      });
+      setTimeout(function () { tone(330, 0.25, 'sine', 0.12, 220); }, 420);     // gulp
+    },
+    glare: function () {
+      tone(300, 0.6, 'sine', 0.14, 1800);
+      tone(450, 0.6, 'triangle', 0.08, 2700);
+      setTimeout(function () { noise(0.4, 300, 0.25, 0.6); }, 500);
+    },
+    stoneCrack: function () {
+      noise(0.08, 2600, 0.25, 2.0);
+      setTimeout(function () { noise(0.25, 500, 0.22, 0.8); }, 70);
     },
 
     /* Feather Frenzy: a rising rush of air under a shimmer of bells, like a

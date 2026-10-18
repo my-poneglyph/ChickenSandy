@@ -143,6 +143,24 @@ window.CS = window.CS || {};
       (state.ok ? '' : ' disabled') + '>' + label + '</button></div>';
   }
 
+  /* What the castle bosses have left you, and who is next. */
+  function trophyHTML() {
+    var day = CS.econ.state.day;
+    var bossDay = Math.ceil(day / CS.CHAPTER_LEN) * CS.CHAPTER_LEN, nb = CS.bossFor(bossDay);
+    var left = bossDay - day;
+    var out = '<div class="buyrow"><div class="buyname">&#9819; ' +
+      (left ? 'Next castle boss in ' + left + ' day' + (left > 1 ? 's' : '') : 'The castle boss is TODAY') +
+      ' &#183; ' + nb.fullName + '<span>' + nb.title + '. ' + nb.quirk.name + ': ' + nb.quirk.text + '</span></div></div>';
+    var won = CS.econ.trophies();
+    if (!won.length) {
+      out += '<div class="buyrow dim"><div class="buyname">No trophies yet<span>Feed a castle boss to win one. Each one helps you for good.</span></div></div>';
+    }
+    won.forEach(function (t) {
+      out += '<div class="buyrow"><div class="buyname">&#127942; ' + t.name + '<span>' + t.blurb + '</span></div></div>';
+    });
+    return out;
+  }
+
   function headerHTML() {
     var w = CS.econ.state.wallet;
     var lv = CS.levelFor(CS.econ.state.day);
@@ -165,6 +183,7 @@ window.CS = window.CS || {};
     card.querySelector('#sLand').innerHTML = landHTML();
     card.querySelector('#sStaff').innerHTML = staffHTML();
     card.querySelector('#sChef').innerHTML = chefHTML();
+    card.querySelector('#sTrophy').innerHTML = trophyHTML();
     bind();
   }
 
@@ -206,6 +225,7 @@ window.CS = window.CS || {};
         '<h3>Equipment</h3><div id="sGear"></div>' +
         '<h3>Kit &#183; buy it, then place it in the kitchen</h3><div id="sParts"></div>' +
         '<h3>The Building</h3><div id="sLand"></div>' +
+        '<h3>Trophy Hall &#183; the castle bosses</h3><div id="sTrophy"></div>' +
         '</div>' +
         '<div class="krow">' +
         '<button class="btn" id="sEdit">KITCHEN</button>' +

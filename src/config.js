@@ -189,24 +189,42 @@ window.CS = window.CS || {};
       friesChance: 0.5, cupChance: 0.5, twoCupChance: 0.15, maxTop: 2, maxSauce: 2,
       tops: ALL_TOPS, sauces: ALL_SAUCES, cups: ALL_CUPS,
       howto: 'Some tickets want two cups. Two of the same counts as two.',
-      unlocks: ['BBQ and hot sauce cups'] },
+      unlocks: ['BBQ and hot sauce cups'] }
+  ];
 
-    { name: 'Lunch Rush', tag: 'Four tickets on the rail at once.',
-      seconds: 185, rent: 25, maxOrders: 4, grace: 1.0,
+  /* ------------------------------------------------------------ chapters
+     After the nine learning days the campaign runs in chapters of ten: nine
+     ordinary days, then a castle boss on every tenth (day 10, 20, 30...).
+
+     Inside a chapter the difficulty and the rent hold STILL. That is the
+     point of them: nine days at one level of pressure to bank money, hire
+     and train the crew and kit out the kitchen, so you walk into the boss
+     stronger than you walked out of the last one. The difficulty only steps
+     up once the boss is fed, when the next chapter opens. The first day of
+     each chapter says what has got harder. */
+  CS.CHAPTER_LEN = 10;
+
+  CS.CHAPTERS = [
+    null,     // chapter 1 is the nine learning days above
+    { season: 'Market Season', tag: 'The town market is open, and so is the castle gate.',
+      seconds: 185, rent: 25, maxOrders: 4,
       spawn: [7.4, 6.0], limit: [76, 64],
       friesChance: 0.55, cupChance: 0.5, twoCupChance: 0.2, maxTop: 2, maxSauce: 2,
-      tops: ALL_TOPS, sauces: ALL_SAUCES, cups: ALL_CUPS,
       howto: 'Helpers earn their keep now. Hire some in the shop.',
-      unlocks: ['A fourth ticket', 'Shorter tempers'] },
-
-    { name: 'The Works', tag: 'Everything on everything.',
-      seconds: 190, rent: 30, maxOrders: 4, grace: 1.0,
+      harder: ['A fourth ticket', 'Shorter tempers'] },
+    { season: 'Tournament Season', tag: 'Knights in from every corner of the realm, all of them starving.',
+      seconds: 190, rent: 30, maxOrders: 4,
       spawn: [6.6, 5.0], limit: [70, 56],
       friesChance: 0.6, cupChance: 0.55, twoCupChance: 0.3, maxTop: 3, maxSauce: 3,
-      tops: ALL_TOPS, sauces: ALL_SAUCES, cups: ALL_CUPS,
       howto: 'Fully loaded sandwiches. Save Feather Frenzy for a full rail.',
-      unlocks: ['Fully loaded sandwiches'] }
+      harder: ['Fully loaded sandwiches', 'Faster arrivals'] }
   ];
+  // past the hand-built chapters, every new one turns the screw a notch more
+  var SEASONS = ['Harvest Festival', 'The Long Winter', 'Thaw Fair', 'Midsummer Revels',
+    'Royal Wedding Season', 'The Dragon Moon'];
+
+  CS.chapterOf = function (day) { return Math.floor((day - 1) / CS.CHAPTER_LEN) + 1; };
+  CS.isBossDay = function (day) { return day > 0 && day % CS.CHAPTER_LEN === 0; };
 
   function cloneLevel(l) {
     var o = {}, k;
@@ -214,24 +232,186 @@ window.CS = window.CS || {};
     return o;
   }
 
-  /* Past the hand-built days the shop just keeps getting busier, forever. */
+  function chapterDef(ch) {
+    if (CS.CHAPTERS[ch - 1]) return cloneLevel(CS.CHAPTERS[ch - 1]);
+    var base = cloneLevel(CS.CHAPTERS[CS.CHAPTERS.length - 1]);
+    var k = ch - CS.CHAPTERS.length;           // 1 for the first chapter past the table
+    base.season = SEASONS[(k - 1) % SEASONS.length] + (k > SEASONS.length ? ' ' + (1 + Math.floor((k - 1) / SEASONS.length)) : '');
+    base.tag = 'Word of your kitchen has spread. The whole kingdom is queueing.';
+    base.rent = 30 + k * 8;
+    base.maxOrders = 4 + (k >= 2 ? 1 : 0);
+    base.spawn = [Math.max(3.4, 6.6 - k * 0.55), Math.max(2.8, 5.0 - k * 0.45)];
+    base.limit = [Math.max(46, 70 - k * 5), Math.max(36, 56 - k * 5)];
+    base.howto = '';
+    base.harder = ['Faster arrivals', 'Shorter tempers', 'Higher rent'];
+    if (k === 2) base.harder.unshift('A fifth ticket');
+    return base;
+  }
+
+  var ROMAN = ['I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX'];
+
   CS.levelFor = function (day) {
-    if (day <= CS.LEVELS.length) {
+    if (CS.isBossDay(day)) return CS.bossLevel(day);
+    if (day < CS.CHAPTER_LEN) {
       var lv = cloneLevel(CS.LEVELS[day - 1]);
       lv.day = day;
+      lv.chapter = 1;
       return lv;
     }
-    var over = day - CS.LEVELS.length;
-    var l = cloneLevel(CS.LEVELS[CS.LEVELS.length - 1]);
-    l.day = day;
-    l.name = 'Overtime ' + over;
-    l.tag = 'No end in sight. Keep frying.';
-    l.rent = 30 + over * 4;
-    l.spawn = [Math.max(3.4, 6.6 - over * 0.40), Math.max(2.8, 5.0 - over * 0.35)];
-    l.limit = [Math.max(46, 70 - over * 3), Math.max(36, 56 - over * 3)];
-    l.unlocks = [];
-    l.howto = '';
+    var ch = CS.chapterOf(day), c = chapterDef(ch);
+    var nth = day - (ch - 1) * CS.CHAPTER_LEN;     // 1..9 within the chapter
+    var l = {
+      day: day, chapter: ch, name: c.season + ' ' + ROMAN[nth - 1], tag: c.tag,
+      seconds: c.seconds, rent: c.rent, maxOrders: c.maxOrders, grace: 1.0,
+      spawn: c.spawn, limit: c.limit,
+      friesChance: c.friesChance, cupChance: c.cupChance, twoCupChance: c.twoCupChance,
+      maxTop: c.maxTop, maxSauce: c.maxSauce,
+      tops: ALL_TOPS.slice(), sauces: ALL_SAUCES.slice(), cups: ALL_CUPS.slice(),
+      howto: nth === 1 ? c.howto : '',
+      unlocks: nth === 1 ? c.harder : []
+    };
     return l;
+  };
+
+  /* ------------------------------------------------------------- bosses
+     Every tenth day a castle boss comes down to the shop to be fed. There
+     are no ordinary customers that day: the boss sends its courses to the
+     rail a few at a time, and every one you serve fills its hunger meter.
+     Fill it before closing and it goes away happy, leaves a bounty and a
+     trophy that helps you for good. Let a course go cold and it roars,
+     shakes the kitchen and gets hungrier. The way past a boss is to feed
+     it; the shop is never taken off you for failing, you just try again.
+
+     `look` picks the model in bosses.js. `mods` bends the kitchen for the
+     day; `force` puts a sauce on every sandwich; `glare` turns a station
+     to stone every `every` seconds for `dur`. Once all five are fed they
+     come back Ascended -- hungrier, and harder to please.                */
+  CS.BOSSES = [
+    {
+      id: 'ogre', look: 'ogre', css: '#7d9a5a',
+      name: 'Grumbold', title: 'The Gatehouse Ogre',
+      story: [
+        'For three hundred years Grumbold has held the castle\'s north gate, and for three hundred years nobody has brought him lunch.',
+        'The last royal cook left him one cold drumstick and a promise to come back with a hot one. She never did. He has been hungry, and grumpy, ever since.',
+        'Today he has smelt your fryer from the gatehouse. He has brought his own fork.'
+      ],
+      quirk: { name: 'Big Appetite', text: 'Plain, hearty food, and lots of it. He wants fries with nearly everything, and three courses on the rail at once.' },
+      seconds: 210, courses: 8, atOnce: 3, limit: [95, 85],
+      friesChance: 0.75, cupChance: 0.15, twoCupChance: 0, maxTop: 1, maxSauce: 1,
+      tops: ['lettuce'], sauces: ['mayo'], cups: ['ketchup'],
+      bounty: 120, xp: 160,
+      roars: ['MORE!', 'GRUMBOLD HUNGRY!', 'WHERE IS LUNCH?!'],
+      cheers: ['Mmmf. Good.', 'HOT drumstick!', 'Three hundred years...'],
+      trophy: { id: 'trophy-ogre', name: 'The Gatehouse Key', blurb: 'Customers wait 8% longer: word is the ogre eats here.', mod: { patience: 1.08 } }
+    },
+    {
+      id: 'dragon', look: 'dragon', css: '#c23a22',
+      name: 'Ignatia', title: 'The Ember Wyrm of the Keep',
+      story: [
+        'Ignatia roosts on top of the castle keep. The king pays her in feasts to keep the town warm through the winter, and it has been a long, cold, badly-catered winter.',
+        'Dragons, it turns out, adore anything fried. She has heard there is a chicken who fries chickens, and she finds this extremely funny.',
+        'She has tied on a napkin. She likes it hot.'
+      ],
+      quirk: { name: 'Dragonfire', text: 'Her breath heats your oil: fryers cook 30% faster, but food burns 40% sooner. Every sandwich wants hot sauce.' },
+      seconds: 210, courses: 10, atOnce: 3, limit: [88, 76],
+      friesChance: 0.5, cupChance: 0.35, twoCupChance: 0.1, maxTop: 2, maxSauce: 2,
+      tops: ALL_TOPS, sauces: ALL_SAUCES, cups: ['hot', 'bbq'], force: 'hot',
+      mods: { fryCook: 0.7, fryGrace: 0.6 },
+      bounty: 200, xp: 240,
+      roars: ['IT IS COLD!', 'I SAID HOT!', 'FEED THE FLAME!'],
+      cheers: ['Ahh, crispy.', 'Spicy enough.', 'Delicious, little chicken.'],
+      trophy: { id: 'trophy-dragon', name: 'An Ember Scale', blurb: 'Fryers cook 8% faster: a dragon scale under every pan.', mod: { fryCook: 0.92 } }
+    },
+    {
+      id: 'lich', look: 'lich', css: '#5fd3e0',
+      name: 'Lord Morrowgast', title: 'The Lantern Lich of the Crypt Kitchens',
+      story: [
+        'Long ago Morrowgast was the castle\'s royal chef, the one who stood where you stand now.',
+        'He swore to make a sandwich so perfect it would last forever, and bound his soul into the recipe to see it done. It did not work. Now he haunts the crypt kitchens, tasting everything and finding it all wanting.',
+        'He has waited four hundred years. He can wait a little longer, but his standards are exacting.'
+      ],
+      quirk: { name: 'Exacting Taste', text: 'Fully loaded orders with side cups. The dead are patient, so his courses wait longer, but his chill slows the fryers by 20%.' },
+      seconds: 220, courses: 10, atOnce: 3, limit: [110, 96],
+      friesChance: 0.55, cupChance: 0.7, twoCupChance: 0.35, maxTop: 3, maxSauce: 2,
+      tops: ALL_TOPS, sauces: ALL_SAUCES, cups: ALL_CUPS,
+      mods: { fryCook: 1.2 },
+      bounty: 300, xp: 320,
+      roars: ['UNWORTHY!', 'IT LACKS... EVERYTHING.', 'AGAIN!'],
+      cheers: ['...Acceptable.', 'Almost perfect.', 'I remember this taste.'],
+      trophy: { id: 'trophy-lich', name: 'The Lich\'s Hourglass', blurb: 'Food sits 15% longer before it burns.', mod: { fryGrace: 1.15 } }
+    },
+    {
+      id: 'colossus', look: 'colossus', css: '#c8963c',
+      name: 'The Brass Colossus', title: 'Clockwork Guardian of the Treasury',
+      story: [
+        'The royal artificers built the Colossus to guard the treasury. When the treasury moved, nobody remembered to switch it off.',
+        'It has stood in the dark for a century learning one thing from the mice in its gears: hunger. Its furnace runs on gravy now. Fried chicken burns hotter.',
+        'It has calculated that your shop can feed it. It is rarely wrong.'
+      ],
+      quirk: { name: 'Clockwork', text: 'Courses arrive like clockwork: four on the rail at once with short fuses. Keep every fryer busy.' },
+      seconds: 220, courses: 12, atOnce: 4, limit: [74, 64],
+      friesChance: 0.6, cupChance: 0.5, twoCupChance: 0.25, maxTop: 2, maxSauce: 2,
+      tops: ALL_TOPS, sauces: ALL_SAUCES, cups: ALL_CUPS,
+      bounty: 400, xp: 400,
+      roars: ['FUEL LOW.', 'INSUFFICIENT.', 'FEED. THE. FURNACE.'],
+      cheers: ['FUEL ACCEPTED.', 'PRESSURE: NOMINAL.', 'DELICIOUS (ESTIMATE).'],
+      trophy: { id: 'trophy-colossus', name: 'The Clockwork Heart', blurb: 'One more customer in the queue: the treasury is paying for lunch.', mod: { orders: 1 } }
+    },
+    {
+      id: 'rooster', look: 'rooster', css: '#7dff6a',
+      name: 'Count Cockatrix', title: 'The Shadow Rooster',
+      story: [
+        'Every family has one. Sandy\'s is Uncle Cockatrix, who left the farm young, learnt a little dark magic and turned a whole bakery to stone with one look because the croissants were dry.',
+        'He has heard his niece is the finest cook in the kingdom, and he has come to the castle to find out for himself.',
+        'He is very particular. He is very hungry. And he is not leaving until he is fed.'
+      ],
+      quirk: { name: 'Stone Glare', text: 'Every so often his glare turns one of your stations to stone for a few seconds. Fully loaded orders, four at once.' },
+      seconds: 230, courses: 14, atOnce: 4, limit: [80, 68],
+      friesChance: 0.6, cupChance: 0.6, twoCupChance: 0.3, maxTop: 3, maxSauce: 3,
+      tops: ALL_TOPS, sauces: ALL_SAUCES, cups: ALL_CUPS,
+      glare: { every: 16, dur: 6 },
+      bounty: 600, xp: 520,
+      roars: ['DRY! LIKE THE CROISSANTS!', 'YOU CALL THIS COOKING?', 'LOOK AT ME, NIECE.'],
+      cheers: ['Hm. Not dry.', 'Your mother\'s recipe...', 'Perhaps you ARE the best.'],
+      trophy: { id: 'trophy-rooster', name: 'The Golden Comb', blurb: 'Customers wait 10% longer and food sits 10% longer before it burns.', mod: { patience: 1.10, fryGrace: 1.10 } }
+    }
+  ];
+
+  /* Trophies are permanent, like equipment, and live in the same owned
+     list, so CS.econ.mod() folds them in without knowing they are special. */
+  CS.TROPHIES = CS.BOSSES.map(function (b) {
+    var t = b.trophy;
+    return { id: t.id, kind: 'trophy', name: t.name, blurb: t.blurb, mod: t.mod, boss: b.id };
+  });
+
+  /* The boss for a boss day, and the day it makes. A boss you have already
+     fed comes back Ascended on the next lap: more courses, shorter fuses. */
+  CS.bossFor = function (day) {
+    var n = day / CS.CHAPTER_LEN - 1;                      // 0 for day 10
+    var lap = Math.floor(n / CS.BOSSES.length);
+    var b = cloneLevel(CS.BOSSES[n % CS.BOSSES.length]);
+    b.lap = lap;
+    b.fullName = (lap ? 'Ascended ' : '') + b.name + (lap > 1 ? ' ' + ROMAN[Math.min(8, lap - 1)] : '');
+    b.courses += lap * 3;
+    b.limit = [b.limit[0] * Math.pow(0.88, lap), b.limit[1] * Math.pow(0.88, lap)];
+    b.bounty = Math.round(b.bounty * (1 + lap * 0.75));
+    b.xp = Math.round(b.xp * (1 + lap * 0.5));
+    if (b.glare) b.glare = { every: Math.max(9, b.glare.every - lap * 2), dur: b.glare.dur };
+    return b;
+  };
+
+  CS.bossLevel = function (day) {
+    var b = CS.bossFor(day);
+    return {
+      day: day, chapter: CS.chapterOf(day), boss: b,
+      name: b.fullName, tag: b.title,
+      seconds: b.seconds, rent: 0, maxOrders: b.atOnce, grace: 1.0,
+      spawn: [3.0, 2.2], limit: b.limit,
+      friesChance: b.friesChance, cupChance: b.cupChance, twoCupChance: b.twoCupChance,
+      maxTop: b.maxTop, maxSauce: b.maxSauce,
+      tops: b.tops.slice(), sauces: b.sauces.slice(), cups: b.cups.slice(),
+      howto: b.quirk.text, unlocks: []
+    };
   };
 
   /* Star thresholds as multiples of the day's rent. */
