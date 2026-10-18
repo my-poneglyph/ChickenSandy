@@ -6904,6 +6904,7 @@ window.CS = window.CS || {};
 
   var scene = null;
   var hands = [];
+  var kitchen = [];     // the station list, as of the latest update
 
   /* -------------------------------------------------------------- paths
      BFS over open floor. Stations are solid, so the goal is never the
@@ -6923,7 +6924,9 @@ window.CS = window.CS || {};
     return out;
   }
 
-  function findPath(fromC, fromR, goals) {
+  /* `avoid` is an optional set of 'col,row' keys to treat as blocked -- the
+     tiles other people are stood on -- so a hand can plan round them. */
+  function findPath(fromC, fromR, goals, avoid) {
     if (!goals.length) return null;
     var want = {};
     goals.forEach(function (g) { want[g.col + ',' + g.row] = true; });
@@ -6936,7 +6939,7 @@ window.CS = window.CS || {};
       var n = q.shift();
       for (var i = 0; i < 4; i++) {
         var c = n[0] + DIRS[i][0], r = n[1] + DIRS[i][1], k = c + ',' + r;
-        if (seen[k] || !walkable(c, r)) continue;
+        if (seen[k] || !walkable(c, r) || (avoid && avoid[k])) continue;
         seen[k] = true;
         prev[k] = n;
         if (want[k]) { hit = [c, r]; break; }
@@ -6951,6 +6954,38 @@ window.CS = window.CS || {};
     }
     path.shift();     // drop the tile we are already standing on
     return path;
+  }
+
+  /* The tile someone is actually in. A hand's `col`/`row` is only updated as
+     it reaches a waypoint, and a shove from a passer-by can move it off. */
+  function tileAt(x, z) {
+    return { col: Math.floor((x - CS.OX) / CS.TILE), row: Math.floor((z - CS.OZ) / CS.TILE) };
+  }
+
+  /* Tiles taken by everyone but `me`. With `standingOnly`, just the hands
+     who are planted at a station or idling -- the ones who will not be out
+     of the way by the time you get there. */
+  function occupied(me, standingOnly) {
+    var out = {};
+    hands.forEach(function (h) {
+      if (h === me) return;
+      if (standingOnly && h.state === 'walk') return;
+      var t = tileAt(h.x, h.z);
+      out[t.col + ',' + t.row] = true;
+    });
+    if (!standingOnly) {
+      var P = CS.game.player;
+      if (P && P.y < 0.7) { var t = tileAt(P.x, P.z); out[t.col + ',' + t.row] = true; }
+    }
+    return out;
+  }
+
+  /* Where to stand to use a station: any open side, but not one somebody
+     else is already planted on, unless that is the only way in. */
+  function standTiles(h, st) {
+    var all = adjacentTiles(st), busy = occupied(h, true);
+    var free = all.filter(function (t) { return !busy[t.col + ',' + t.row]; });
+    return free.length ? free : all;
   }
 
   /* ------------------------------------------------------------ plates
@@ -6982,16 +7017,79 @@ window.CS = window.CS || {};
     return within(plate.cups, o.cups);
   }
 
+  /* How many more things `o` needs before `plate` is it. */
+  function remaining(plate, o) {
+    var n = (o.fries && !plate.fries ? 1 : 0) + o.cups.length - plate.cups.length;
+    if (o.sandwich) {
+      var s = plate.sandwich;
+      n += (s ? 0 : 1) + (s && s.chicken ? 0 : 1) +
+        o.sandwich.toppings.length - (s ? s.toppings.length : 0) +
+        o.sandwich.sauces.length - (s ? s.sauces.length : 0);
+    }
+    return n;
+  }
+
+  function plateSize(p) {
+    var s = p.sandwich;
+    return (p.fries ? 1 : 0) + p.cups.length +
+      (s ? 1 + (s.chicken ? 1 : 0) + s.toppings.length + s.sauces.length : 0);
+  }
+
+  /* Every plate in the kitchen is spoken for by at most one ticket, and no
+     two plates share one. Without this, each plate was checked against "any
+     open ticket" on its own -- so with one mayo ticket on the rail, every bare
+     bun on the pass got mayo, and none of them got what the other tickets
+     asked for. The chef's plate claims first (it is hers), then plates in a
+     hand's arms, then the counters; fuller plates before emptier ones, and
+     each takes the ticket it is closest to finishing. Recomputed whenever
+     anything in the kitchen changes. */
+  var assignCache = null;
+
+  function assignments() {
+    if (assignCache) return assignCache;
+    var plates = [];
+    function addPlate(p, rank) { if (p && p.k === 'plate') plates.push({ p: p, rank: rank }); }
+    addPlate(CS.game.state.held, 2);
+    hands.forEach(function (h) { addPlate(h.carry, 1); });
+    kitchen.forEach(function (st) { if (st.type === 'counter') addPlate(st.item, 0); });
+    plates.forEach(function (e, i) { e.size = plateSize(e.p); e.i = i; });
+    plates.sort(function (a, b) { return (b.rank - a.rank) || (b.size - a.size) || (a.i - b.i); });
+
+    var open = openOrders(), taken = [], pairs = [];
+    plates.forEach(function (e) {
+      var best = null, bestScore = Infinity;
+      open.forEach(function (o) {
+        if (taken.indexOf(o) >= 0 || !fitsOrder(e.p, o)) return;
+        // a plate with no bun is for a sides-only ticket if there is one --
+        // nobody puts a bun on a plate that is already sat on a counter
+        var score = remaining(e.p, o) * 1000 + o.left + (o.sandwich && !e.p.sandwich ? 5000 : 0);
+        if (score < bestScore) { bestScore = score; best = o; }
+      });
+      if (best) { taken.push(best); pairs.push([e.p, best]); }
+    });
+    assignCache = pairs;
+    return pairs;
+  }
+
+  /* The one ticket this plate is being built for, or null if it is spare. */
+  function ticketFor(plate) {
+    var a = assignments();
+    for (var i = 0; i < a.length; i++) if (a[i][0] === plate) return a[i][1];
+    return null;
+  }
+
   function plateWants(plate, item) {
     if (!plate || plate.k !== 'plate' || !item) return false;
     if (!CS.plateAcceptsWhy(plate, item).ok) return false;
+    var o = ticketFor(plate);
+    if (!o) return false;
     var s = plate.sandwich;
     var next = {
       k: 'plate', fries: plate.fries, cups: plate.cups.slice(),
       sandwich: s ? { chicken: s.chicken, toppings: s.toppings, sauces: s.sauces } : null
     };
     CS.addToPlate(next, item);
-    return openOrders().some(function (o) { return fitsOrder(next, o); });
+    return fitsOrder(next, o);
   }
 
   /* ------------------------------------------------------- the job board
@@ -7012,7 +7110,8 @@ window.CS = window.CS || {};
     var n = 0;
     openOrders().forEach(function (o) {
       if (job === 'fries') { if (o.fries) n++; }
-      else if (job === 'chicken' || job === 'plate') { if (o.sandwich) n++; }
+      else if (job === 'plate') n++;               // every ticket goes out on a plate
+      else if (job === 'chicken') { if (o.sandwich) n++; }
       else o.cups.forEach(function (c) { if ('cup:' + c === job) n++; });
     });
     return n;
@@ -7023,7 +7122,9 @@ window.CS = window.CS || {};
     function count(item) {
       if (!item) return;
       if (item.k === 'plate') {
-        if (job === 'plate' && item.sandwich) n++;
+        // a plate no ticket can use any more is not supplying anybody
+        if (!ticketFor(item)) return;
+        if (job === 'plate') n++;
         else if (job === 'fries' && item.fries) n++;
         else if (job === 'chicken' && item.sandwich && item.sandwich.chicken) n++;
         else item.cups.forEach(function (c) { if ('cup:' + c === job) n++; });
@@ -7109,6 +7210,9 @@ window.CS = window.CS || {};
     var item = h.carry;
     if (!item) return null;
     if (CS.isBurnt(item)) return nearest(h, stations, function (st) { return st.type === 'trash'; });
+    // raw food never goes out on a counter: if the fryer fell through, it
+    // goes back in the crate it came from, and nothing is wasted
+    if (CS.isRaw(item)) return nearest(h, stations, function (st) { return isCrateFor(st, item); });
     var onPlate = nearest(h, stations, function (st) {
       return st.type === 'counter' && plateWants(st.item, item);
     });
@@ -7116,9 +7220,12 @@ window.CS = window.CS || {};
     return passCounter(h, stations, h.urgent || h.holdT > 6);
   }
 
+  function isCrateFor(st, item) { return st.type === 'crate' && st.def.gives === item.k; }
+
   function dropStillGood(h, st) {
     if (!h.carry) return false;
     if (st.type === 'trash') return true;
+    if (CS.isRaw(h.carry)) return isCrateFor(st, h.carry);
     if (st.type !== 'counter') return false;
     return !st.item || plateWants(st.item, h.carry);
   }
@@ -7145,6 +7252,8 @@ window.CS = window.CS || {};
         CS.econ.waste(item);
         CS.audio.trash();
         CS.game.puff(st, 0x6a5f55, 8);
+      } else if (st.type === 'crate') {
+        CS.audio.place();               // back where it came from
       } else if (st.item && st.item.k === 'plate') {
         CS.addToPlate(st.item, item);
         CS.game.setStationItem(st, st.item);
@@ -7198,15 +7307,58 @@ window.CS = window.CS || {};
     ];
   }
 
-  function plateJob() {
-    return [
+  /* The most urgent ticket nobody has a plate going for yet. */
+  function unplated() {
+    var a = assignments(), best = null;
+    openOrders().forEach(function (o) {
+      for (var i = 0; i < a.length; i++) if (a[i][1] === o) return;
+      if (!best || o.left < best.left) best = o;
+    });
+    return best;
+  }
+
+  /* A bun goes on only if the ticket the plate is for wants a sandwich; a
+     fries-and-a-dip order gets a bare plate. */
+  function plateJob(bun) {
+    var tasks = [
       { at: function (h, s) { return nearest(h, s, function (st) { return st.type === 'plates'; }); },
-        act: function (h) { h.carry = CS.newPlate(); CS.audio.pick(); } },
+        act: function (h) { h.carry = CS.newPlate(); CS.audio.pick(); } }
+    ];
+    if (bun) tasks.push(
       { at: function (h, s) { return nearest(h, s, function (st) { return st.type === 'buns'; }); },
         act: function (h) {
           h.carry.sandwich = { chicken: false, toppings: [], sauces: [] };
           CS.audio.place();
-        } },
+        } });
+    tasks.push(DELIVER);
+    return tasks;
+  }
+
+  /* Loose food on a counter -- fries, chicken or a filled cup set down
+     before there was a plate for it -- goes onto the plate that wants it,
+     so the counters do not silt up with parts nobody ever puts together. */
+  function isLoose(item) {
+    if (!item || CS.isBurnt(item) || CS.isRaw(item)) return false;
+    return item.k === 'cookedFries' || item.k === 'friedChicken' || (item.k === 'cup' && !!item.sauce);
+  }
+
+  function looseFood(h, stations) {
+    return nearest(h, stations, function (st) {
+      if (st.type !== 'counter' || !isLoose(st.item)) return false;
+      return stations.some(function (s) { return s !== st && s.type === 'counter' && plateWants(s.item, st.item); });
+    });
+  }
+
+  function combineJob(st0) {
+    return [
+      { at: function () { return st0; },
+        pinned: true,
+        ok: function (h, st) {
+          return isLoose(st.item) && kitchen.some(function (s) {
+            return s !== st && s.type === 'counter' && plateWants(s.item, st.item);
+          });
+        },
+        act: lift },
       DELIVER
     ];
   }
@@ -7233,11 +7385,10 @@ window.CS = window.CS || {};
     if (!plate || plate.k !== 'plate' || !plate.sandwich) return false;
     var s = plate.sandwich;
     if (s.toppings.indexOf(ing) >= 0 || s.sauces.indexOf(ing) >= 0) return false;
-    var next = withIng(plate, ing);
-    return openOrders().some(function (o) {
-      var want = CS.ING[ing].kind === 'topping' ? o.sandwich && o.sandwich.toppings : o.sandwich && o.sandwich.sauces;
-      return want && want.indexOf(ing) >= 0 && fitsOrder(next, o);
-    });
+    var o = ticketFor(plate);
+    if (!o || !o.sandwich) return false;
+    var want = CS.ING[ing].kind === 'topping' ? o.sandwich.toppings : o.sandwich.sauces;
+    return want.indexOf(ing) >= 0 && fitsOrder(withIng(plate, ing), o);
   }
 
   /* The nearest plate that wants something this hand knows how to add. */
@@ -7416,15 +7567,25 @@ window.CS = window.CS || {};
       return;
     }
 
-    // 5. production, biggest shortfall first
+    // 5. loose food on a counter that a plate is waiting for
+    var loose = looseFood(h, stations);
+    if (loose) {
+      startJob(h, 'combine', combineJob(loose), loose.item, loose);
+      return;
+    }
+
+    // 6. production, biggest shortfall first
     var free = freeCounters(h, stations).length;
+    var hasLoose = stations.some(function (s) { return s.type === 'counter' && isLoose(s.item); });
     var best = null, bestGap = 0;
     h.jobs.forEach(function (job) {
       if (job === 'serve' || job.indexOf('dress:') === 0) return;
       var gap = demand(job) - supply(job, stations);
       if (gap <= bestGap) return;
-      // somewhere for it to go: a plate that wants it, or a spare counter
-      var room = free >= 2;
+      // somewhere for it to go: a plate that wants it, or a spare counter.
+      // A plate may take the last one if loose food is waiting for it --
+      // plating that food frees more counters than the plate uses.
+      var room = free >= 2 || (job === 'plate' && free >= 1 && hasLoose);
       if (!room && job !== 'plate') {
         var out = outputOf(job);
         room = stations.some(function (s) { return s.type === 'counter' && plateWants(s.item, out); });
@@ -7435,12 +7596,15 @@ window.CS = window.CS || {};
     });
     if (!best) return;
 
+    var forTicket = best === 'plate' ? unplated() : null;
     var tasks = best === 'fries' ? fryJob('rawFries')
       : best === 'chicken' ? fryJob('rawChicken')
-      : best === 'plate' ? plateJob()
+      : best === 'plate' ? plateJob(!forTicket || !!forTicket.sandwich)
       : cupJob(best.slice(4));
-    startJob(h, best, tasks, outputOf(best));
+    startJob(h, best, tasks, forTicket && !forTicket.sandwich ? CS.newPlate() : outputOf(best));
     h.makes = best;
+    // a plate let in on the last counter (see `room`) may put itself down there
+    if (best === 'plate' && free < 2) h.urgent = true;
   }
 
   /* The job is over -- done, or overtaken by events. Anything still in their
@@ -7483,6 +7647,26 @@ window.CS = window.CS || {};
     h.z += dz / d * m;
     turnToward(h, Math.atan2(dx, dz), dt);
     return m;
+  }
+
+  /* One step along the path. A waypoint counts as reached once a hand is
+     near its centre, not dead on it: two hands headed the same way would
+     otherwise both be aiming for the exact same point, and the shove that
+     keeps them apart meant neither could ever get there. The last tile is
+     held a little tighter, since that is where they stand to work, but
+     loosens while somebody is in the way so they can work from beside them. */
+  function followPath(h, dt) {
+    var step = h.path[0];
+    var p = tileCentre(step.col, step.row);
+    var d = Math.hypot(p.x - h.x, p.z - h.z);
+    var near = h.path.length > 1 ? 0.45 : 0.3 + h.jam;
+    if (d < near) {
+      h.col = step.col; h.row = step.row;
+      h.path.shift();
+      if (h.path.length) return followPath(h, dt);
+      return 0;
+    }
+    return stepToward(h, p.x, p.z, dt);
   }
 
   function animate(h, dt, moved) {
@@ -7553,8 +7737,54 @@ window.CS = window.CS || {};
   }
 
   /* ------------------------------------------------------------- update */
+  /* Jams. A hand that has been trying to walk but has not actually got
+     anywhere -- because somebody is stood in the aisle, or two of them met
+     head-on -- first replans round everyone in the way. If there is no way
+     round, the one who gives way (empty wings before full ones, then the
+     later hire) steps into a free side tile and lets the other through. */
+  function checkJam(h, dt) {
+    var disp = Math.hypot(h.x - h.lx, h.z - h.lz);
+    var tried = h.lastMove > 0.0005;
+    h.lx = h.x; h.lz = h.z;
+    if (tried && disp < h.lastMove * 0.35) h.jam += dt;
+    else h.jam = Math.max(0, h.jam - dt * 2);
+    if (h.jam < 0.45) return;
+
+    var here = tileAt(h.x, h.z);
+    var goal = h.path && h.path.length ? h.path[h.path.length - 1] : null;
+    var goals = h.dest ? standTiles(h, h.dest) : goal ? [goal] : null;
+    h.jam = 0;
+    if (goals) {
+      var round = findPath(here.col, here.row, goals, occupied(h, false));
+      if (round && round.length) { h.path = round; return; }
+    }
+    if (!yields(h)) return;
+    var busy = occupied(h, false);
+    var sides = DIRS.map(function (d) { return { col: here.col + d[0], row: here.row + d[1] }; })
+      .filter(function (t) { return walkable(t.col, t.row) && !busy[t.col + ',' + t.row]; });
+    if (!sides.length) return;
+    var side = sides[Math.floor(Math.random() * sides.length)];
+    // step aside, then carry on to wherever we were going
+    h.path = [side].concat(h.dest ? (findPath(side.col, side.row, standTiles(h, h.dest)) || []) : h.path || []);
+  }
+
+  /* Is anyone near enough to be the thing in our way, who outranks us? */
+  function yields(h) {
+    var me = hands.indexOf(h);
+    for (var i = 0; i < hands.length; i++) {
+      var o = hands[i];
+      if (o === h || Math.hypot(o.x - h.x, o.z - h.z) > CS.TILE * 1.3) continue;
+      if (!!o.carry !== !!h.carry) { if (o.carry) return true; continue; }
+      if (i < me) return true;
+    }
+    var P = CS.game.player;
+    return !!(P && Math.hypot(P.x - h.x, P.z - h.z) < CS.TILE * 1.3);   // the chef always has right of way
+  }
+
   function updateHand(h, dt, stations) {
+    assignCache = null;
     if (h.carry) h.holdT += dt; else h.holdT = 0;
+    checkJam(h, dt);
 
     // A basket about to burn outranks any errand an empty-handed hand is on:
     // drop the plan and go and save it. Even a hand minding its own basket
@@ -7580,10 +7810,21 @@ window.CS = window.CS || {};
       if (h.idleFor > 0.25) { h.idleFor = 0; chooseJob(h, stations); }
       if (!h.job) {
         h.bubble.pop = 0;
-        // drift back to a home tile so idle hands are not stood in a doorway
-        var hm = tileCentre(h.home.col, h.home.row);
-        var m0 = stepToward(h, hm.x, hm.z, dt);
-        if (m0 === 0) { h.col = h.home.col; h.row = h.home.row; }
+        // walk back to a home tile so idle hands are not stood in a doorway.
+        // It is a proper path, not a beeline: a straight line home used to
+        // run them into counters and leave them pushing against the corner.
+        var at = tileAt(h.x, h.z);
+        if ((!h.path || !h.path.length) && (at.col !== h.home.col || at.row !== h.home.row)) {
+          h.col = at.col; h.row = at.row;
+          h.path = findPath(at.col, at.row, [h.home]) || [];
+        }
+        var m0 = 0;
+        if (h.path && h.path.length) {
+          m0 = followPath(h, dt);
+        } else {
+          var hm = tileCentre(h.home.col, h.home.row);
+          m0 = stepToward(h, hm.x, hm.z, dt);
+        }
         h.state = m0 > 0 ? 'walk' : 'idle';
         return m0;
       }
@@ -7594,7 +7835,9 @@ window.CS = window.CS || {};
 
     if (!h.dest) {
       var st = task.at(h, stations);
-      var path = st ? findPath(h.col, h.row, adjacentTiles(st)) : null;
+      var from = tileAt(h.x, h.z);
+      if (!walkable(from.col, from.row)) from = { col: h.col, row: h.row };
+      var path = st ? findPath(from.col, from.row, standTiles(h, st)) : null;
       if (!st || !path) {
         // nowhere to go right now. A delivery just keeps hold and waits --
         // good food is never binned -- anything else gives up after a bit
@@ -7613,14 +7856,7 @@ window.CS = window.CS || {};
     // turns back the moment the basket it was going for is taken.
     if (h.path && h.path.length) {
       if (task.pinned && task.ok && !task.ok(h, h.dest)) { finish(h); return 0; }
-      var step = h.path[0];
-      var p = tileCentre(step.col, step.row);
-      var moved = stepToward(h, p.x, p.z, dt);
-      if (moved === 0) {
-        h.col = step.col; h.row = step.row;
-        h.path.shift();
-      }
-      return moved;
+      return followPath(h, dt);
     }
 
     // ---- arrived. Is the spot still any good? You may have got there first.
@@ -7658,10 +7894,11 @@ window.CS = window.CS || {};
        a hire made in the shop is on the floor the moment the shift opens. */
     spawn: function () {
       CS.staff.clear();
-      var crew = CS.econ.crew();
+      var crew = CS.econ.crew(), homes = [];
       crew.forEach(function (c, i) {
         var m = CS.models.assistant(c.kind);
-        var home = homeTile(i);
+        var home = homeTile(i, homes);
+        homes.push(home);
         var p = tileCentre(home.col, home.row);
         var h = {
           kind: c.kind, name: c.name, jobs: c.jobs.slice(),
@@ -7673,6 +7910,7 @@ window.CS = window.CS || {};
           carry: null, carryMesh: null, carryKey: '', myFryer: null, makes: null,
           icon: null, iconKey: '', urgent: false, holdT: 0,
           state: 'idle', timer: 0, idleFor: 0, stuck: 0, scanT: 0,
+          jam: 0, lx: p.x, lz: p.z, lastMove: 0,
           walk: 0, bob: Math.random() * 6.28, gait: 0
         };
         h.group.position.set(p.x, 0, p.z);
@@ -7702,14 +7940,17 @@ window.CS = window.CS || {};
         var p = tileCentre(h.home.col, h.home.row);
         h.col = h.home.col; h.row = h.home.row;
         h.x = p.x; h.z = p.z;
+        h.lx = p.x; h.lz = p.z; h.jam = 0; h.lastMove = 0;
         h.group.position.set(p.x, 0, p.z);
       });
     },
 
     update: function (dt, stations, camera) {
+      kitchen = stations;
       for (var i = 0; i < hands.length; i++) {
         var h = hands[i];
         var moved = updateHand(h, dt, stations);
+        h.lastMove = moved;
         h.group.position.x = h.x;
         h.group.position.z = h.z;
         animate(h, dt, moved);
@@ -7725,18 +7966,34 @@ window.CS = window.CS || {};
   };
 
   /* Idle hands stand just inside the kitchen, spread out along the back so
-     they are never blocking the chef's run between the fryers and the window. */
-  function homeTile(i) {
+     they are never blocking the chef's run between the fryers and the window.
+     Every hand gets a tile of its own, with a clear tile between neighbours,
+     and never one beside a station: a hand idling there is stood on exactly
+     the spot somebody else needs to work from. (Two hands used to be handed
+     the same tile, and spent the whole shift shoving each other off it.) */
+  function homeTile(i, taken) {
     var b = CS.layout.bounds;
-    var row = Math.max(b.r0 + 1, b.r1 - 2);
-    var col = CS.clamp(b.c0 + 2 + i * 2, b.c0 + 1, b.c1 - 1);
-    for (var tries = 0; tries < 24; tries++) {
-      if (walkable(col, row)) return { col: col, row: row };
-      col++;
-      if (col >= b.c1) { col = b.c0 + 1; row--; }
-      if (row <= b.r0) break;
+    var wantRow = Math.max(b.r0 + 1, b.r1 - 2);
+    var wantCol = b.c0 + 2 + i * 2;
+    var best = null, bestScore = Infinity;
+    for (var row = b.r0; row <= b.r1; row++) {
+      for (var col = b.c0; col <= b.c1; col++) {
+        if (!walkable(col, row)) continue;
+        var crowd = 0, byStation = false;
+        taken.forEach(function (t) {
+          var d = Math.abs(t.col - col) + Math.abs(t.row - row);
+          if (d === 0) crowd += 1000; else if (d === 1) crowd += 40;
+        });
+        DIRS.forEach(function (d) {
+          var ch = CS.charAt(col + d[0], row + d[1]);
+          if (ch !== '.' && ch !== '#' && ch !== '~') byStation = true;
+        });
+        if (col === CS.SPAWN.col && row === CS.SPAWN.row) crowd += 60;
+        var score = crowd + (byStation ? 80 : 0) + Math.abs(row - wantRow) * 3 + Math.abs(col - wantCol);
+        if (score < bestScore) { bestScore = score; best = { col: col, row: row }; }
+      }
     }
-    return { col: CS.SPAWN.col, row: CS.SPAWN.row };
+    return best || { col: CS.SPAWN.col, row: CS.SPAWN.row };
   }
 })(window.CS);
 
