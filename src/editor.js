@@ -34,8 +34,79 @@ window.CS = window.CS || {};
     'M': { t: 'MAY', c: 'st sau-may' },
     'Q': { t: 'BBQ', c: 'st sau-bbq' },
     'H': { t: 'HOT', c: 'st sau-hot' },
-    'Y': { t: 'KET', c: 'st sau-ket' }
+    'Y': { t: 'KET', c: 'st sau-ket' },
+    'U': { t: 'CUP', c: 'st stack' }
   };
+
+  /* ------------------------------------------------------ tile pictures
+     The grid used to be flat colour squares with three-letter codes in a
+     5px font, which read as a blur of pixels next to the painted 3D
+     kitchen. Now every station tile is a little picture of the real model,
+     rendered once (per season, since the November menu dresses the stations
+     differently) by a throwaway renderer and kept as an image. If WebGL
+     will not give us a second context the grid falls back to the codes. */
+  var thumbs = null;
+
+  function makeThumbs() {
+    if (thumbs) return thumbs;
+    thumbs = {};
+    var r = null;
+    try {
+      var size = 112;
+      r = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
+      r.setPixelRatio(1);
+      r.setSize(size, size, false);
+      r.setClearColor(0x000000, 0);
+      r.outputEncoding = THREE.sRGBEncoding;
+      r.toneMapping = THREE.ACESFilmicToneMapping;
+      r.toneMappingExposure = 1.0;
+      var sc = new THREE.Scene();
+      sc.add(new THREE.HemisphereLight(CS.linear(0xffeedd), CS.linear(0x6a4e3a), 0.9));
+      var key = new THREE.DirectionalLight(CS.linear(0xffdcb0), 1.4);
+      key.position.set(-3, 7, 5);
+      sc.add(key);
+      var cam = new THREE.PerspectiveCamera(30, 1, 0.1, 60);
+      var box = new THREE.Box3(), mid = new THREE.Vector3();
+      var pitch = 0.85;
+      var out = document.createElement('canvas');
+      out.width = out.height = size;
+      var x2 = out.getContext('2d');
+      Object.keys(GLYPH).forEach(function (ch) {
+        var m = CS.world.stationModel(ch);
+        if (!m) return;
+        sc.add(m);
+        box.setFromObject(m);
+        // one scale for every tile, centred on the tile itself, so a long
+        // handle or a tall awning does not make its station look smaller
+        mid.set(0, Math.min(box.max.y, 1.8) * 0.42, 0.1);
+        var d = 1.75 / Math.sin(cam.fov * Math.PI / 360);
+        cam.position.set(mid.x, mid.y + Math.sin(pitch) * d, mid.z + Math.cos(pitch) * d);
+        cam.lookAt(mid);
+        r.render(sc, cam);
+        // a soft drop shadow lifts pale stone and limestone off the cream floor
+        x2.clearRect(0, 0, size, size);
+        x2.shadowColor = 'rgba(40,24,10,0.55)';
+        x2.shadowBlur = 7;
+        x2.shadowOffsetY = 4;
+        x2.drawImage(r.domElement, 0, 0);
+        thumbs[ch] = out.toDataURL('image/png');
+        sc.remove(m);
+      });
+    } catch (e) {
+      thumbs = {};
+    }
+    if (r) { r.dispose(); if (r.forceContextLoss) r.forceContextLoss(); }
+    // one stylesheet rule per picture, so re-rendering the grid on every tap
+    // does not rebuild a few hundred KB of image data in the markup
+    var css = '';
+    for (var ch in thumbs) {
+      css += '.kgrid i.pic-' + ch + ',.tray .pic-' + ch + '{background-image:url(' + thumbs[ch] + ')}\n';
+    }
+    var tag = document.createElement('style');
+    tag.textContent = css;
+    document.head.appendChild(tag);
+    return thumbs;
+  }
 
   function charToPart(ch) {
     for (var i = 0; i < CS.UPGRADES.length; i++) {
@@ -63,13 +134,19 @@ window.CS = window.CS || {};
   function addStock(id, n) { stock[id] = (stock[id] || 0) + n; }
 
   /* ----------------------------------------------------------- rendering */
+  function stationName(ch) {
+    var d = CS.STATION_DEFS[ch];
+    return d ? d.name : '';
+  }
+
   function gridHTML() {
-    var b = CS.layout.bounds, h = '';
+    var b = CS.layout.bounds, h = '', pics = makeThumbs();
     for (var r = 0; r < CS.MAP_H; r++) {
       for (var c = 0; c < CS.MAP_W; c++) {
         var ch = CS.charAt(c, r);
         var g = GLYPH[ch] || GLYPH['.'];
-        var cls = 'cell ' + g.c;
+        var cls = 'cell ' + g.c + ((c + r) % 2 ? ' alt' : '');
+        var pic = pics[ch], name = stationName(ch);
         if (sel) {
           var can = CS.layout.canPlace(c, r, sel.ch);
           cls += can.ok ? ' ok' : ' no';
@@ -78,7 +155,11 @@ window.CS = window.CS || {};
         }
         if (c === CS.SPAWN.col && r === CS.SPAWN.row) cls += ' spawn';
         if (!CS.layout.inBounds(c, r)) cls += ' locked';
-        h += '<i class="' + cls + '" data-c="' + c + '" data-r="' + r + '">' + g.t + '</i>';
+        if (pic) cls += ' pic pic-' + ch;
+        h += '<i class="' + cls + '" data-c="' + c + '" data-r="' + r + '"' +
+          (name ? ' title="' + name + '" aria-label="' + name + '"' : '') +
+          '>' +
+          (pic ? '' : g.t) + '</i>';
       }
     }
     return '<div class="kgrid" style="grid-template-columns:repeat(' + CS.MAP_W + ',1fr)">'
@@ -94,7 +175,9 @@ window.CS = window.CS || {};
       var u = CS.econ.upgrade(id);
       if (!u) continue;
       var on = sel && sel.id === id;
+      var tp = makeThumbs()[u.ch];
       items.push('<button class="tray' + (on ? ' on' : '') + '" data-id="' + id + '">' +
+        (tp ? '<span class="tpic pic-' + u.ch + '"></span>' : '') +
         u.name + ' <b>x' + stock[id] + '</b></button>');
     }
     if (!items.length) {

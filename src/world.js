@@ -119,6 +119,20 @@ window.CS = window.CS || {};
           g.add(CS.ball(0.16, 0.14, 0.16, { color: c, rough: 0.25 }, p[0], top + 0.12, p[1]));
           put(g, CS.cone(0.05, 0.03, { color: 0x3f8f2a }, p[0], top + 0.27, p[1], 5)).rotation.y = i;
         });
+      } else if (CS.isThanksgiving) {
+        // sweet corn on the cob, husks peeled back
+        var HUSK = { color: 0x9fb35a, rough: 0.7 };
+        [[-0.32, -0.22, 0.3], [0.02, -0.28, -0.2], [0.34, -0.18, 0.1],
+         [-0.26, 0.2, -0.15], [0.12, 0.18, 0.35], [-0.04, -0.02, 0.9]].forEach(function (p, i) {
+          var cob = new THREE.Group();
+          cob.position.set(p[0], top + 0.1 + (i === 5 ? 0.1 : 0), p[1]);
+          cob.rotation.y = p[2];
+          put(cob, CS.ball(0.09, 0.09, 0.26, { color: i % 2 ? c : CS.shade(c, 14), tex: 'grain', rough: 0.5 }, 0, 0, 0));
+          [-1, 1].forEach(function (s) {
+            put(cob, CS.ball(0.05, 0.03, 0.2, HUSK, s * 0.08, -0.02, 0.12)).rotation.y = s * 0.35;
+          });
+          g.add(cob);
+        });
       } else {
         // pickles in a big glass jar
         g.add(CS.cyl(0.36, 0.36, 0.55, { color: 0xcfe8d0, rough: 0.1, opacity: 0.55 }, 0, top + 0.28, 0, 24));
@@ -139,6 +153,26 @@ window.CS = window.CS || {};
       var y = counterBase(g, 0.80);
       var c = CS.ING[st.def.ing].color;
       var GLAZE = { color: c, rough: 0.2 };
+      if (CS.isThanksgiving && (st.def.ing === 'mayo' || st.def.ing === 'bbq' || st.def.ing === 'ketchup')) {
+        // a white china gravy boat, a cranberry crock, a bowl of pumpkin
+        var CHINA = { color: 0xffffff, tex: 'plate', rough: 0.3 };
+        g.add(CS.cyl(0.42, 0.36, 0.06, { color: 0x3a5aa6, rough: 0.3 }, 0, y + 0.03, 0, 28));   // saucer
+        if (st.def.ing === 'mayo') {
+          var boat = put(g, CS.shell(0.34, 0.2, 0.22, CHINA, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2));
+          boat.position.y = y + 0.26;
+          put(g, CS.cyl(0.32, 0.32, 0.02, GLAZE, 0, y + 0.235, 0, 28)).scale.set(1, 1, 0.62);
+          put(g, CS.cone(0.07, 0.16, CHINA, 0.38, y + 0.27, 0, 10)).rotation.z = -1.2;    // spout
+          put(g, CS.torus(0.09, 0.025, Math.PI, CHINA, -0.36, y + 0.3, 0)).rotation.z = Math.PI / 2;
+        } else {
+          g.add(CS.cyl(0.28, 0.22, 0.34, CHINA, 0, y + 0.23, 0, 24));
+          g.add(CS.cyl(0.26, 0.26, 0.03, GLAZE, 0, y + 0.39, 0, 24));
+          g.add(CS.ball(0.17, 0.07, 0.17, GLAZE, 0.02, y + 0.41, 0));
+          g.add(CS.cyl(0.29, 0.29, 0.05, { color: CS.shade(c, -30), rough: 0.5 }, 0, y + 0.2, 0, 24)); // band
+          put(g, CS.cyl(0.018, 0.018, 0.5, { color: 0xc9a35a, rough: 0.5 }, 0.12, y + 0.55, 0.05, 8)).rotation.z = -0.4; // ladle
+        }
+        st.topY = y + 0.62;
+        return st.topY;
+      }
       g.add(CS.cyl(0.22, 0.24, 0.44, GLAZE, 0, y + 0.22, 0, 24));               // bottle
       g.add(CS.ball(0.22, 0.12, 0.22, GLAZE, 0, y + 0.44, 0));                  // shoulder
       g.add(CS.cyl(0.245, 0.245, 0.16, { color: 0xf4ead6, rough: 0.7 }, 0, y + 0.22, 0, 24)); // label
@@ -150,6 +184,19 @@ window.CS = window.CS || {};
 
     cups: function (g, st) {
       var y = counterBase(g);
+      if (CS.isThanksgiving) {
+        // a stack of empty pie crusts in their tins
+        var TIN = { color: 0xb9b4ac, rough: 0.35, metal: 0.6 };
+        var CRUST = { color: 0xd9a35a, tex: 'bun', rough: 0.6 };
+        for (var p = 0; p < 4; p++) {
+          var py = y + p * 0.1;
+          g.add(CS.cyl(0.42, 0.34, 0.08, TIN, 0, py + 0.04, 0, 28));
+          put(g, CS.torus(0.40, 0.045, 0, CRUST, 0, py + 0.085, 0)).rotation.x = Math.PI / 2;
+        }
+        g.add(CS.cyl(0.36, 0.36, 0.02, CRUST, 0, y + 0.37, 0, 28));
+        st.topY = y + 0.45;
+        return st.topY;
+      }
       g.add(CS.box(0.55, 0.06, 0.55, OAK_D, 0, y + 0.03, 0));
       [-0.12, 0.12].forEach(function (x) {
         g.add(CS.cyl(0.025, 0.025, 0.8, BRASS, x * 1.6, y + 0.4, 0, 8));
@@ -305,15 +352,8 @@ window.CS = window.CS || {};
     scene.add(stoneMesh(parts));
   }
 
-  var LABELS = {
-    F: 'Fryer', S: 'Serve', X: 'Trash', K: 'Chicken', T: 'Potatoes',
-    P: 'Plates', B: 'Buns', L: 'Lettuce', O: 'Tomato', I: 'Pickles',
-    M: 'Mayo', Q: 'BBQ', H: 'Hot Sauce', Y: 'Ketchup', U: 'Cups'
-  };
-  var LABEL_ACCENT = {
-    F: '#c8592b', S: '#3f8a3a', X: '#5a5048', L: '#4f9b3a', O: '#c8392b',
-    I: '#7d9a2c', M: '#b9a272', Q: '#7d3417', H: '#d0431f', Y: '#b81f14'
-  };
+  // the season decides what each plaque says (see config.js and season.js)
+  var LABELS = CS.STATION_LABELS, LABEL_ACCENT = CS.LABEL_ACCENT;
 
   /* One plaque per station group, tilted to face the fixed camera. */
   function addLabel(scene, st) {
@@ -400,6 +440,7 @@ window.CS = window.CS || {};
   }
 
   var flames = [];
+  var skyPanes = [];
 
   /* Stone hearth with a live fire. */
   function fireplace(scene, x, z) {
@@ -433,6 +474,7 @@ window.CS = window.CS || {};
     g.position.set(x, y, z);
     var archR = w / 2;
     var pane = CS.models.skyPane(w - 0.2, h + archR - 0.1);
+    skyPanes.push(pane);            // the clock repaints it for dusk and night
     pane.position.set(0, archR / 2 - 0.05, 0.04);
     g.add(pane);
     // mask the square top corners of the view with stone
@@ -502,6 +544,66 @@ window.CS = window.CS || {};
     });
     g.add(CS.cyl(0.42, 0.42, 0.04, OAK_D, 0, 1.06, 0, 20));
     scene.add(g);
+  }
+
+  /* A ribbed pumpkin: a ring of squashed lobes round a curly stem. */
+  function pumpkin(scene, x, y, z, s, color) {
+    var g = new THREE.Group();
+    g.position.set(x, y, z);
+    g.scale.setScalar(s || 1);
+    var P = { color: color || 0xe0791f, rough: 0.55 };
+    for (var i = 0; i < 6; i++) {
+      var a = i / 6 * Math.PI * 2;
+      g.add(CS.ball(0.2, 0.26, 0.2, i % 2 ? P : { color: CS.shade(color || 0xe0791f, -16), rough: 0.55 },
+        Math.cos(a) * 0.15, 0.25, Math.sin(a) * 0.15));
+    }
+    g.add(CS.ball(0.24, 0.27, 0.24, P, 0, 0.26, 0));
+    put(g, CS.cyl(0.035, 0.05, 0.16, { color: 0x6a7a32, rough: 0.8 }, 0.01, 0.56, 0, 8)).rotation.z = 0.25;
+    scene.add(g);
+  }
+
+  /* A bundle of dried corn stalks tied with twine. */
+  function cornShock(scene, x, z) {
+    var g = new THREE.Group();
+    g.position.set(x, 0, z);
+    var STALK = { color: 0xcdb070, rough: 0.9 };
+    for (var i = 0; i < 9; i++) {
+      var a = i / 9 * Math.PI * 2;
+      var st = put(g, CS.cone(0.08, 2.2, STALK, Math.cos(a) * 0.14, 1.1, Math.sin(a) * 0.14, 5));
+      st.rotation.z = -Math.cos(a) * 0.18;
+      st.rotation.x = Math.sin(a) * 0.18;
+    }
+    g.add(CS.cyl(0.2, 0.2, 0.08, { color: 0x8a5a33, rough: 0.8 }, 0, 0.8, 0, 12));            // twine
+    scene.add(g);
+  }
+
+  /* Thanksgiving dressing: pumpkins by the hearth and the barrels, corn
+     shocks either side of the front door, and a garland of autumn leaves
+     strung along the back wall of the kitchen. All static, so it merges
+     into the same handful of draw calls as the rest of the room. */
+  function harvestDecor(scene, fw, backZ, wallZ) {
+    var mantelY = 2.86, hx = CS.OX + T * 9.0;
+    pumpkin(scene, hx - 1.2, mantelY, wallZ + 0.2, 0.55);
+    pumpkin(scene, hx + 1.15, mantelY, wallZ + 0.2, 0.45, 0xf2a03a);
+    pumpkin(scene, hx + 0.75, mantelY, wallZ + 0.22, 0.35, 0xeee0c4);         // a white one
+    pumpkin(scene, CS.OX + 4.4, 0, CS.OZ - 8.4, 1.1);
+    pumpkin(scene, CS.OX + 5.3, 0, CS.OZ - 8.8, 0.75, 0xf2a03a);
+    pumpkin(scene, CS.OX + 3.9, 0, CS.OZ - 7.3, 0.6, 0xeee0c4);
+    pumpkin(scene, CS.OX + fw - 5.6, 0, CS.OZ - 8.6, 1.0);
+    pumpkin(scene, CS.OX + fw - 6.5, 0, CS.OZ - 8.9, 0.6, 0xc9661a);
+    cornShock(scene, CS.DOOR_X - CS.DOOR_W / 2 - 0.7, backZ + 0.5);
+    cornShock(scene, CS.DOOR_X + CS.DOOR_W / 2 + 0.7, backZ + 0.5);
+
+    var LEAVES = [0xc8461f, 0xe0861f, 0xf2b53a, 0x9a3a1c, 0xd86a2a];
+    var x0 = CS.OX + T * 0.6, x1 = CS.OX + T * 14.4, n = 34;
+    for (var i = 0; i <= n; i++) {
+      var f = i / n, x = CS.lerp(x0, x1, f);
+      // it sags between three nails
+      var sag = Math.abs(Math.sin(f * Math.PI * 3));
+      var leaf = put(scene, CS.ball(0.13, 0.08, 0.025, { color: LEAVES[i % LEAVES.length], rough: 0.7 },
+        x, 2.95 - sag * 0.32, wallZ + 0.08));
+      leaf.rotation.z = (i % 2 ? 0.6 : -0.5);
+    }
   }
 
   function chest(scene, x, z, rot) {
@@ -691,10 +793,11 @@ window.CS = window.CS || {};
 
       doorway(scene, dx, backZ, dw, dh);
 
-      var s1 = CS.models.signBoard(['Good Food', 'Happy', 'Chicken'], 3.4);
+      var signs = CS.THANKS_SIGNS || [['Good Food', 'Happy', 'Chicken'], ['Chicken', 'Sandwich', '= Happiness']];
+      var s1 = CS.models.signBoard(signs[0], 3.4);
       s1.position.set(fx - fw * 0.40, 2.0, backZ + 0.45);
       scene.add(s1);
-      var s2 = CS.models.signBoard(['Chicken', 'Sandwich', '= Happiness'], 3.4);
+      var s2 = CS.models.signBoard(signs[1], 3.4);
       s2.position.set(fx + fw * 0.24, 2.0, backZ + 0.45);
       scene.add(s2);
       banner(scene, fx - fw * 0.16, 2.0, backZ + 0.42, 1.0);
@@ -729,9 +832,15 @@ window.CS = window.CS || {};
       barrel(scene, CS.OX + fw - 4.0, CS.OZ - 8.1, 0.9);
       shelf(scene, fx, 2.75, backZ + 0.42, 3.4);
 
+      // ---- the November special dresses the place for the harvest
+      if (CS.isThanksgiving) harvestDecor(scene, fw, backZ, wallZ);
+
       // ---- lighting: a warm key from the window side, a soft sky/bounce
       // fill, and pools of lantern light. The renderer tone-maps all of it.
-      scene.add(new THREE.HemisphereLight(CS.linear(0xffe9cc), CS.linear(0x6a4e3a), 0.55));
+      // The real clock (daylight.js) dims the sun and brightens the lanterns
+      // as the evening comes on.
+      var hemi = new THREE.HemisphereLight(CS.linear(0xffe9cc), CS.linear(0x6a4e3a), 0.55);
+      scene.add(hemi);
 
       var sun = new THREE.DirectionalLight(CS.linear(0xffdcb0), 1.25);
       sun.position.set(-12, 22, 16);
@@ -761,12 +870,16 @@ window.CS = window.CS || {};
         warm3.position.set(fx, 3.2, CS.OZ - 4);
         scene.add(warm3);
       }
+      if (CS.daylight) {
+        CS.daylight.bind({ hemi: hemi, sun: sun, lamps: [warm, warm2, warm3].filter(Boolean), skies: skyPanes });
+      }
 
       /* Nothing above ever moves except the fryer glow and coals and the
          hearth's flames, so everything else is merged by material -- a few
          dozen draw calls for the whole room instead of ~600, plus the same
-         again saved in the shadow pass. */
-      var skip = [];
+         again saved in the shadow pass. The window's sky stays separate too,
+         so the clock can repaint it. */
+      var skip = skyPanes.slice();
       stations.forEach(function (st) { skip.push(st.glow, st.coals, st.slot); });
       flames.forEach(function (f) { if (f.m) skip.push(f.m); });
       CS.batchStatic(scene, skip);
@@ -782,11 +895,25 @@ window.CS = window.CS || {};
     rebuild: function (parent, old, opts) {
       if (old && old.root) { parent.remove(old.root); CS.dispose(old.root); }
       flames.length = 0;
+      skyPanes.length = 0;
       return CS.world.build(parent, opts);
+    },
+
+    /* One station on its own, exactly as the kitchen builds it, for the
+       kitchen editor's tile pictures. Not part of any scene. */
+    stationModel: function (ch) {
+      var def = CS.STATION_DEFS[ch];
+      if (!def || !BUILD[def.type]) return null;
+      var g = new THREE.Group();
+      var st = { char: ch, type: def.type, def: def, name: def.name,
+        col: 0, row: 0, x: 0, z: 0, group: g, item: null, topY: 1.02 };
+      BUILD[def.type](g, st);
+      return g;
     },
 
     /* Flicker the hearth. Called every frame from the main loop. */
     tick: function (t) {
+      if (CS.daylight) CS.daylight.tick(t);
       for (var i = 0; i < flames.length; i++) {
         var f = flames[i];
         var w = 0.78 + Math.sin(t * 7.3 + f.ph) * 0.14 + Math.sin(t * 13.1 + f.ph) * 0.08;

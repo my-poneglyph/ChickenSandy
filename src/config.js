@@ -73,6 +73,43 @@ window.CS = window.CS || {};
   CS.SANDWICH_SAUCES   = ['mayo', 'bbq', 'hot'];
   CS.CUP_SAUCES        = ['bbq', 'hot', 'ketchup'];
 
+  /* ---------------------------------------------------------- the menu
+     Which season's menu is on. 'classic' is the original chicken shop;
+     season.js swaps in the November special ('thanksgiving') by relabelling
+     the same stations and items, so saves, staff and the kitchen layout all
+     carry on working whichever menu is up. `MENU` is everything a ticket may
+     ever ask for; `WORDS` is every bit of menu text the HUD and hints print. */
+  CS.SEASON = 'classic';
+  CS.TITLE = 'Chicken Sandy';
+  CS.MENU = {
+    tops: ['lettuce', 'tomato', 'pickle'],
+    sauces: ['mayo', 'bbq', 'hot'],
+    cups: ['bbq', 'hot', 'ketchup'],
+    maxSauce: 3
+  };
+  CS.WORDS = {
+    main: 'Chicken Sandwich', mainShort: 'Sandwich', base: 'Bun', protein: 'chicken',
+    mainDone: 'Sandwich: chicken', mainBare: 'Bun only — needs chicken',
+    side: 'French Fries', sideShort: 'Fries', sideOn: 'Fries on the side',
+    cup: 'Sauce Cup', cups: 'Sauce Cups', cupShort: 'Cup', cupEmpty: 'Empty Cup',
+    cupFilled: function (ing) { return CS.ING[ing].label + ' Cup'; },
+    cupTake: 'Take an Empty Cup', cupFill: 'Fill Cup with ', cupNoun: 'cup', cupFull: 'Cup is already full',
+    mainLine: 'sandwich', sideLine: 'fries', cupLine: 'sauce cup',
+    dressings: 'sandwich sauces', basePlates: 'bun plates', toppings: 'toppings', sauces: 'sauces',
+    fryWhat: 'Drop in chicken or potatoes', fryNot: 'That does not go in the fryer',
+    fryer: 'Fryer', pour: 'Squeeze ', fryVerb: 'Fry the '
+  };
+  /* The plaque over each station, and its ribbon colour. */
+  CS.STATION_LABELS = {
+    F: 'Fryer', S: 'Serve', X: 'Trash', K: 'Chicken', T: 'Potatoes',
+    P: 'Plates', B: 'Buns', L: 'Lettuce', O: 'Tomato', I: 'Pickles',
+    M: 'Mayo', Q: 'BBQ', H: 'Hot Sauce', Y: 'Ketchup', U: 'Cups'
+  };
+  CS.LABEL_ACCENT = {
+    F: '#c8592b', S: '#3f8a3a', X: '#5a5048', L: '#4f9b3a', O: '#c8392b',
+    I: '#7d9a2c', M: '#b9a272', Q: '#7d3417', H: '#d0431f', Y: '#b81f14'
+  };
+
   /* ------------------------------------------------------------- stations */
   /* solid: blocks movement. Every station tile is solid; floor is not. */
   CS.STATION_DEFS = {
@@ -265,8 +302,8 @@ window.CS = window.CS || {};
       seconds: c.seconds, rent: c.rent, maxOrders: c.maxOrders, grace: 1.0,
       spawn: c.spawn, limit: c.limit,
       friesChance: c.friesChance, cupChance: c.cupChance, twoCupChance: c.twoCupChance,
-      maxTop: c.maxTop, maxSauce: c.maxSauce,
-      tops: ALL_TOPS.slice(), sauces: ALL_SAUCES.slice(), cups: ALL_CUPS.slice(),
+      maxTop: c.maxTop, maxSauce: Math.min(c.maxSauce, CS.MENU.maxSauce),
+      tops: CS.MENU.tops.slice(), sauces: CS.MENU.sauces.slice(), cups: CS.MENU.cups.slice(),
       howto: nth === 1 ? c.howto : '',
       unlocks: nth === 1 ? c.harder : []
     };
@@ -400,6 +437,12 @@ window.CS = window.CS || {};
     return b;
   };
 
+  /* A boss's wish list, cut down to what this season's menu actually serves. */
+  function onMenu(want, menu) {
+    var out = want.filter(function (id) { return menu.indexOf(id) >= 0; });
+    return out.length || !want.length ? out : menu.slice();
+  }
+
   CS.bossLevel = function (day) {
     var b = CS.bossFor(day);
     return {
@@ -408,8 +451,9 @@ window.CS = window.CS || {};
       seconds: b.seconds, rent: 0, maxOrders: b.atOnce, grace: 1.0,
       spawn: [3.0, 2.2], limit: b.limit,
       friesChance: b.friesChance, cupChance: b.cupChance, twoCupChance: b.twoCupChance,
-      maxTop: b.maxTop, maxSauce: b.maxSauce,
-      tops: b.tops.slice(), sauces: b.sauces.slice(), cups: b.cups.slice(),
+      maxTop: b.maxTop, maxSauce: Math.min(b.maxSauce, CS.MENU.maxSauce),
+      tops: onMenu(b.tops, CS.MENU.tops), sauces: onMenu(b.sauces, CS.MENU.sauces),
+      cups: onMenu(b.cups, CS.MENU.cups),
       howto: b.quirk.text, unlocks: []
     };
   };

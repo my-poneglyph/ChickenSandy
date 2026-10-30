@@ -7,7 +7,8 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<title>Chicken Sandy — Sandwich Shift</title>
+<title>Chicken Sandy &#8212; Sandwich Shift</title>
+<script>window.CS_SEASON = 'classic';</script>
 <!-- The Telegram Mini App SDK, loaded the way Telegram asks: in the head,
      before anything else, so ready(), expand() and requestFullscreen() can run
      the moment the page opens instead of seconds later. Written in only when
@@ -76,6 +77,9 @@
   #clockwrap .v{letter-spacing:2px;}
   #daywrap .v{font-size:16px;}
   #daywrap .sub{font-size:8px;color:#d9c9a2;margin-top:2px;white-space:nowrap;}
+  #clockwrap #realClock{display:block;padding-left:0;font-size:8px;color:#d9c9a2;margin-top:2px;white-space:nowrap;}
+  .card h1.tgtitle small{display:block;font-size:.5em;letter-spacing:4px;color:#f0a03a;margin-bottom:4px;}
+  .card .timeofday{color:#cfe0ff;font-size:11px;}
   /* target-for-the-day meter under the score */
   .tgt{height:6px;background:#14203d;border:2px solid #14203d;margin-top:4px;}
   .tgt i{display:block;height:100%;background:var(--gold);width:0%;transition:width .3s ease-out;}
@@ -308,18 +312,30 @@
      as the card, or on a short window the kitchen runs off the bottom and you
      are laying out a floor you cannot see. */
   .kgrid{
-    display:grid;gap:1px;background:#14203d;border:3px solid #14203d;
+    display:grid;gap:2px;background:#2a2238;border:3px solid #2a2238;border-radius:8px;padding:2px;
     margin:0 auto;width:min(100%, calc(42vh * 1.462));
+    box-shadow:0 4px 0 #14203d,inset 0 0 12px #00000066;
   }
   .kgrid i{
     aspect-ratio:1;display:flex;align-items:center;justify-content:center;
     font-style:normal;font-size:7px;letter-spacing:0;color:#3a2a1e;
-    background:#34508f;overflow:hidden;
+    background:#34508f;overflow:hidden;border-radius:3px;
   }
-  .kgrid .void{background:#120f2c;}
-  .kgrid .wall{background:#8f8a92;}
-  .kgrid .floor{background:#e3d5ba;}
-  .kgrid .spawn{box-shadow:inset 0 0 0 2px #f0a63c99;}
+  /* Painted tiles to match the 3D kitchen: polished marble checker for the
+     floor, dressed stone for the walls, and a picture of the real station
+     model (rendered by editor.js) standing on its floor tile. */
+  .kgrid .void{background:#17142e;box-shadow:inset 0 0 0 1px #221d40;}
+  .kgrid .wall{background:linear-gradient(180deg,#bab3aa 0%,#a49d96 48%,#8f8882 52%,#a7a09a 100%);
+    box-shadow:inset 0 -2px 0 #6f6862,inset 0 1px 0 #d6d0c6;}
+  .kgrid .wall.alt{background:linear-gradient(180deg,#b1aaa2 0%,#9c958f 48%,#888179 52%,#a19a93 100%);}
+  .kgrid .floor{background:radial-gradient(circle at 30% 25%,#fbf6ec 0%,#efe6d4 60%,#e3d7bf 100%);}
+  .kgrid .floor.alt{background:radial-gradient(circle at 30% 25%,#e9ddc7 0%,#d9c9ac 60%,#cdbb9b 100%);}
+  .kgrid i.pic{
+    background-color:#efe6d4;background-size:100%;background-position:center;background-repeat:no-repeat;
+    box-shadow:inset 0 0 0 1px #00000014;
+  }
+  .kgrid i.pic.alt{background-color:#dccdb1;}
+  .kgrid .spawn{box-shadow:inset 0 0 0 2px #f0a63c,inset 0 0 8px #f0a63c88;}
   .kgrid .st{color:#14203d;font-size:6px;}
   .kgrid .fryer{background:#3a3d46;color:#ffb45c;}
   .kgrid .serve{background:#c9a04a;}
@@ -334,11 +350,14 @@
   .kgrid .sau-bbq{background:#7d3417;color:#f3ead6;}
   .kgrid .sau-hot{background:#e0431f;color:#fff;}
   .kgrid .sau-ket{background:#c01f14;color:#fff;}
-  .kgrid .lift{cursor:pointer;}
-  .kgrid .lift:hover{box-shadow:inset 0 0 0 2px #ffd464;}
+  .kgrid .lift{cursor:pointer;transition:transform .08s;}
+  .kgrid .lift:hover{box-shadow:inset 0 0 0 2px #ffd464,0 0 6px #ffd46499;transform:scale(1.08);position:relative;z-index:1;}
   .kgrid .ok{cursor:pointer;box-shadow:inset 0 0 0 2px #6fbf3a;}
-  .kgrid .ok:hover{background:#6fbf3a;}
+  .kgrid .ok:hover{background:#9fdc6a;}
   .kgrid .no{opacity:.4;}
+  .tray{display:inline-flex;align-items:center;gap:5px;}
+  .tray .tpic{width:24px;height:24px;background-size:100%;background-position:center;background-repeat:no-repeat;
+    background-color:#efe6d4;border-radius:4px;box-shadow:inset 0 0 0 1px #00000022;}
   .khint{font-size:9px;color:#c4b48e;margin-top:8px;}
   .kok{font-size:10px;color:#9fd36a;margin-top:8px;min-height:14px;}
   .kbad{font-size:10px;color:#ffb0a0;margin-top:8px;min-height:14px;}
@@ -420,7 +439,7 @@
   body.mobile .stat .k{font-size:7px;}
   body.mobile .stat .v{font-size:13px;}
   body.mobile #daywrap .v{font-size:11px;}
-  body.mobile #daywrap .sub{display:none;}
+  body.mobile #daywrap .sub,body.mobile #clockwrap #realClock{display:none;}
   body.mobile #tgtLabel{font-size:7px;}
 
   /* only the pause button stays on screen; the rest move into the pause card */
@@ -595,7 +614,8 @@
       <div class="k">Day</div><div class="v" id="day">1</div>
       <div class="sub" id="dayName">Opening Day</div>
     </div>
-    <div class="panel stat" id="clockwrap"><div class="k">Shift</div><div class="v" id="clock">2:00</div></div>
+    <div class="panel stat" id="clockwrap"><div class="k">Shift</div><div class="v" id="clock">2:00</div>
+      <div class="sub" id="realClock"></div></div>
     <div class="panel stat" id="scorewrap">
       <div class="k">Till</div><div class="v gold" id="score">$0.00</div>
       <div class="tgt" id="tgtBar"><i></i></div>
@@ -933,6 +953,43 @@ window.CS = window.CS || {};
   CS.SANDWICH_SAUCES   = ['mayo', 'bbq', 'hot'];
   CS.CUP_SAUCES        = ['bbq', 'hot', 'ketchup'];
 
+  /* ---------------------------------------------------------- the menu
+     Which season's menu is on. 'classic' is the original chicken shop;
+     season.js swaps in the November special ('thanksgiving') by relabelling
+     the same stations and items, so saves, staff and the kitchen layout all
+     carry on working whichever menu is up. `MENU` is everything a ticket may
+     ever ask for; `WORDS` is every bit of menu text the HUD and hints print. */
+  CS.SEASON = 'classic';
+  CS.TITLE = 'Chicken Sandy';
+  CS.MENU = {
+    tops: ['lettuce', 'tomato', 'pickle'],
+    sauces: ['mayo', 'bbq', 'hot'],
+    cups: ['bbq', 'hot', 'ketchup'],
+    maxSauce: 3
+  };
+  CS.WORDS = {
+    main: 'Chicken Sandwich', mainShort: 'Sandwich', base: 'Bun', protein: 'chicken',
+    mainDone: 'Sandwich: chicken', mainBare: 'Bun only — needs chicken',
+    side: 'French Fries', sideShort: 'Fries', sideOn: 'Fries on the side',
+    cup: 'Sauce Cup', cups: 'Sauce Cups', cupShort: 'Cup', cupEmpty: 'Empty Cup',
+    cupFilled: function (ing) { return CS.ING[ing].label + ' Cup'; },
+    cupTake: 'Take an Empty Cup', cupFill: 'Fill Cup with ', cupNoun: 'cup', cupFull: 'Cup is already full',
+    mainLine: 'sandwich', sideLine: 'fries', cupLine: 'sauce cup',
+    dressings: 'sandwich sauces', basePlates: 'bun plates', toppings: 'toppings', sauces: 'sauces',
+    fryWhat: 'Drop in chicken or potatoes', fryNot: 'That does not go in the fryer',
+    fryer: 'Fryer', pour: 'Squeeze ', fryVerb: 'Fry the '
+  };
+  /* The plaque over each station, and its ribbon colour. */
+  CS.STATION_LABELS = {
+    F: 'Fryer', S: 'Serve', X: 'Trash', K: 'Chicken', T: 'Potatoes',
+    P: 'Plates', B: 'Buns', L: 'Lettuce', O: 'Tomato', I: 'Pickles',
+    M: 'Mayo', Q: 'BBQ', H: 'Hot Sauce', Y: 'Ketchup', U: 'Cups'
+  };
+  CS.LABEL_ACCENT = {
+    F: '#c8592b', S: '#3f8a3a', X: '#5a5048', L: '#4f9b3a', O: '#c8392b',
+    I: '#7d9a2c', M: '#b9a272', Q: '#7d3417', H: '#d0431f', Y: '#b81f14'
+  };
+
   /* ------------------------------------------------------------- stations */
   /* solid: blocks movement. Every station tile is solid; floor is not. */
   CS.STATION_DEFS = {
@@ -1125,8 +1182,8 @@ window.CS = window.CS || {};
       seconds: c.seconds, rent: c.rent, maxOrders: c.maxOrders, grace: 1.0,
       spawn: c.spawn, limit: c.limit,
       friesChance: c.friesChance, cupChance: c.cupChance, twoCupChance: c.twoCupChance,
-      maxTop: c.maxTop, maxSauce: c.maxSauce,
-      tops: ALL_TOPS.slice(), sauces: ALL_SAUCES.slice(), cups: ALL_CUPS.slice(),
+      maxTop: c.maxTop, maxSauce: Math.min(c.maxSauce, CS.MENU.maxSauce),
+      tops: CS.MENU.tops.slice(), sauces: CS.MENU.sauces.slice(), cups: CS.MENU.cups.slice(),
       howto: nth === 1 ? c.howto : '',
       unlocks: nth === 1 ? c.harder : []
     };
@@ -1260,6 +1317,12 @@ window.CS = window.CS || {};
     return b;
   };
 
+  /* A boss's wish list, cut down to what this season's menu actually serves. */
+  function onMenu(want, menu) {
+    var out = want.filter(function (id) { return menu.indexOf(id) >= 0; });
+    return out.length || !want.length ? out : menu.slice();
+  }
+
   CS.bossLevel = function (day) {
     var b = CS.bossFor(day);
     return {
@@ -1268,8 +1331,9 @@ window.CS = window.CS || {};
       seconds: b.seconds, rent: 0, maxOrders: b.atOnce, grace: 1.0,
       spawn: [3.0, 2.2], limit: b.limit,
       friesChance: b.friesChance, cupChance: b.cupChance, twoCupChance: b.twoCupChance,
-      maxTop: b.maxTop, maxSauce: b.maxSauce,
-      tops: b.tops.slice(), sauces: b.sauces.slice(), cups: b.cups.slice(),
+      maxTop: b.maxTop, maxSauce: Math.min(b.maxSauce, CS.MENU.maxSauce),
+      tops: onMenu(b.tops, CS.MENU.tops), sauces: onMenu(b.sauces, CS.MENU.sauces),
+      cups: onMenu(b.cups, CS.MENU.cups),
       howto: b.quirk.text, unlocks: []
     };
   };
@@ -1540,6 +1604,362 @@ window.CS = window.CS || {};
   CS.DOOR_X = CS.OX + (CS.SERVE_COL + 0.5) * CS.TILE;   // straight behind the queue
   CS.DOOR_W = 2.8;
   CS.MAX_ORDERS_CAP = 5;       // widest the queue ever gets, Roadside Sign included
+})(window.CS);
+
+</script>
+<script>
+/* ---- src/season.js ---- */
+/* Seasonal menus. Loaded straight after config.js.
+
+   Through November the shop becomes THANKSGIVING CHICKEN SANDY: fried
+   turkey on a dinner roll, kale and corn on the side, gravy or cranberry
+   sauce poured over, a scoop of mashed potatoes and a slice of pumpkin pie.
+
+   It is a relabelling of the kitchen you already own, not a second kitchen.
+   Every station keeps its tile and its job -- the chicken crate hands out
+   turkey, the potato bin's potatoes cook down into mash, the cup dispenser
+   holds pie crusts that you fill at the pumpkin station -- so a save, a
+   trained crew and a laid-out kitchen all carry straight on into the
+   special and back out of it on the 1st of December.
+
+   Which menu is up, first match wins:
+     ?season=thanksgiving | ?season=classic     in the URL, for testing
+     window.CS_SEASON                            set by a page that pins one
+                                                 (the standalone builds do)
+     the real calendar                           November = Thanksgiving     */
+window.CS = window.CS || {};
+(function (CS) {
+  'use strict';
+
+  function pick() {
+    var m = /[?&]season=(\w+)/.exec(location.search);
+    if (m && (m[1] === 'thanksgiving' || m[1] === 'classic')) return m[1];
+    if (window.CS_SEASON === 'thanksgiving' || window.CS_SEASON === 'classic') return window.CS_SEASON;
+    return new Date().getMonth() === 10 ? 'thanksgiving' : 'classic';
+  }
+
+  CS.SEASON = pick();
+  CS.isThanksgiving = CS.SEASON === 'thanksgiving';
+  if (!CS.isThanksgiving) return;
+
+  CS.TITLE = 'Thanksgiving Chicken Sandy';
+  document.title = 'Thanksgiving Chicken Sandy — Turkey Shift';
+
+  function set(obj, patch) { for (var k in patch) if (patch.hasOwnProperty(k)) obj[k] = patch[k]; }
+
+  /* ------------------------------------------------------- the food */
+  set(CS.ITEMS.rawChicken,   { label: 'Raw Turkey',      short: 'Raw Turkey', color: 0xe9b1a2 });
+  set(CS.ITEMS.friedChicken, { label: 'Fried Turkey',    short: 'Turkey',     color: 0xb8672a });
+  set(CS.ITEMS.burntChicken, { label: 'Burnt Turkey',    short: 'Burnt!' });
+  set(CS.ITEMS.rawFries,     { label: 'Potatoes',        short: 'Potatoes',   color: 0xc49a62 });
+  set(CS.ITEMS.cookedFries,  { label: 'Mashed Potatoes', short: 'Mash',       color: 0xf3e6c4 });
+  set(CS.ITEMS.burntFries,   { label: 'Scorched Mash',   short: 'Burnt!' });
+  set(CS.ITEMS.cup,          { label: 'Pie Crust',       short: 'Pie' });
+  CS.COOK.rawChicken.label = 'Turkey';
+  CS.COOK.rawFries.label = 'Mash';
+
+  set(CS.ING.lettuce, { label: 'Kale',      color: 0x2f7a3e, css: '#2f7a3e' });
+  set(CS.ING.pickle,  { label: 'Corn',      color: 0xf2c230, css: '#f2c230' });
+  set(CS.ING.mayo,    { label: 'Gravy',     color: 0x8a5428, css: '#8a5428' });
+  set(CS.ING.bbq,     { label: 'Cranberry', color: 0xa8143c, css: '#a8143c' });
+  set(CS.ING.ketchup, { label: 'Pumpkin',   color: 0xe07b22, css: '#e07b22' });
+
+  // Gravy or cranberry goes over the turkey, never both. Pie is the only
+  // thing that comes in a crust, and nothing else does.
+  CS.SANDWICH_SAUCES = ['mayo', 'bbq', 'hot'];
+  CS.CUP_SAUCES = ['ketchup'];
+  CS.MENU = { tops: ['lettuce', 'pickle'], sauces: ['mayo', 'bbq'], cups: ['ketchup'], maxSauce: 1 };
+
+  set(CS.WORDS, {
+    main: 'Fried Turkey', mainShort: 'Turkey', base: 'Dinner Roll', protein: 'turkey',
+    mainDone: 'Fried turkey on a roll', mainBare: 'Roll only — needs turkey',
+    side: 'Mashed Potatoes', sideShort: 'Mash', sideOn: 'Mashed potatoes on the side',
+    cup: 'Pumpkin Pie', cups: 'Pumpkin Pies', cupShort: 'Pie', cupEmpty: 'Pie Crust',
+    cupFilled: function (ing) { return ing === 'ketchup' ? 'Pumpkin Pie' : CS.ING[ing].label + ' Pie'; },
+    cupTake: 'Take a Pie Crust', cupFill: 'Fill the Crust with ', cupNoun: 'pie crust', cupFull: 'That pie is already filled',
+    mainLine: 'fried turkey', sideLine: 'mashed potatoes', cupLine: 'pumpkin pie',
+    dressings: 'gravy and cranberry', basePlates: 'roll plates', toppings: 'sides', sauces: 'gravy or cranberry',
+    fryWhat: 'Drop in turkey or potatoes', fryNot: 'That does not go on the stove',
+    fryer: 'Stove', pour: 'Pour ', fryVerb: 'Cook the '
+  });
+
+  /* ---------------------------------------------------- the stations */
+  set(CS.STATION_DEFS.F, { name: 'Stove' });
+  set(CS.STATION_DEFS.K, { name: 'Turkey Crate' });
+  set(CS.STATION_DEFS.B, { name: 'Roll Basket' });
+  set(CS.STATION_DEFS.L, { name: 'Kale Tray' });
+  set(CS.STATION_DEFS.I, { name: 'Corn Tray' });
+  set(CS.STATION_DEFS.M, { name: 'Gravy Boat' });
+  set(CS.STATION_DEFS.Q, { name: 'Cranberry Sauce' });
+  set(CS.STATION_DEFS.Y, { name: 'Pumpkin Filling' });
+  set(CS.STATION_DEFS.U, { name: 'Pie Crusts' });
+
+  set(CS.STATION_LABELS, {
+    F: 'Stove', K: 'Turkey', B: 'Rolls', L: 'Kale', I: 'Corn',
+    M: 'Gravy', Q: 'Cranberry', Y: 'Pumpkin', U: 'Pie Crusts'
+  });
+  set(CS.LABEL_ACCENT, {
+    F: '#b5531f', L: '#2f7a3e', I: '#c99a1c', M: '#8a5428', Q: '#a8143c', Y: '#d0661a', U: '#b5862e'
+  });
+
+  var PART_NAMES = {
+    fryer: 'Stove', chicken: 'Turkey Crate', buns: 'Roll Basket', cups: 'Pie Crusts',
+    ketchup: 'Pumpkin Filling', bbq: 'Cranberry Sauce', mayo: 'Gravy Boat',
+    lettuce: 'Kale Tray', pickles: 'Corn Tray'
+  };
+  CS.UPGRADES.forEach(function (u) {
+    if (PART_NAMES[u.id]) u.name = PART_NAMES[u.id];
+    if (u.id === 'basket') u.blurb = 'Everything on the stove cooks 15% faster.';
+    if (u.id === 'basket2') u.blurb = 'Another 15% off the stove clock.';
+    if (u.id === 'thermo') u.blurb = 'Half again as long before the stove burns anything.';
+    if (u.id === 'tray') u.blurb = 'Fit a fourth pie on a plate.';
+  });
+
+  /* ------------------------------------------------------- the crew */
+  CS.STAFF_DEFS.potato.blurb = 'Mashes potatoes and spoons them onto your plates. Pulls anything off the stove before it burns.';
+  CS.STAFF_DEFS.tomato.blurb = 'Sets out plates with a roll on, fills pumpkin pies and adds them to your plates.';
+  CS.STAFF_DEFS.egg.blurb = 'Fries turkey and lays it on any roll that is waiting for it.';
+  CS.STAFF_DEFS.lettuce.blurb = 'Spoons kale and corn onto plated turkey, whatever the ticket asks for.';
+  CS.TRAINING.potato[0].name = 'Turkey Ticket';
+  CS.TRAINING.potato[0].blurb = 'Spud learns to fry turkey too.';
+  CS.TRAINING.egg[0].name = 'Two Pots';
+  CS.TRAINING.egg[0].blurb = 'Clucky learns to mash potatoes too.';
+  CS.TRAINING.lettuce[0].name = 'Gravy Ladle';
+  CS.TRAINING.lettuce[0].blurb = 'Sprout learns to pour gravy and cranberry as well.';
+  CS.TRAINING.tomato[0].blurb = 'Dollop learns the rest of the pantry. (Only pumpkin pie is on this month\'s menu.)';
+
+  /* ---------------------------------------------- the learning days
+     The same nine days and the same pacing, one Thanksgiving idea at a time. */
+  var DAYS = [
+    { name: 'Opening Day', tag: 'One guest at a time. The whole castle smells like November.',
+      howto: 'Plate, then a dinner roll, then fried turkey. Carry it to the window.',
+      unlocks: ['Fried turkey on a roll'] },
+    { name: 'Finding Your Feet', tag: 'Two tickets on the rail now.',
+      howto: 'Drop the next turkey on the stove while you plate the last one.',
+      unlocks: ['A second ticket'] },
+    { name: 'Mash It Up', tag: 'A scoop of creamy mashed potatoes on the side.',
+      howto: 'Potatoes from the bin cook down to mash on the stove. Add it to the plate.',
+      unlocks: ['Mashed potatoes'] },
+    { name: 'Leafy Greens', tag: 'The kale tray opens up.',
+      howto: 'Hold a plate with a roll on it at the kale tray and USE it.',
+      unlocks: ['Kale'] },
+    { name: 'Harvest Corn', tag: 'Sweet corn joins the kale.',
+      howto: 'Sides go on in any order. Just match the ticket.',
+      unlocks: ['Corn', 'A third ticket'] },
+    { name: 'Gravy Train', tag: 'Gravy and cranberry sauce on the back wall.',
+      howto: 'Pour gravy OR cranberry over the turkey, just like adding a side. Never both.',
+      unlocks: ['Gravy', 'Cranberry sauce'] },
+    { name: 'Full Plates', tag: 'Hungrier guests: sides and sauce on nearly everything.',
+      howto: 'Read the ticket twice: kale, corn, and which sauce.',
+      unlocks: ['Fully loaded turkey plates'] },
+    { name: 'Pie Time', tag: 'Pumpkin pie for dessert.',
+      howto: 'Take a pie crust, fill it at the pumpkin filling, add it to the plate.',
+      unlocks: ['Pumpkin pie'] },
+    { name: 'Seconds on Pie', tag: 'Some guests want a pie to take home as well.',
+      howto: 'Two pies on a ticket means two crusts to fill.',
+      unlocks: ['Two pies per plate'] }
+  ];
+
+  function onMenu(want, menu) {
+    return (want || []).filter(function (id) { return menu.indexOf(id) >= 0; });
+  }
+
+  CS.LEVELS.forEach(function (lv, i) {
+    var d = DAYS[i];
+    if (d) { lv.name = d.name; lv.tag = d.tag; lv.howto = d.howto; lv.unlocks = d.unlocks; }
+    lv.tops = onMenu(lv.tops, CS.MENU.tops);
+    lv.sauces = onMenu(lv.sauces, CS.MENU.sauces);
+    lv.cups = onMenu(lv.cups, CS.MENU.cups);
+    lv.maxTop = Math.min(lv.maxTop, lv.tops.length);
+    lv.maxSauce = Math.min(lv.maxSauce, CS.MENU.maxSauce);
+  });
+  // "Full Plates" is the day the old menu brought in hot sauce: here it just
+  // asks for the whole plate, so give it a touch more patience
+  CS.LEVELS[6].limit = [CS.LEVELS[6].limit[0] + 4, CS.LEVELS[6].limit[1] + 4];
+
+  if (CS.CHAPTERS[1]) {
+    CS.CHAPTERS[1].season = 'Harvest Market';
+    CS.CHAPTERS[1].tag = 'The harvest is in, and the whole town is coming to dinner.';
+  }
+  if (CS.CHAPTERS[2]) {
+    CS.CHAPTERS[2].season = 'Feast Season';
+    CS.CHAPTERS[2].tag = 'Knights home for the holiday, every one of them starving.';
+    CS.CHAPTERS[2].howto = 'Fully loaded plates. Save Feather Frenzy for a full rail.';
+    CS.CHAPTERS[2].harder = ['Fully loaded plates', 'Faster arrivals'];
+  }
+
+  // a fried chicken who fries turkey: the customers have noticed
+  CS.THANKS_SIGNS = [['Happy', 'Thanksgiving', '♥'], ['Fried Turkey', '& Pumpkin Pie', '= Thankful']];
+})(window.CS);
+
+</script>
+<script>
+/* ---- src/daylight.js ---- */
+/* Real-world time of day.
+
+   The shop keeps the player's own clock. In the morning sun pours in through
+   the window; towards evening the light turns gold and the window shows a
+   sunset; after dark the sky is navy and starry, the castle windows are lit,
+   the sun becomes a cool moonlight and the lanterns do the work. Sunrise and
+   sunset move with the calendar, so a November evening draws in early and a
+   June one lingers.
+
+   world.js hands over its lights and window panes (bind) every time it
+   builds the kitchen; world.tick() calls tick() every frame, which eases the
+   lighting towards the clock and only does real work a couple of times a
+   second. Nothing here changes how the game plays -- it is all light.
+
+   ?hour=21.5 in the URL pins the clock, for testing.                        */
+window.CS = window.CS || {};
+(function (CS) {
+  'use strict';
+
+  var pinned = (function () {
+    var m = /[?&]hour=([\d.]+)/.exec(location.search);
+    return m ? CS.clamp(parseFloat(m[1]), 0, 23.99) : null;
+  })();
+
+  function now() { return new Date(); }
+
+  function hourOf(d) {
+    return pinned !== null ? pinned : d.getHours() + d.getMinutes() / 60 + d.getSeconds() / 3600;
+  }
+
+  /* Day length over the year at a temperate latitude: about 9h20m at the
+     winter solstice, 15h at midsummer. Good enough for a castle kitchen. */
+  function sunTimes(d) {
+    var start = new Date(d.getFullYear(), 0, 0);
+    var doy = Math.floor((d - start) / 86400000);
+    var len = 12.15 + 2.85 * Math.sin(2 * Math.PI * (doy - 80) / 365);
+    var noon = 12.9;                                  // roughly, with summer time
+    if (d.getMonth() < 2 || d.getMonth() > 9) noon = 12.1;
+    return { rise: noon - len / 2, set: noon + len / 2 };
+  }
+
+  function smooth(e0, e1, x) {
+    var t = CS.clamp((x - e0) / (e1 - e0), 0, 1);
+    return t * t * (3 - 2 * t);
+  }
+
+  /* sun 0..1 (night..full day); dusk 0..1, peaking as the sun crosses the
+     horizon, morning or evening. */
+  function sample() {
+    var d = now(), h = hourOf(d), st = sunTimes(d);
+    var up = smooth(st.rise - 0.6, st.rise + 0.9, h) * (1 - smooth(st.set - 0.9, st.set + 0.6, h));
+    var dusk = Math.max(
+      1 - Math.min(1, Math.abs(h - st.rise) / 1.1),
+      1 - Math.min(1, Math.abs(h - st.set) / 1.1));
+    var phase = up > 0.75 ? 'day' : (up < 0.2 ? 'night' : 'dusk');
+    var part;
+    if (h < 5) part = 'night';
+    else if (h < 12) part = 'morning';
+    else if (h < 17) part = 'afternoon';
+    else if (h < 21) part = 'evening';
+    else part = 'night';
+    if (part === 'evening' && phase === 'night') part = 'night';
+    return { hour: h, sun: up, dusk: dusk, phase: phase, part: part, rise: st.rise, set: st.set };
+  }
+
+  function mix(a, b, t) { return new THREE.Color(a).lerp(new THREE.Color(b), t); }
+
+  var rig = null;
+  var cur = null;           // eased {sun, dusk}
+  var last = 0, lastPhase = null, lastClock = '';
+
+  function clockText(h) {
+    var hh = Math.floor(h), mm = Math.floor((h - hh) * 60);
+    var ap = hh < 12 ? 'AM' : 'PM', h12 = hh % 12 || 12;
+    return h12 + ':' + (mm < 10 ? '0' : '') + mm + ' ' + ap;
+  }
+
+  function apply(s) {
+    if (!rig) return;
+    var day = s.sun, dusk = s.dusk * (1 - Math.abs(day - 0.5) * 0.8);
+    // sky fill: warm cream by day, a cool blue at night
+    var sky = mix(0x8090c8, 0xffe9cc, day).lerp(new THREE.Color(0xffb58a), dusk * 0.5);
+    rig.hemi.color.copy(sky).convertSRGBToLinear();
+    rig.hemi.groundColor.copy(mix(0x2a2440, 0x6a4e3a, day)).convertSRGBToLinear();
+    rig.hemi.intensity = CS.lerp(0.34, 0.55, day);
+    // the key light through the window: sun, then sunset gold, then moon
+    var key = mix(0x9fb2ff, 0xffdcb0, day).lerp(new THREE.Color(0xff9a55), dusk * 0.8);
+    rig.sun.color.copy(key).convertSRGBToLinear();
+    rig.sun.intensity = CS.lerp(0.42, 1.25, day);
+    // the lanterns come up as the light goes
+    rig.lamps.forEach(function (l, i) { l.intensity = rig.lampBase[i] * CS.lerp(1.9, 1.0, day); });
+    if (CS.daylight.renderer) CS.daylight.renderer.setClearColor(mix(0x0b0d1e, 0x2a2638, day));
+  }
+
+  function paintSkies(phase) {
+    if (!rig) return;
+    rig.skies.forEach(function (p) {
+      var u = p.userData.sky;
+      if (!u || u.mode === phase) return;
+      u.mode = phase;
+      p.material.map = CS.models.skyTexture(u.worldW, u.worldH, phase);
+      p.material.needsUpdate = true;
+    });
+  }
+
+  CS.daylight = {
+    renderer: null,
+
+    /* Called by world.build() with the lights it just made. */
+    bind: function (o) {
+      rig = {
+        hemi: o.hemi, sun: o.sun, lamps: o.lamps || [], skies: o.skies || [],
+        lampBase: (o.lamps || []).map(function (l) { return l.intensity; })
+      };
+      var s = sample();
+      cur = { sun: s.sun, dusk: s.dusk };
+      apply(cur);
+      paintSkies(s.phase);
+    },
+
+    now: sample,
+
+    greeting: function () {
+      var s = sample();
+      var hi = s.part === 'morning' ? 'Good morning' : s.part === 'afternoon' ? 'Good afternoon'
+        : s.part === 'evening' ? 'Good evening' : 'Burning the midnight oil';
+      var what = s.phase === 'day' ? 'The sun is up over the castle.'
+        : s.phase === 'dusk' ? (s.hour < 12 ? 'Dawn is breaking over the keep.' : 'The sun is setting behind the keep.')
+        : 'The lanterns are lit and the stars are out.';
+      return '&#' + (s.phase === 'night' ? '127769' : s.phase === 'dusk' ? '127751' : '9728') + '; ' +
+        hi + ', chef. It is ' + clockText(s.hour) + '. ' + what;
+    },
+
+    clockText: function () { return clockText(sample().hour); },
+    icon: function () {
+      var p = sample().phase;
+      return p === 'night' ? '\u{1F319}' : p === 'dusk' ? '\u{1F307}' : '☀';
+    },
+
+    tick: function (t) {
+      if (!rig || !cur) return;
+      if (t - last < 0.5) return;
+      var dt = Math.min(2, t - last);
+      last = t;
+      var s = sample();
+      // ease so a phase change on a running shift is a slow fade, not a cut
+      var k = Math.min(1, dt * 0.25);
+      cur.sun += (s.sun - cur.sun) * k;
+      cur.dusk += (s.dusk - cur.dusk) * k;
+      apply(cur);
+      paintSkies(s.phase);
+      var txt = (s.phase === 'night' ? '\u{1F319} ' : s.phase === 'dusk' ? '\u{1F307} ' : '☀ ') + clockText(s.hour);
+      if (txt !== lastClock) {
+        lastClock = txt;
+        var el = document.getElementById('realClock');
+        if (el) el.textContent = txt;
+      }
+      if (lastPhase && s.phase !== lastPhase && CS.ui && CS.game && CS.game.state && CS.game.state.phase === 'play') {
+        CS.ui.toast(s.phase === 'night' ? 'Night has fallen. Lanterns lit!'
+          : s.phase === 'day' ? 'The sun is up!'
+          : (s.hour < 12 ? 'Dawn over the castle' : 'The sun is setting'), 'info');
+      }
+      lastPhase = s.phase;
+    }
+  };
 })(window.CS);
 
 </script>
@@ -4220,6 +4640,7 @@ window.CS = window.CS || {};
 
   /* A plump fillet: a squashed ellipsoid with a craggy crust of lumps. */
   function chickenPatty(kind) {
+    if (CS.isThanksgiving) return turkeyLeg(kind);
     var g = new THREE.Group();
     var m, lumps = CRUMBS;
     if (kind === 'raw') {
@@ -4234,6 +4655,84 @@ window.CS = window.CS || {};
     lumps.forEach(function (o, i) {
       add(g, CS.ball(o[2], o[2] * 0.75, o[2], m, o[0], 0.12 + (i % 3) * 0.01, o[1]));
     });
+    return g;
+  }
+
+  /* The November special's fried turkey: a plump drumstick with a crackling
+     golden-brown skin and the bone end poking out, lying on its side. */
+  function turkeyLeg(kind) {
+    var g = new THREE.Group();
+    var m;
+    if (kind === 'raw') m = { color: 0xffffff, tex: 'rawMeat', rough: 0.35 };
+    else if (kind === 'burnt') m = { color: 0xffffff, tex: 'charred', rough: 0.9 };
+    else m = { color: 0xc77a3a, tex: 'breading', emissive: WARM, rough: 0.5 };
+    var BONE = { color: 0xf3ead6, rough: 0.5 };
+    add(g, CS.ball(0.21, 0.12, 0.17, m, -0.06, 0.11, 0));                    // the meaty end
+    add(g, CS.ball(0.13, 0.085, 0.11, m, 0.1, 0.1, 0));
+    add(g, CS.cyl(0.03, 0.03, 0.16, BONE, 0.24, 0.1, 0, 10)).rotation.z = Math.PI / 2;
+    add(g, CS.ball(0.04, 0.035, 0.04, BONE, 0.33, 0.11, 0.025));            // knuckle
+    add(g, CS.ball(0.04, 0.035, 0.04, BONE, 0.33, 0.11, -0.025));
+    if (kind !== 'raw' && kind !== 'burnt') {
+      CRUMBS.slice(0, 5).forEach(function (o) {
+        add(g, CS.ball(o[2] * 0.8, o[2] * 0.55, o[2] * 0.8, m, o[0] * 0.8 - 0.06, 0.2, o[1] * 0.7));
+      });
+    }
+    return g;
+  }
+
+  /* Mashed potatoes: a soft scoop with a well of gravy-butter on top, or
+     whole spuds before they cook. */
+  function mashScoop(burnt) {
+    var g = new THREE.Group();
+    var M = burnt ? { color: 0x4a3a2c, rough: 0.9 } : { color: 0xf6ead0, rough: 0.7 };
+    add(g, CS.ball(0.17, 0.11, 0.17, M, 0, 0.08, 0));
+    add(g, CS.ball(0.11, 0.08, 0.11, M, 0.03, 0.15, -0.02));
+    add(g, CS.ball(0.07, 0.05, 0.07, M, -0.07, 0.13, 0.06));
+    if (!burnt) add(g, CS.box(0.06, 0.03, 0.06, { color: 0xf8d86a, rough: 0.3 }, 0.02, 0.22, 0));   // a pat of butter
+    return g;
+  }
+  function mashBowl(burnt) {
+    var g = new THREE.Group();
+    add(g, CS.cyl(0.19, 0.13, 0.11, { color: 0xffffff, tex: 'plate', rough: 0.3 }, 0, 0.055, 0, 20));
+    var s = mashScoop(burnt);
+    s.position.y = 0.05;
+    g.add(s);
+    return g;
+  }
+  function wholeSpuds(inPan) {
+    var g = new THREE.Group();
+    var SP = { color: 0xc49a62, tex: 'fluff', rough: 0.85 };
+    [[-0.1, -0.05], [0.1, 0.02], [0.0, 0.11], inPan ? [-0.02, -0.16] : null, inPan ? [0.17, -0.12] : null]
+      .forEach(function (p, i) {
+        if (!p) return;
+        add(g, CS.ball(0.1, 0.075, 0.08, SP, p[0], 0.07, p[1])).rotation.y = i;
+      });
+    return g;
+  }
+  function mashInPan(burnt) {
+    var g = new THREE.Group();
+    var M = burnt ? { color: 0x3a2f26, rough: 0.9 } : { color: 0xf3e3c0, emissive: WARM, rough: 0.6 };
+    add(g, CS.ball(0.3, 0.07, 0.3, M, 0, 0.04, 0));
+    add(g, CS.ball(0.14, 0.06, 0.14, M, 0.08, 0.08, -0.05));
+    return g;
+  }
+
+  /* A slice of pumpkin pie's worth, served whole: a fluted crust in a tin,
+     the orange custard, and a swirl of whipped cream. Empty, it is just the
+     crust waiting to be filled. */
+  function pumpkinPie(sauce) {
+    var g = new THREE.Group();
+    var CRUST = { color: 0xd9a35a, tex: 'bun', rough: 0.6 };
+    add(g, CS.cyl(0.14, 0.11, 0.07, { color: 0xb9b4ac, rough: 0.35, metal: 0.6 }, 0, 0.035, 0, 20));
+    add(g, CS.torus(0.135, 0.028, 0, CRUST, 0, 0.075, 0)).rotation.x = Math.PI / 2;
+    add(g, CS.cyl(0.12, 0.12, 0.02, CRUST, 0, 0.05, 0, 20));
+    if (sauce) {
+      var col = CS.ING[sauce].color;
+      add(g, CS.cyl(0.118, 0.118, 0.03, { color: col, rough: 0.35 }, 0, 0.075, 0, 20));
+      add(g, CS.ball(0.045, 0.03, 0.045, { color: 0xfffaf0, rough: 0.5 }, 0, 0.1, 0));
+      add(g, CS.cone(0.025, 0.04, { color: 0xfffaf0, rough: 0.5 }, 0, 0.13, 0, 8));
+    }
+    g.scale.setScalar(1.2);
     return g;
   }
 
@@ -4325,6 +4824,7 @@ window.CS = window.CS || {};
 
   /* Builds the stacked sandwich on a plate. Returns the height it consumed. */
   function buildSandwich(g, s, y) {
+    if (CS.isThanksgiving) return buildDinner(g, s, y);
     var top = y;
     var BUN = { color: 0xffffff, tex: 'bun', emissive: 0x1a0c00, rough: 0.45 };
     add(g, CS.cyl(0.25, 0.24, 0.09, BUN, 0, top + 0.045, 0, 24));
@@ -4385,6 +4885,48 @@ window.CS = window.CS || {};
     return top + 0.22;
   }
 
+  /* The Thanksgiving plate: a dinner roll at the back, the fried turkey in
+     the middle with gravy or cranberry spooned over it, and kale and corn
+     heaped beside. Same data as a sandwich, laid out as a dinner. */
+  function buildDinner(g, s, y) {
+    var BUN = { color: 0xffffff, tex: 'bun', emissive: 0x1a0c00, rough: 0.45 };
+    add(g, CS.shell(0.14, 0.11, 0.13, BUN, 0, Math.PI * 2, 0, Math.PI / 2)).position.set(-0.17, y, -0.14);
+    add(g, CS.cyl(0.14, 0.14, 0.02, BUN, -0.17, y + 0.01, -0.14, 16)).scale.set(1, 1, 0.93);
+    var top = y + 0.02;
+    if (s.chicken) {
+      var p = turkeyLeg('fried');
+      p.position.set(0, y - 0.02, 0.04);
+      p.rotation.y = -0.5;
+      g.add(p);
+      top = y + 0.2;
+    }
+    s.sauces.forEach(function (id, i) {
+      var c = { color: CS.ING[id].color, rough: 0.15 };
+      var sy = s.chicken ? y + 0.19 : y + 0.03;
+      add(g, CS.ball(0.13, 0.03, 0.11, c, -0.04 + i * 0.06, sy, 0.04));
+      add(g, CS.ball(0.03, 0.05, 0.03, c, 0.06 + i * 0.05, sy - 0.05, 0.1));   // a drip
+    });
+    s.toppings.forEach(function (id, i) {
+      var c = CS.ING[id].color, px = i ? 0.0 : -0.2, pz = i ? 0.25 : 0.17;   // clear of the mash
+      if (id === 'pickle') {
+        // a spoonful of golden corn kernels
+        for (var k = 0; k < 10; k++) {
+          var a = k * 2.4, r = (k % 4) * 0.025;
+          add(g, CS.ball(0.022, 0.018, 0.022, { color: k % 2 ? c : CS.shade(c, 18), rough: 0.35 },
+            px + Math.cos(a) * r, y + 0.02 + (k > 6 ? 0.03 : 0), pz + Math.sin(a) * r));
+        }
+      } else {
+        // a heap of curly kale (or whatever leafy green this is)
+        for (var j = 0; j < 6; j++) {
+          var b = j / 6 * Math.PI * 2;
+          add(g, CS.ball(0.06, 0.035, 0.06, { color: j % 2 ? c : CS.shade(c, 22), rough: 0.6 },
+            px + Math.cos(b) * 0.05, y + 0.03 + (j % 2) * 0.02, pz + Math.sin(b) * 0.05));
+        }
+      }
+    });
+    return top + 0.05;
+  }
+
   /* White glazed plate with a blue rim, like the good crockery. */
   function dish(g) {
     add(g, CS.cyl(0.44, 0.36, 0.05, { color: 0x3a5aa6, rough: 0.3 }, 0, 0.025, 0, 32));
@@ -4396,6 +4938,7 @@ window.CS = window.CS || {};
      opts.inPan draws fries as they look frying: loose in the oil, not boxed. */
   CS.models.item = function (item, opts) {
     var inPan = !!(opts && opts.inPan);
+    var TG = CS.isThanksgiving;
     var g = new THREE.Group();
     if (!item) return g;
 
@@ -4403,10 +4946,10 @@ window.CS = window.CS || {};
       case 'rawChicken':   g.add(chickenPatty('raw')); break;
       case 'friedChicken': g.add(chickenPatty('fried')); break;
       case 'burntChicken': g.add(chickenPatty('burnt')); break;
-      case 'rawFries':     g.add(inPan ? friesPile(0xfbe9b8, 16) : friesBundle(0xfbe9b8, 0xfff6dc, 12)); break;
-      case 'cookedFries':  g.add(inPan ? friesPile(0xffc63f, 16, WARM) : friesCarton(false)); break;
-      case 'burntFries':   g.add(inPan ? friesPile(0x3a2f26, 16) : friesCarton(true)); break;
-      case 'cup':          g.add(sauceCup(item.sauce)); break;
+      case 'rawFries':     g.add(TG ? wholeSpuds(inPan) : inPan ? friesPile(0xfbe9b8, 16) : friesBundle(0xfbe9b8, 0xfff6dc, 12)); break;
+      case 'cookedFries':  g.add(TG ? (inPan ? mashInPan(false) : mashBowl(false)) : inPan ? friesPile(0xffc63f, 16, WARM) : friesCarton(false)); break;
+      case 'burntFries':   g.add(TG ? (inPan ? mashInPan(true) : mashBowl(true)) : inPan ? friesPile(0x3a2f26, 16) : friesCarton(true)); break;
+      case 'cup':          g.add(TG ? pumpkinPie(item.sauce) : sauceCup(item.sauce)); break;
       case 'garnish': {
         // a pinch of topping or a dollop of sauce on its way to a sandwich
         var ing = CS.ING[item.ing];
@@ -4427,12 +4970,13 @@ window.CS = window.CS || {};
           g.add(sg);
         }
         if (item.fries) {
-          var fc = friesCarton(false);
+          var fc = TG ? mashBowl(false) : friesCarton(false);
+          if (TG) fc.scale.setScalar(0.82);
           fc.position.set(item.sandwich ? 0.24 : 0, y, item.sandwich ? 0.16 : 0);
           g.add(fc);
         }
         item.cups.forEach(function (s, i) {
-          var c = sauceCup(s);
+          var c = TG ? pumpkinPie(s) : sauceCup(s);
           var ang = -0.9 + i * 0.9;
           c.position.set(Math.sin(ang) * 0.30, y, -0.26 + Math.cos(ang) * 0.06);
           c.scale.setScalar(0.85);
@@ -4571,38 +5115,98 @@ window.CS = window.CS || {};
   };
 
   /* The view through the arched window: a soft sky, distant hills and a
-     white castle with blue spires. */
+     white castle with blue spires. Painted three ways -- 'day', 'dusk' and
+     'night' -- and the real clock (daylight.js) swaps between them. At
+     night the castle windows are lit and there is a moon over the keep; in
+     November the hills turn to autumn colours. */
+  var SKIES = {
+    day:   { sky: ['#7fb6ea', '#cfe6f7', '#f2eadb'], cloud: 'rgba(255,255,255,0.85)',
+             wall: '#e6e8f2', roof: '#5a7cc4', win: '#b9c2dc', hill: ['#8fbf72', '#6fa45a'] },
+    dusk:  { sky: ['#4a4f8f', '#e88a5a', '#f6c37a'], cloud: 'rgba(255,196,160,0.75)',
+             wall: '#d8b8b0', roof: '#5a4c8a', win: '#ffd27a', hill: ['#6f7f5a', '#56684a'] },
+    night: { sky: ['#0b1030', '#1c2a5a', '#3a3f6a'], cloud: 'rgba(120,130,180,0.25)',
+             wall: '#6a7090', roof: '#2a3466', win: '#ffd27a', hill: ['#2c3b34', '#22302a'] }
+  };
+  function drawSky(x, W, H, mode) {
+    var P = SKIES[mode] || SKIES.day;
+    var g = x.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0, P.sky[0]); g.addColorStop(0.7, P.sky[1]); g.addColorStop(1, P.sky[2]);
+    x.fillStyle = g; x.fillRect(0, 0, W, H);
+    if (mode === 'night') {
+      for (var i = 0; i < 60; i++) {
+        var sx = (Math.sin(i * 91.7) * 0.5 + 0.5) * W, sy = (Math.sin(i * 47.3) * 0.5 + 0.5) * H * 0.6;
+        x.fillStyle = 'rgba(255,255,240,' + (0.4 + (i % 3) * 0.2) + ')';
+        x.fillRect(sx, sy, i % 5 ? 1.5 : 2.5, i % 5 ? 1.5 : 2.5);
+      }
+      x.fillStyle = '#fff6d8';
+      x.beginPath(); x.arc(300, 54, 22, 0, Math.PI * 2); x.fill();
+      x.fillStyle = P.sky[0];
+      x.beginPath(); x.arc(311, 47, 19, 0, Math.PI * 2); x.fill();      // a crescent
+    } else if (mode === 'dusk') {
+      var sun = x.createRadialGradient(80, H * 0.68, 4, 80, H * 0.68, 70);
+      sun.addColorStop(0, 'rgba(255,236,170,1)'); sun.addColorStop(1, 'rgba(255,180,110,0)');
+      x.fillStyle = sun; x.fillRect(0, 0, W, H);
+    }
+    x.fillStyle = P.cloud;
+    [[60, 60, 40], [100, 52, 30], [290, 80, 44], [330, 70, 30], [200, 40, 24]].forEach(function (c) {
+      x.beginPath(); x.arc(c[0], c[1], c[2], 0, Math.PI * 2); x.fill();
+    });
+    // castle
+    var base = H * 0.72;
+    var TOWERS = [[150, 70, 14], [182, 110, 18], [222, 92, 16], [250, 60, 12]];
+    x.fillStyle = P.wall;
+    TOWERS.forEach(function (t) { x.fillRect(t[0] - t[2], base - t[1], t[2] * 2, t[1]); });
+    x.fillRect(130, base - 46, 140, 46);
+    x.fillStyle = P.roof;
+    TOWERS.forEach(function (t) {
+      x.beginPath(); x.moveTo(t[0] - t[2] - 3, base - t[1]); x.lineTo(t[0], base - t[1] - t[2] * 2.6);
+      x.lineTo(t[0] + t[2] + 3, base - t[1]); x.fill();
+    });
+    x.fillStyle = P.win;
+    [[160, base - 30], [200, base - 60], [240, base - 40], [176, base - 88], [218, base - 74]].forEach(function (w, i) {
+      if (i > 2 && mode === 'day') return;
+      x.fillRect(w[0], w[1], 6, 10);
+    });
+    // hills, turned to russet and gold for the November special
+    var hills = CS.isThanksgiving
+      ? (mode === 'night' ? ['#3a3228', '#2c261e'] : mode === 'dusk' ? ['#9a6a3a', '#7a5230'] : ['#d09a48', '#b8742e'])
+      : P.hill;
+    x.fillStyle = hills[0];
+    x.beginPath(); x.moveTo(0, H); x.lineTo(0, base); x.quadraticCurveTo(W * 0.3, base - 30, W * 0.55, base + 4);
+    x.quadraticCurveTo(W * 0.8, base - 26, W, base - 6); x.lineTo(W, H); x.fill();
+    x.fillStyle = hills[1];
+    x.beginPath(); x.moveTo(0, H); x.lineTo(0, base + 24); x.quadraticCurveTo(W * 0.5, base, W, base + 30); x.lineTo(W, H); x.fill();
+    if (CS.isThanksgiving && mode !== 'night') {
+      // little autumn trees along the ridge
+      [[40, base + 2, '#c8461f'], [86, base - 8, '#e0861f'], [330, base - 4, '#c8461f'], [360, base - 2, '#f2b53a']]
+        .forEach(function (t) { x.fillStyle = t[2]; x.beginPath(); x.arc(t[0], t[1], 11, 0, Math.PI * 2); x.fill(); });
+    }
+  }
+
+  function skySize(worldW, worldH) {
+    return { W: 384, H: Math.round(384 * (worldH || worldW * 0.6) / worldW) };
+  }
+
   CS.models.skyPane = function (worldW, worldH) {
-    var W = 384, H = Math.round(384 * (worldH || worldW * 0.6) / worldW);
-    return textPlane(function (x) {
-      var g = x.createLinearGradient(0, 0, 0, H);
-      g.addColorStop(0, '#7fb6ea'); g.addColorStop(0.7, '#cfe6f7'); g.addColorStop(1, '#f2eadb');
-      x.fillStyle = g; x.fillRect(0, 0, W, H);
-      x.fillStyle = 'rgba(255,255,255,0.85)';
-      [[60, 60, 40], [100, 52, 30], [290, 80, 44], [330, 70, 30], [200, 40, 24]].forEach(function (c) {
-        x.beginPath(); x.arc(c[0], c[1], c[2], 0, Math.PI * 2); x.fill();
-      });
-      // castle
-      var base = H * 0.72;
-      x.fillStyle = '#e6e8f2';
-      [[150, 70, 14], [182, 110, 18], [222, 92, 16], [250, 60, 12]].forEach(function (t) {
-        x.fillRect(t[0] - t[2], base - t[1], t[2] * 2, t[1]);
-      });
-      x.fillRect(130, base - 46, 140, 46);
-      x.fillStyle = '#5a7cc4';
-      [[150, 70, 14], [182, 110, 18], [222, 92, 16], [250, 60, 12]].forEach(function (t) {
-        x.beginPath(); x.moveTo(t[0] - t[2] - 3, base - t[1]); x.lineTo(t[0], base - t[1] - t[2] * 2.6);
-        x.lineTo(t[0] + t[2] + 3, base - t[1]); x.fill();
-      });
-      x.fillStyle = '#b9c2dc';
-      [[160, base - 30], [200, base - 60], [240, base - 40]].forEach(function (w) { x.fillRect(w[0], w[1], 6, 10); });
-      // hills
-      x.fillStyle = '#8fbf72';
-      x.beginPath(); x.moveTo(0, H); x.lineTo(0, base); x.quadraticCurveTo(W * 0.3, base - 30, W * 0.55, base + 4);
-      x.quadraticCurveTo(W * 0.8, base - 26, W, base - 6); x.lineTo(W, H); x.fill();
-      x.fillStyle = '#6fa45a';
-      x.beginPath(); x.moveTo(0, H); x.lineTo(0, base + 24); x.quadraticCurveTo(W * 0.5, base, W, base + 30); x.lineTo(W, H); x.fill();
-    }, W, H, worldW || 3.0);
+    var s = skySize(worldW, worldH);
+    var m = textPlane(function (x) { drawSky(x, s.W, s.H, 'day'); }, s.W, s.H, worldW || 3.0);
+    m.userData.sky = { worldW: worldW, worldH: worldH, mode: 'day' };
+    return m;
+  };
+
+  /* A painted sky for an existing pane, cached per size and mode. */
+  var skyCache = {};
+  CS.models.skyTexture = function (worldW, worldH, mode) {
+    var s = skySize(worldW, worldH), key = s.W + 'x' + s.H + mode;
+    if (skyCache[key]) return skyCache[key];
+    var c = document.createElement('canvas');
+    c.width = s.W; c.height = s.H;
+    drawSky(c.getContext('2d'), s.W, s.H, mode);
+    var t = CS.srgb(new THREE.CanvasTexture(c));
+    t.magFilter = THREE.LinearFilter;
+    t.minFilter = THREE.LinearMipmapLinearFilter;
+    t.anisotropy = 4;
+    return (skyCache[key] = t);
   };
 
   /* Framed food picture for the wall -- drumstick, tomato or lettuce. */
@@ -5196,6 +5800,20 @@ window.CS = window.CS || {};
           g.add(CS.ball(0.16, 0.14, 0.16, { color: c, rough: 0.25 }, p[0], top + 0.12, p[1]));
           put(g, CS.cone(0.05, 0.03, { color: 0x3f8f2a }, p[0], top + 0.27, p[1], 5)).rotation.y = i;
         });
+      } else if (CS.isThanksgiving) {
+        // sweet corn on the cob, husks peeled back
+        var HUSK = { color: 0x9fb35a, rough: 0.7 };
+        [[-0.32, -0.22, 0.3], [0.02, -0.28, -0.2], [0.34, -0.18, 0.1],
+         [-0.26, 0.2, -0.15], [0.12, 0.18, 0.35], [-0.04, -0.02, 0.9]].forEach(function (p, i) {
+          var cob = new THREE.Group();
+          cob.position.set(p[0], top + 0.1 + (i === 5 ? 0.1 : 0), p[1]);
+          cob.rotation.y = p[2];
+          put(cob, CS.ball(0.09, 0.09, 0.26, { color: i % 2 ? c : CS.shade(c, 14), tex: 'grain', rough: 0.5 }, 0, 0, 0));
+          [-1, 1].forEach(function (s) {
+            put(cob, CS.ball(0.05, 0.03, 0.2, HUSK, s * 0.08, -0.02, 0.12)).rotation.y = s * 0.35;
+          });
+          g.add(cob);
+        });
       } else {
         // pickles in a big glass jar
         g.add(CS.cyl(0.36, 0.36, 0.55, { color: 0xcfe8d0, rough: 0.1, opacity: 0.55 }, 0, top + 0.28, 0, 24));
@@ -5216,6 +5834,26 @@ window.CS = window.CS || {};
       var y = counterBase(g, 0.80);
       var c = CS.ING[st.def.ing].color;
       var GLAZE = { color: c, rough: 0.2 };
+      if (CS.isThanksgiving && (st.def.ing === 'mayo' || st.def.ing === 'bbq' || st.def.ing === 'ketchup')) {
+        // a white china gravy boat, a cranberry crock, a bowl of pumpkin
+        var CHINA = { color: 0xffffff, tex: 'plate', rough: 0.3 };
+        g.add(CS.cyl(0.42, 0.36, 0.06, { color: 0x3a5aa6, rough: 0.3 }, 0, y + 0.03, 0, 28));   // saucer
+        if (st.def.ing === 'mayo') {
+          var boat = put(g, CS.shell(0.34, 0.2, 0.22, CHINA, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2));
+          boat.position.y = y + 0.26;
+          put(g, CS.cyl(0.32, 0.32, 0.02, GLAZE, 0, y + 0.235, 0, 28)).scale.set(1, 1, 0.62);
+          put(g, CS.cone(0.07, 0.16, CHINA, 0.38, y + 0.27, 0, 10)).rotation.z = -1.2;    // spout
+          put(g, CS.torus(0.09, 0.025, Math.PI, CHINA, -0.36, y + 0.3, 0)).rotation.z = Math.PI / 2;
+        } else {
+          g.add(CS.cyl(0.28, 0.22, 0.34, CHINA, 0, y + 0.23, 0, 24));
+          g.add(CS.cyl(0.26, 0.26, 0.03, GLAZE, 0, y + 0.39, 0, 24));
+          g.add(CS.ball(0.17, 0.07, 0.17, GLAZE, 0.02, y + 0.41, 0));
+          g.add(CS.cyl(0.29, 0.29, 0.05, { color: CS.shade(c, -30), rough: 0.5 }, 0, y + 0.2, 0, 24)); // band
+          put(g, CS.cyl(0.018, 0.018, 0.5, { color: 0xc9a35a, rough: 0.5 }, 0.12, y + 0.55, 0.05, 8)).rotation.z = -0.4; // ladle
+        }
+        st.topY = y + 0.62;
+        return st.topY;
+      }
       g.add(CS.cyl(0.22, 0.24, 0.44, GLAZE, 0, y + 0.22, 0, 24));               // bottle
       g.add(CS.ball(0.22, 0.12, 0.22, GLAZE, 0, y + 0.44, 0));                  // shoulder
       g.add(CS.cyl(0.245, 0.245, 0.16, { color: 0xf4ead6, rough: 0.7 }, 0, y + 0.22, 0, 24)); // label
@@ -5227,6 +5865,19 @@ window.CS = window.CS || {};
 
     cups: function (g, st) {
       var y = counterBase(g);
+      if (CS.isThanksgiving) {
+        // a stack of empty pie crusts in their tins
+        var TIN = { color: 0xb9b4ac, rough: 0.35, metal: 0.6 };
+        var CRUST = { color: 0xd9a35a, tex: 'bun', rough: 0.6 };
+        for (var p = 0; p < 4; p++) {
+          var py = y + p * 0.1;
+          g.add(CS.cyl(0.42, 0.34, 0.08, TIN, 0, py + 0.04, 0, 28));
+          put(g, CS.torus(0.40, 0.045, 0, CRUST, 0, py + 0.085, 0)).rotation.x = Math.PI / 2;
+        }
+        g.add(CS.cyl(0.36, 0.36, 0.02, CRUST, 0, y + 0.37, 0, 28));
+        st.topY = y + 0.45;
+        return st.topY;
+      }
       g.add(CS.box(0.55, 0.06, 0.55, OAK_D, 0, y + 0.03, 0));
       [-0.12, 0.12].forEach(function (x) {
         g.add(CS.cyl(0.025, 0.025, 0.8, BRASS, x * 1.6, y + 0.4, 0, 8));
@@ -5382,15 +6033,8 @@ window.CS = window.CS || {};
     scene.add(stoneMesh(parts));
   }
 
-  var LABELS = {
-    F: 'Fryer', S: 'Serve', X: 'Trash', K: 'Chicken', T: 'Potatoes',
-    P: 'Plates', B: 'Buns', L: 'Lettuce', O: 'Tomato', I: 'Pickles',
-    M: 'Mayo', Q: 'BBQ', H: 'Hot Sauce', Y: 'Ketchup', U: 'Cups'
-  };
-  var LABEL_ACCENT = {
-    F: '#c8592b', S: '#3f8a3a', X: '#5a5048', L: '#4f9b3a', O: '#c8392b',
-    I: '#7d9a2c', M: '#b9a272', Q: '#7d3417', H: '#d0431f', Y: '#b81f14'
-  };
+  // the season decides what each plaque says (see config.js and season.js)
+  var LABELS = CS.STATION_LABELS, LABEL_ACCENT = CS.LABEL_ACCENT;
 
   /* One plaque per station group, tilted to face the fixed camera. */
   function addLabel(scene, st) {
@@ -5477,6 +6121,7 @@ window.CS = window.CS || {};
   }
 
   var flames = [];
+  var skyPanes = [];
 
   /* Stone hearth with a live fire. */
   function fireplace(scene, x, z) {
@@ -5510,6 +6155,7 @@ window.CS = window.CS || {};
     g.position.set(x, y, z);
     var archR = w / 2;
     var pane = CS.models.skyPane(w - 0.2, h + archR - 0.1);
+    skyPanes.push(pane);            // the clock repaints it for dusk and night
     pane.position.set(0, archR / 2 - 0.05, 0.04);
     g.add(pane);
     // mask the square top corners of the view with stone
@@ -5579,6 +6225,66 @@ window.CS = window.CS || {};
     });
     g.add(CS.cyl(0.42, 0.42, 0.04, OAK_D, 0, 1.06, 0, 20));
     scene.add(g);
+  }
+
+  /* A ribbed pumpkin: a ring of squashed lobes round a curly stem. */
+  function pumpkin(scene, x, y, z, s, color) {
+    var g = new THREE.Group();
+    g.position.set(x, y, z);
+    g.scale.setScalar(s || 1);
+    var P = { color: color || 0xe0791f, rough: 0.55 };
+    for (var i = 0; i < 6; i++) {
+      var a = i / 6 * Math.PI * 2;
+      g.add(CS.ball(0.2, 0.26, 0.2, i % 2 ? P : { color: CS.shade(color || 0xe0791f, -16), rough: 0.55 },
+        Math.cos(a) * 0.15, 0.25, Math.sin(a) * 0.15));
+    }
+    g.add(CS.ball(0.24, 0.27, 0.24, P, 0, 0.26, 0));
+    put(g, CS.cyl(0.035, 0.05, 0.16, { color: 0x6a7a32, rough: 0.8 }, 0.01, 0.56, 0, 8)).rotation.z = 0.25;
+    scene.add(g);
+  }
+
+  /* A bundle of dried corn stalks tied with twine. */
+  function cornShock(scene, x, z) {
+    var g = new THREE.Group();
+    g.position.set(x, 0, z);
+    var STALK = { color: 0xcdb070, rough: 0.9 };
+    for (var i = 0; i < 9; i++) {
+      var a = i / 9 * Math.PI * 2;
+      var st = put(g, CS.cone(0.08, 2.2, STALK, Math.cos(a) * 0.14, 1.1, Math.sin(a) * 0.14, 5));
+      st.rotation.z = -Math.cos(a) * 0.18;
+      st.rotation.x = Math.sin(a) * 0.18;
+    }
+    g.add(CS.cyl(0.2, 0.2, 0.08, { color: 0x8a5a33, rough: 0.8 }, 0, 0.8, 0, 12));            // twine
+    scene.add(g);
+  }
+
+  /* Thanksgiving dressing: pumpkins by the hearth and the barrels, corn
+     shocks either side of the front door, and a garland of autumn leaves
+     strung along the back wall of the kitchen. All static, so it merges
+     into the same handful of draw calls as the rest of the room. */
+  function harvestDecor(scene, fw, backZ, wallZ) {
+    var mantelY = 2.86, hx = CS.OX + T * 9.0;
+    pumpkin(scene, hx - 1.2, mantelY, wallZ + 0.2, 0.55);
+    pumpkin(scene, hx + 1.15, mantelY, wallZ + 0.2, 0.45, 0xf2a03a);
+    pumpkin(scene, hx + 0.75, mantelY, wallZ + 0.22, 0.35, 0xeee0c4);         // a white one
+    pumpkin(scene, CS.OX + 4.4, 0, CS.OZ - 8.4, 1.1);
+    pumpkin(scene, CS.OX + 5.3, 0, CS.OZ - 8.8, 0.75, 0xf2a03a);
+    pumpkin(scene, CS.OX + 3.9, 0, CS.OZ - 7.3, 0.6, 0xeee0c4);
+    pumpkin(scene, CS.OX + fw - 5.6, 0, CS.OZ - 8.6, 1.0);
+    pumpkin(scene, CS.OX + fw - 6.5, 0, CS.OZ - 8.9, 0.6, 0xc9661a);
+    cornShock(scene, CS.DOOR_X - CS.DOOR_W / 2 - 0.7, backZ + 0.5);
+    cornShock(scene, CS.DOOR_X + CS.DOOR_W / 2 + 0.7, backZ + 0.5);
+
+    var LEAVES = [0xc8461f, 0xe0861f, 0xf2b53a, 0x9a3a1c, 0xd86a2a];
+    var x0 = CS.OX + T * 0.6, x1 = CS.OX + T * 14.4, n = 34;
+    for (var i = 0; i <= n; i++) {
+      var f = i / n, x = CS.lerp(x0, x1, f);
+      // it sags between three nails
+      var sag = Math.abs(Math.sin(f * Math.PI * 3));
+      var leaf = put(scene, CS.ball(0.13, 0.08, 0.025, { color: LEAVES[i % LEAVES.length], rough: 0.7 },
+        x, 2.95 - sag * 0.32, wallZ + 0.08));
+      leaf.rotation.z = (i % 2 ? 0.6 : -0.5);
+    }
   }
 
   function chest(scene, x, z, rot) {
@@ -5768,10 +6474,11 @@ window.CS = window.CS || {};
 
       doorway(scene, dx, backZ, dw, dh);
 
-      var s1 = CS.models.signBoard(['Good Food', 'Happy', 'Chicken'], 3.4);
+      var signs = CS.THANKS_SIGNS || [['Good Food', 'Happy', 'Chicken'], ['Chicken', 'Sandwich', '= Happiness']];
+      var s1 = CS.models.signBoard(signs[0], 3.4);
       s1.position.set(fx - fw * 0.40, 2.0, backZ + 0.45);
       scene.add(s1);
-      var s2 = CS.models.signBoard(['Chicken', 'Sandwich', '= Happiness'], 3.4);
+      var s2 = CS.models.signBoard(signs[1], 3.4);
       s2.position.set(fx + fw * 0.24, 2.0, backZ + 0.45);
       scene.add(s2);
       banner(scene, fx - fw * 0.16, 2.0, backZ + 0.42, 1.0);
@@ -5806,9 +6513,15 @@ window.CS = window.CS || {};
       barrel(scene, CS.OX + fw - 4.0, CS.OZ - 8.1, 0.9);
       shelf(scene, fx, 2.75, backZ + 0.42, 3.4);
 
+      // ---- the November special dresses the place for the harvest
+      if (CS.isThanksgiving) harvestDecor(scene, fw, backZ, wallZ);
+
       // ---- lighting: a warm key from the window side, a soft sky/bounce
       // fill, and pools of lantern light. The renderer tone-maps all of it.
-      scene.add(new THREE.HemisphereLight(CS.linear(0xffe9cc), CS.linear(0x6a4e3a), 0.55));
+      // The real clock (daylight.js) dims the sun and brightens the lanterns
+      // as the evening comes on.
+      var hemi = new THREE.HemisphereLight(CS.linear(0xffe9cc), CS.linear(0x6a4e3a), 0.55);
+      scene.add(hemi);
 
       var sun = new THREE.DirectionalLight(CS.linear(0xffdcb0), 1.25);
       sun.position.set(-12, 22, 16);
@@ -5838,12 +6551,16 @@ window.CS = window.CS || {};
         warm3.position.set(fx, 3.2, CS.OZ - 4);
         scene.add(warm3);
       }
+      if (CS.daylight) {
+        CS.daylight.bind({ hemi: hemi, sun: sun, lamps: [warm, warm2, warm3].filter(Boolean), skies: skyPanes });
+      }
 
       /* Nothing above ever moves except the fryer glow and coals and the
          hearth's flames, so everything else is merged by material -- a few
          dozen draw calls for the whole room instead of ~600, plus the same
-         again saved in the shadow pass. */
-      var skip = [];
+         again saved in the shadow pass. The window's sky stays separate too,
+         so the clock can repaint it. */
+      var skip = skyPanes.slice();
       stations.forEach(function (st) { skip.push(st.glow, st.coals, st.slot); });
       flames.forEach(function (f) { if (f.m) skip.push(f.m); });
       CS.batchStatic(scene, skip);
@@ -5859,11 +6576,25 @@ window.CS = window.CS || {};
     rebuild: function (parent, old, opts) {
       if (old && old.root) { parent.remove(old.root); CS.dispose(old.root); }
       flames.length = 0;
+      skyPanes.length = 0;
       return CS.world.build(parent, opts);
+    },
+
+    /* One station on its own, exactly as the kitchen builds it, for the
+       kitchen editor's tile pictures. Not part of any scene. */
+    stationModel: function (ch) {
+      var def = CS.STATION_DEFS[ch];
+      if (!def || !BUILD[def.type]) return null;
+      var g = new THREE.Group();
+      var st = { char: ch, type: def.type, def: def, name: def.name,
+        col: 0, row: 0, x: 0, z: 0, group: g, item: null, topY: 1.02 };
+      BUILD[def.type](g, st);
+      return g;
     },
 
     /* Flicker the hearth. Called every frame from the main loop. */
     tick: function (t) {
+      if (CS.daylight) CS.daylight.tick(t);
       for (var i = 0; i < flames.length; i++) {
         var f = flames[i];
         var w = 0.78 + Math.sin(t * 7.3 + f.ph) * 0.14 + Math.sin(t * 13.1 + f.ph) * 0.08;
@@ -6017,12 +6748,12 @@ window.CS = window.CS || {};
 
   CS.itemLabel = function (item) {
     if (!item) return 'Nothing';
-    if (item.k === 'cup') return item.sauce ? CS.ING[item.sauce].label + ' Cup' : 'Empty Cup';
+    if (item.k === 'cup') return item.sauce ? CS.WORDS.cupFilled(item.sauce) : CS.WORDS.cupEmpty;
     if (item.k === 'plate') {
       var bits = [];
-      if (item.sandwich) bits.push(item.sandwich.chicken ? 'Sandwich' : 'Bun');
-      if (item.fries) bits.push('Fries');
-      if (item.cups.length) bits.push(item.cups.length + ' Cup' + (item.cups.length > 1 ? 's' : ''));
+      if (item.sandwich) bits.push(item.sandwich.chicken ? CS.WORDS.mainShort : CS.WORDS.base);
+      if (item.fries) bits.push(CS.WORDS.sideShort);
+      if (item.cups.length) bits.push(item.cups.length + ' ' + CS.WORDS.cupShort + (item.cups.length > 1 ? 's' : ''));
       return bits.length ? 'Plate: ' + bits.join(' + ') : 'Empty Plate';
     }
     return CS.ITEMS[item.k].label;
@@ -6032,7 +6763,7 @@ window.CS = window.CS || {};
   CS.itemShort = function (item) {
     if (!item) return 'Nothing';
     if (item.k === 'plate') return 'Plate';
-    if (item.k === 'cup') return item.sauce ? CS.ING[item.sauce].label + ' Cup' : 'Cup';
+    if (item.k === 'cup') return item.sauce ? CS.WORDS.cupFilled(item.sauce) : CS.WORDS.cupEmpty;
     return CS.ITEMS[item.k].label;
   };
 
@@ -6042,17 +6773,17 @@ window.CS = window.CS || {};
   CS.plateAcceptsWhy = function (plate, item) {
     if (!plate || plate.k !== 'plate' || !item) return { ok: false, why: '' };
     if (item.k === 'friedChicken') {
-      if (!plate.sandwich) return { ok: false, why: 'Needs a bun first' };
-      if (plate.sandwich.chicken) return { ok: false, why: 'Already has chicken' };
+      if (!plate.sandwich) return { ok: false, why: 'Needs a ' + CS.WORDS.base.toLowerCase() + ' first' };
+      if (plate.sandwich.chicken) return { ok: false, why: 'Already has ' + CS.WORDS.protein };
       return { ok: true, what: 'chicken' };
     }
     if (item.k === 'cookedFries') {
-      if (plate.fries) return { ok: false, why: 'Already has fries' };
+      if (plate.fries) return { ok: false, why: 'Already has ' + CS.WORDS.sideShort.toLowerCase() };
       return { ok: true, what: 'fries' };
     }
     if (item.k === 'cup') {
-      if (!item.sauce) return { ok: false, why: 'Fill the cup first' };
-      if (plate.cups.length >= CS.econ.mod('cups')) return { ok: false, why: 'No room for more cups' };
+      if (!item.sauce) return { ok: false, why: 'Fill the ' + CS.WORDS.cupNoun + ' first' };
+      if (plate.cups.length >= CS.econ.mod('cups')) return { ok: false, why: 'No room for more ' + CS.WORDS.cupShort.toLowerCase() + 's' };
       return { ok: true, what: 'cup' };
     }
     if (CS.isBurnt(item)) return { ok: false, why: 'That is burnt — bin it' };
@@ -6101,8 +6832,8 @@ window.CS = window.CS || {};
 
       case 'buns': {
         if (!held || held.k !== 'plate') return blocked('Grab a plate first');
-        if (held.sandwich) return blocked('Bun is already on');
-        return action('Add a Bun', function () {
+        if (held.sandwich) return blocked(CS.WORDS.base + ' is already on');
+        return action('Add a ' + CS.WORDS.base, function () {
           held.sandwich = { chicken: false, toppings: [], sauces: [] };
           G.refreshHeld(); CS.audio.place();
         });
@@ -6111,8 +6842,8 @@ window.CS = window.CS || {};
       /* ------------------------------------------------------- toppings */
       case 'topping': {
         var ing = st.def.ing;
-        if (!held || held.k !== 'plate') return blocked('Needs a plate with a bun');
-        if (!held.sandwich) return blocked('Add a bun first');
+        if (!held || held.k !== 'plate') return blocked('Needs a plate with a ' + CS.WORDS.base.toLowerCase());
+        if (!held.sandwich) return blocked('Add a ' + CS.WORDS.base.toLowerCase() + ' first');
         if (held.sandwich.toppings.indexOf(ing) >= 0) return blocked(CS.ING[ing].label + ' already on');
         return action('Add ' + CS.ING[ing].label, function () {
           held.sandwich.toppings.push(ing);
@@ -6125,34 +6856,34 @@ window.CS = window.CS || {};
       case 'sauce': {
         var s = st.def.ing;
         if (held && held.k === 'cup') {
-          if (held.sauce) return blocked('Cup is already full');
-          if (CS.CUP_SAUCES.indexOf(s) < 0) return blocked('Mayo does not come in cups');
-          return action('Fill Cup with ' + CS.ING[s].label, function () {
+          if (held.sauce) return blocked(CS.WORDS.cupFull);
+          if (CS.CUP_SAUCES.indexOf(s) < 0) return blocked(CS.ING[s].label + ' does not go in a ' + CS.WORDS.cupNoun);
+          return action(CS.WORDS.cupFill + CS.ING[s].label, function () {
             held.sauce = s; G.refreshHeld(); CS.audio.sauce();
           });
         }
         if (held && held.k === 'plate') {
-          if (!held.sandwich) return blocked('Add a bun first');
-          if (CS.SANDWICH_SAUCES.indexOf(s) < 0) return blocked('Ketchup only goes in cups');
+          if (!held.sandwich) return blocked('Add a ' + CS.WORDS.base.toLowerCase() + ' first');
+          if (CS.SANDWICH_SAUCES.indexOf(s) < 0) return blocked(CS.ING[s].label + ' only goes in a ' + CS.WORDS.cupNoun);
           if (held.sandwich.sauces.indexOf(s) >= 0) return blocked(CS.ING[s].label + ' already on');
-          return action('Squeeze ' + CS.ING[s].label, function () {
+          return action(CS.WORDS.pour + CS.ING[s].label, function () {
             held.sandwich.sauces.push(s);
             G.refreshHeld(); CS.audio.sauce();
             G.puff(st, CS.ING[s].color);
           });
         }
-        return blocked('Hold a plate or a cup');
+        return blocked('Hold a plate or a ' + CS.WORDS.cupNoun);
       }
 
       case 'cups': {
-        if (!held) return action('Take an Empty Cup', function () { G.setHeld(CS.newCup()); CS.audio.pick(); });
+        if (!held) return action(CS.WORDS.cupTake, function () { G.setHeld(CS.newCup()); CS.audio.pick(); });
         return blocked('Wings full');
       }
 
       /* --------------------------------------------------------- fryer */
       case 'fryer': {
         if (st.item) {
-          if (held) return blocked('Fryer is busy');
+          if (held) return blocked(CS.WORDS.fryer + ' is busy');
           var name = CS.ITEMS[st.item.k].label;
           return action('Lift out ' + name, function () {
             G.setHeld(st.item);
@@ -6161,9 +6892,9 @@ window.CS = window.CS || {};
             CS.audio.pick();
           });
         }
-        if (!held) return blocked('Drop in chicken or potatoes');
-        if (!CS.COOK[held.k]) return blocked('That does not go in the fryer');
-        return action('Fry the ' + CS.ITEMS[held.k].label, function () {
+        if (!held) return blocked(CS.WORDS.fryWhat);
+        if (!CS.COOK[held.k]) return blocked(CS.WORDS.fryNot);
+        return action(CS.WORDS.fryVerb + CS.ITEMS[held.k].label, function () {
           var def = CS.cookDef(held.k);
           G.setStationItem(st, held);
           st.cook = { t: 0, def: def, stage: 'cooking', warned: false };
@@ -9405,14 +10136,14 @@ window.CS = window.CS || {};
       '</div><div class="tbody">';
 
     if (o.sandwich) {
-      h += '<div class="line"><span class="bullet">&#9656;</span><span>Chicken Sandwich</span></div>';
+      h += '<div class="line"><span class="bullet">&#9656;</span><span>' + CS.WORDS.main + '</span></div>';
       var extras = o.sandwich.toppings.concat(o.sandwich.sauces);
       h += '<div class="sub">' + (extras.length ? extras.map(chip).join('') : '<i>plain</i>') + '</div>';
     }
-    if (o.fries) h += '<div class="line"><span class="bullet">&#9656;</span><span>French Fries</span></div>';
+    if (o.fries) h += '<div class="line"><span class="bullet">&#9656;</span><span>' + CS.WORDS.side + '</span></div>';
     if (o.cups.length) {
       h += '<div class="line"><span class="bullet">&#9656;</span><span>' + o.cups.length +
-        ' Sauce Cup' + (o.cups.length > 1 ? 's' : '') + '</span></div>';
+        ' ' + (o.cups.length > 1 ? CS.WORDS.cups : CS.WORDS.cup) + '</span></div>';
       h += '<div class="sub">' + o.cups.map(chip).join('') + '</div>';
     }
     h += '</div><div class="bar"><i style="width:100%"></i></div>';
@@ -9520,11 +10251,11 @@ window.CS = window.CS || {};
       var d = '';
       if (item && item.k === 'plate') {
         if (item.sandwich) {
-          d += item.sandwich.chicken ? 'Sandwich: chicken' : 'Bun only — needs chicken';
+          d += item.sandwich.chicken ? CS.WORDS.mainDone : CS.WORDS.mainBare;
           var ex = item.sandwich.toppings.concat(item.sandwich.sauces);
           if (ex.length) d += '<br>' + ex.map(chip).join('');
         }
-        if (item.fries) d += (d ? '<br>' : '') + 'Fries on the side';
+        if (item.fries) d += (d ? '<br>' : '') + CS.WORDS.sideOn;
         if (item.cups.length) d += (d ? '<br>' : '') + item.cups.map(chip).join('');
       } else if (item && item.k === 'cup' && item.sauce) {
         d = chip(item.sauce);
@@ -9632,10 +10363,16 @@ window.CS = window.CS || {};
         '<div class="cols">' +
         '<div class="col"><h3>CONTROLS</h3><ul>' + controls + '</ul></div>' +
         '<div class="col"><h3>THE LINE</h3><ul>' +
-        '<li>Grab a <b>plate</b>, add a <b>bun</b></li>' +
-        '<li>Fry <b>chicken</b> &amp; <b>potatoes</b></li>' +
-        '<li>Stack <b>toppings</b> &amp; <b>sauces</b></li>' +
-        '<li>Fill <b>cups</b> at the sauce bottles</li>' +
+        (CS.isThanksgiving
+          ? '<li>Grab a <b>plate</b>, add a <b>dinner roll</b></li>' +
+            '<li>Fry <b>turkey</b>, cook <b>mashed potatoes</b></li>' +
+            '<li>Spoon on <b>kale</b> &amp; <b>corn</b></li>' +
+            '<li>Pour <b>gravy</b> or <b>cranberry</b></li>' +
+            '<li>Fill <b>pie crusts</b> for <b>pumpkin pie</b></li>'
+          : '<li>Grab a <b>plate</b>, add a <b>bun</b></li>' +
+            '<li>Fry <b>chicken</b> &amp; <b>potatoes</b></li>' +
+            '<li>Stack <b>toppings</b> &amp; <b>sauces</b></li>' +
+            '<li>Fill <b>cups</b> at the sauce bottles</li>') +
         '<li>Hand it through the <b>window</b></li>' +
         '</ul></div>' +
         '<div class="col"><h3>WATCH OUT</h3><ul>' +
@@ -9657,9 +10394,15 @@ window.CS = window.CS || {};
        offer to carry on rather than silently resuming or silently wiping. */
     showStart: function (onStart, onFresh, saved) {
       var c = this.showScreen(
-        '<h1>CHICKEN SANDY</h1>' +
-        '<h2>&#9829; GOOD FOOD &#183; HAPPY CHICKEN &#9829;</h2>' +
-        '<p>You are the chef. You are also a chicken. Try not to think about the menu.</p>' +
+        (CS.isThanksgiving
+          ? '<h1 class="tgtitle"><small>THANKSGIVING</small>CHICKEN SANDY</h1>' +
+            '<h2>&#127810; NOVEMBER SPECIAL &#183; GOBBLE GOBBLE &#127810;</h2>' +
+            '<p>Fried turkey, mashed potatoes, kale, corn, gravy or cranberry, and pumpkin pie. ' +
+            'You are still a chicken. The turkeys are relieved.</p>'
+          : '<h1>CHICKEN SANDY</h1>' +
+            '<h2>&#9829; GOOD FOOD &#183; HAPPY CHICKEN &#9829;</h2>' +
+            '<p>You are the chef. You are also a chicken. Try not to think about the menu.</p>') +
+        (CS.daylight ? '<p class="timeofday">' + CS.daylight.greeting() + '</p>' : '') +
         (saved
           ? '<p style="color:var(--gold)">Your shop is on Day ' + saved.day +
             ' with ' + CS.money(saved.wallet) + ' in the till.</p>'
@@ -9745,11 +10488,11 @@ window.CS = window.CS || {};
       }
 
       var body =
-        sale('sandwich', L.lines.sandwich, L.revenue.sandwich) +
-        sale('topping', L.lines.topping, L.revenue.topping) +
-        sale('sauce', L.lines.sauce, L.revenue.sauce) +
-        sale('fries', L.lines.fries, L.revenue.fries) +
-        sale('sauce cup', L.lines.cup, L.revenue.cup) +
+        sale(CS.WORDS.mainLine, L.lines.sandwich, L.revenue.sandwich) +
+        sale(CS.isThanksgiving ? 'side' : 'topping', L.lines.topping, L.revenue.topping) +
+        sale(CS.isThanksgiving ? 'gravy &amp; cranberry' : 'sauce', L.lines.sauce, L.revenue.sauce) +
+        sale(CS.WORDS.sideLine, L.lines.fries, L.revenue.fries) +
+        sale(CS.WORDS.cupLine, L.lines.cup, L.revenue.cup) +
         (L.tipCount ? line('tips (' + L.tipCount + ')', CS.money(L.tips), 'tipval') : '') +
         (L.waste > 0 ? line('waste &amp; walkouts', '-' + CS.money(L.waste), 'badval') : '') +
         '<div class="scoreline rule"><span>TAKINGS</span><span>' + CS.money(L.net) + '</span></div>' +
@@ -9856,7 +10599,9 @@ window.CS = window.CS || {};
 
     showPause: function (onResume, onQuit) {
       var c = this.showScreen(
-        '<h1>PAUSED</h1>' + this.howToHTML() +
+        '<h1>PAUSED</h1>' +
+        (CS.daylight ? '<p class="timeofday">' + CS.daylight.greeting() + '</p>' : '') +
+        this.howToHTML() +
         '<div style="display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin-top:12px">' +
         // phones run one fixed camera, so VIEW would be a button that does nothing
         (CS.platform.mobile ? '' : '<button class="btn" id="pCam">VIEW</button>') +
@@ -10013,13 +10758,13 @@ window.CS = window.CS || {};
 
   function jobWords(jobs) {
     return jobs.map(function (j) {
-      if (j === 'fries') return 'fries';
-      if (j === 'chicken') return 'fried chicken';
-      if (j === 'plate') return 'bun plates';
+      if (j === 'fries') return CS.WORDS.sideLine;
+      if (j === 'chicken') return 'fried ' + CS.WORDS.protein;
+      if (j === 'plate') return CS.WORDS.basePlates;
       if (j === 'serve') return 'deliveries to the window';
-      if (j === 'dress:top') return 'toppings';
-      if (j === 'dress:sauce') return 'sandwich sauces';
-      return CS.ING[j.slice(4)].label.toLowerCase() + ' cups';
+      if (j === 'dress:top') return CS.WORDS.toppings;
+      if (j === 'dress:sauce') return CS.WORDS.dressings;
+      return CS.WORDS.cupFilled(j.slice(4)).toLowerCase() + 's';
     }).join(', ');
   }
 
@@ -10187,8 +10932,79 @@ window.CS = window.CS || {};
     'M': { t: 'MAY', c: 'st sau-may' },
     'Q': { t: 'BBQ', c: 'st sau-bbq' },
     'H': { t: 'HOT', c: 'st sau-hot' },
-    'Y': { t: 'KET', c: 'st sau-ket' }
+    'Y': { t: 'KET', c: 'st sau-ket' },
+    'U': { t: 'CUP', c: 'st stack' }
   };
+
+  /* ------------------------------------------------------ tile pictures
+     The grid used to be flat colour squares with three-letter codes in a
+     5px font, which read as a blur of pixels next to the painted 3D
+     kitchen. Now every station tile is a little picture of the real model,
+     rendered once (per season, since the November menu dresses the stations
+     differently) by a throwaway renderer and kept as an image. If WebGL
+     will not give us a second context the grid falls back to the codes. */
+  var thumbs = null;
+
+  function makeThumbs() {
+    if (thumbs) return thumbs;
+    thumbs = {};
+    var r = null;
+    try {
+      var size = 112;
+      r = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
+      r.setPixelRatio(1);
+      r.setSize(size, size, false);
+      r.setClearColor(0x000000, 0);
+      r.outputEncoding = THREE.sRGBEncoding;
+      r.toneMapping = THREE.ACESFilmicToneMapping;
+      r.toneMappingExposure = 1.0;
+      var sc = new THREE.Scene();
+      sc.add(new THREE.HemisphereLight(CS.linear(0xffeedd), CS.linear(0x6a4e3a), 0.9));
+      var key = new THREE.DirectionalLight(CS.linear(0xffdcb0), 1.4);
+      key.position.set(-3, 7, 5);
+      sc.add(key);
+      var cam = new THREE.PerspectiveCamera(30, 1, 0.1, 60);
+      var box = new THREE.Box3(), mid = new THREE.Vector3();
+      var pitch = 0.85;
+      var out = document.createElement('canvas');
+      out.width = out.height = size;
+      var x2 = out.getContext('2d');
+      Object.keys(GLYPH).forEach(function (ch) {
+        var m = CS.world.stationModel(ch);
+        if (!m) return;
+        sc.add(m);
+        box.setFromObject(m);
+        // one scale for every tile, centred on the tile itself, so a long
+        // handle or a tall awning does not make its station look smaller
+        mid.set(0, Math.min(box.max.y, 1.8) * 0.42, 0.1);
+        var d = 1.75 / Math.sin(cam.fov * Math.PI / 360);
+        cam.position.set(mid.x, mid.y + Math.sin(pitch) * d, mid.z + Math.cos(pitch) * d);
+        cam.lookAt(mid);
+        r.render(sc, cam);
+        // a soft drop shadow lifts pale stone and limestone off the cream floor
+        x2.clearRect(0, 0, size, size);
+        x2.shadowColor = 'rgba(40,24,10,0.55)';
+        x2.shadowBlur = 7;
+        x2.shadowOffsetY = 4;
+        x2.drawImage(r.domElement, 0, 0);
+        thumbs[ch] = out.toDataURL('image/png');
+        sc.remove(m);
+      });
+    } catch (e) {
+      thumbs = {};
+    }
+    if (r) { r.dispose(); if (r.forceContextLoss) r.forceContextLoss(); }
+    // one stylesheet rule per picture, so re-rendering the grid on every tap
+    // does not rebuild a few hundred KB of image data in the markup
+    var css = '';
+    for (var ch in thumbs) {
+      css += '.kgrid i.pic-' + ch + ',.tray .pic-' + ch + '{background-image:url(' + thumbs[ch] + ')}\n';
+    }
+    var tag = document.createElement('style');
+    tag.textContent = css;
+    document.head.appendChild(tag);
+    return thumbs;
+  }
 
   function charToPart(ch) {
     for (var i = 0; i < CS.UPGRADES.length; i++) {
@@ -10216,13 +11032,19 @@ window.CS = window.CS || {};
   function addStock(id, n) { stock[id] = (stock[id] || 0) + n; }
 
   /* ----------------------------------------------------------- rendering */
+  function stationName(ch) {
+    var d = CS.STATION_DEFS[ch];
+    return d ? d.name : '';
+  }
+
   function gridHTML() {
-    var b = CS.layout.bounds, h = '';
+    var b = CS.layout.bounds, h = '', pics = makeThumbs();
     for (var r = 0; r < CS.MAP_H; r++) {
       for (var c = 0; c < CS.MAP_W; c++) {
         var ch = CS.charAt(c, r);
         var g = GLYPH[ch] || GLYPH['.'];
-        var cls = 'cell ' + g.c;
+        var cls = 'cell ' + g.c + ((c + r) % 2 ? ' alt' : '');
+        var pic = pics[ch], name = stationName(ch);
         if (sel) {
           var can = CS.layout.canPlace(c, r, sel.ch);
           cls += can.ok ? ' ok' : ' no';
@@ -10231,7 +11053,11 @@ window.CS = window.CS || {};
         }
         if (c === CS.SPAWN.col && r === CS.SPAWN.row) cls += ' spawn';
         if (!CS.layout.inBounds(c, r)) cls += ' locked';
-        h += '<i class="' + cls + '" data-c="' + c + '" data-r="' + r + '">' + g.t + '</i>';
+        if (pic) cls += ' pic pic-' + ch;
+        h += '<i class="' + cls + '" data-c="' + c + '" data-r="' + r + '"' +
+          (name ? ' title="' + name + '" aria-label="' + name + '"' : '') +
+          '>' +
+          (pic ? '' : g.t) + '</i>';
       }
     }
     return '<div class="kgrid" style="grid-template-columns:repeat(' + CS.MAP_W + ',1fr)">'
@@ -10247,7 +11073,9 @@ window.CS = window.CS || {};
       var u = CS.econ.upgrade(id);
       if (!u) continue;
       var on = sel && sel.id === id;
+      var tp = makeThumbs()[u.ch];
       items.push('<button class="tray' + (on ? ' on' : '') + '" data-id="' + id + '">' +
+        (tp ? '<span class="tpic pic-' + u.ch + '"></span>' : '') +
         u.name + ' <b>x' + stock[id] + '</b></button>');
     }
     if (!items.length) {
@@ -11279,7 +12107,7 @@ window.CS = window.CS || {};
       var st = stations[i];
       if (st.type !== 'fryer') continue;
       if (!st.cook) {
-        rows.push({ label: 'Fryer ' + (rows.length + 1), t: 0, color: '#6fbf3a', empty: true });
+        rows.push({ label: CS.WORDS.fryer + ' ' + (rows.length + 1), t: 0, color: '#6fbf3a', empty: true });
         continue;
       }
       var c = st.cook, d = c.def;
@@ -11842,6 +12670,7 @@ window.CS = window.CS || {};
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = lowSpec ? THREE.PCFShadowMap : THREE.PCFSoftShadowMap;
     renderer.setClearColor(0x2a2638);
+    CS.daylight.renderer = renderer;     // night darkens the sky past the grounds
     host.appendChild(renderer.domElement);
 
     scene = new THREE.Scene();

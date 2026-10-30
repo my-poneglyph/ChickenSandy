@@ -33,6 +33,37 @@ A few touches worth knowing about:
   fresh out of the oil keeps steaming for a while wherever it ends up — on a
   counter, on a plate, or in someone's arms.
 
+* **The shop keeps real time.** The kitchen follows your own clock: morning sun
+  through the window, a golden sunset in the evening, and after dark a moonlit
+  kitchen lit by its lanterns, with stars and lit castle windows in the view.
+  Sunrise and sunset move with the calendar, so November evenings draw in early.
+  The time shows under the shift clock (desktop) and on the start and pause cards.
+  Add `?hour=21` to the URL to pin the clock for testing.
+
+---
+
+## Thanksgiving Chicken Sandy (every November)
+
+From 1 to 30 November the game becomes **Thanksgiving Chicken Sandy**, with its
+own menu:
+
+| Station | Classic menu | November special |
+| --- | --- | --- |
+| Crate `K` | Raw chicken | Raw **turkey**, fried into a drumstick |
+| Potato bin `T` + fryer | French fries | **Mashed potatoes**, cooked on the stove |
+| Buns `B` | Sesame bun | **Dinner roll** |
+| Lettuce `L` / Pickles `I` | Toppings | **Kale** / **Corn** sides |
+| Mayo `M` / BBQ `Q` | Sandwich sauces | **Gravy** *or* **Cranberry** — never both |
+| Cups `U` + Ketchup `Y` | Ketchup cups | **Pie crusts** filled with pumpkin: **pumpkin pie** |
+
+The nine learning days are rewritten for the new dishes, the dining room gets
+pumpkins, corn shocks and Thanksgiving chalkboards, a garland of autumn leaves
+hangs in the kitchen, and the hills outside turn russet. It is the same kitchen
+relabelled — every station keeps its tile and job — so your save, crew and layout
+carry straight into the special and back out of it on 1 December.
+
+Add `?season=thanksgiving` or `?season=classic` to the URL to force either menu.
+
 ---
 
 ## Running it
@@ -41,15 +72,16 @@ A few touches worth knowing about:
 Python, no server required — Three.js is vendored in `vendor/` and every texture is
 drawn in-canvas at load time.
 
-If your browser is locked down and refuses to load local scripts, use the
-single-file build instead:
+If your browser is locked down and refuses to load local scripts, use a
+single-file build instead. There are two, each pinned to one menu whatever the date:
 
 ```
-ChickenSandy-standalone.html
+ChickenSandy-standalone.html        the original chicken-sandwich menu
+Thanksgiving-Chicken-Sandy.html     the November special
 ```
 
-Same game, with Three.js and all ten source files inlined into one 693 KB HTML file.
-Regenerate it after editing the source with:
+Same game, with Three.js and every source file inlined into one HTML file.
+Regenerate both after editing the source with:
 
 ```bash
 powershell -ExecutionPolicy Bypass -File build-standalone.ps1
@@ -561,8 +593,10 @@ chef always has right of way.
 
 ### The kitchen editor
 
-`KITCHEN` in the shop opens a flat grid of the whole floor. Tap something to pick it
-up, tap a tile to set it down; legal tiles light up green while you are holding
+`KITCHEN` in the shop opens a grid of the whole floor, drawn to match the 3D kitchen:
+marble floor tiles, stone walls, and on each station tile a little picture of the real
+station model, rendered once when the editor first opens (hover a tile for its name).
+Tap something to pick it up, tap a tile to set it down; legal tiles light up green while you are holding
 something. Wall-mounted kit (fryers, crates, trays, bottles, the serving window) goes
 on a boundary wall, prep counters and plate stacks go on open floor, and a bin is
 happy either way. Move the serving window and the queue and the front door move with
@@ -587,6 +621,8 @@ src/
   platform.js                 touch/mobile detection, viewport sizing, Telegram
   touch.js                    on-screen thumbstick and action buttons
   config.js                   base map, recipes, timings, prices, shop catalogue
+  season.js                   the November Thanksgiving menu, relabelling the same kitchen
+  daylight.js                 real-world time of day: sun, sunset, moonlight, lanterns
   layout.js                   the live editable grid: bounds, expansion, validation
   economy.js                  wallet, daily ledger, upgrade modifiers, the save file
   textures.js                 procedural painted textures (stone, oak, oil, breading…)
@@ -602,7 +638,7 @@ src/
   editor.js                   the drag-and-drop kitchen grid
   audio.js                    WebAudio SFX plus the four-voice music engine
   game.js                     renderer, camera, player, main loop, the till
-build-standalone.ps1          bundles everything into one HTML file
+build-standalone.ps1          bundles everything into the two single-file copies
 serve.ps1                     optional zero-dependency local server
 index.prototype-backup.html   your earlier prototype page, kept just in case
 ```
