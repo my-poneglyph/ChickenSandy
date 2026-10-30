@@ -76,6 +76,9 @@
   #clockwrap .v{letter-spacing:2px;}
   #daywrap .v{font-size:16px;}
   #daywrap .sub{font-size:8px;color:#d9c9a2;margin-top:2px;white-space:nowrap;}
+  #clockwrap #realClock{display:block;padding-left:0;font-size:8px;color:#d9c9a2;margin-top:2px;white-space:nowrap;}
+  .card h1.tgtitle small{display:block;font-size:.5em;letter-spacing:4px;color:#f0a03a;margin-bottom:4px;}
+  .card .timeofday{color:#cfe0ff;font-size:11px;}
   /* target-for-the-day meter under the score */
   .tgt{height:6px;background:#14203d;border:2px solid #14203d;margin-top:4px;}
   .tgt i{display:block;height:100%;background:var(--gold);width:0%;transition:width .3s ease-out;}
@@ -308,18 +311,30 @@
      as the card, or on a short window the kitchen runs off the bottom and you
      are laying out a floor you cannot see. */
   .kgrid{
-    display:grid;gap:1px;background:#14203d;border:3px solid #14203d;
+    display:grid;gap:2px;background:#2a2238;border:3px solid #2a2238;border-radius:8px;padding:2px;
     margin:0 auto;width:min(100%, calc(42vh * 1.462));
+    box-shadow:0 4px 0 #14203d,inset 0 0 12px #00000066;
   }
   .kgrid i{
     aspect-ratio:1;display:flex;align-items:center;justify-content:center;
     font-style:normal;font-size:7px;letter-spacing:0;color:#3a2a1e;
-    background:#34508f;overflow:hidden;
+    background:#34508f;overflow:hidden;border-radius:3px;
   }
-  .kgrid .void{background:#120f2c;}
-  .kgrid .wall{background:#8f8a92;}
-  .kgrid .floor{background:#e3d5ba;}
-  .kgrid .spawn{box-shadow:inset 0 0 0 2px #f0a63c99;}
+  /* Painted tiles to match the 3D kitchen: polished marble checker for the
+     floor, dressed stone for the walls, and a picture of the real station
+     model (rendered by editor.js) standing on its floor tile. */
+  .kgrid .void{background:#17142e;box-shadow:inset 0 0 0 1px #221d40;}
+  .kgrid .wall{background:linear-gradient(180deg,#bab3aa 0%,#a49d96 48%,#8f8882 52%,#a7a09a 100%);
+    box-shadow:inset 0 -2px 0 #6f6862,inset 0 1px 0 #d6d0c6;}
+  .kgrid .wall.alt{background:linear-gradient(180deg,#b1aaa2 0%,#9c958f 48%,#888179 52%,#a19a93 100%);}
+  .kgrid .floor{background:radial-gradient(circle at 30% 25%,#fbf6ec 0%,#efe6d4 60%,#e3d7bf 100%);}
+  .kgrid .floor.alt{background:radial-gradient(circle at 30% 25%,#e9ddc7 0%,#d9c9ac 60%,#cdbb9b 100%);}
+  .kgrid i.pic{
+    background-color:#efe6d4;background-size:100%;background-position:center;background-repeat:no-repeat;
+    box-shadow:inset 0 0 0 1px #00000014;
+  }
+  .kgrid i.pic.alt{background-color:#dccdb1;}
+  .kgrid .spawn{box-shadow:inset 0 0 0 2px #f0a63c,inset 0 0 8px #f0a63c88;}
   .kgrid .st{color:#14203d;font-size:6px;}
   .kgrid .fryer{background:#3a3d46;color:#ffb45c;}
   .kgrid .serve{background:#c9a04a;}
@@ -334,11 +349,14 @@
   .kgrid .sau-bbq{background:#7d3417;color:#f3ead6;}
   .kgrid .sau-hot{background:#e0431f;color:#fff;}
   .kgrid .sau-ket{background:#c01f14;color:#fff;}
-  .kgrid .lift{cursor:pointer;}
-  .kgrid .lift:hover{box-shadow:inset 0 0 0 2px #ffd464;}
+  .kgrid .lift{cursor:pointer;transition:transform .08s;}
+  .kgrid .lift:hover{box-shadow:inset 0 0 0 2px #ffd464,0 0 6px #ffd46499;transform:scale(1.08);position:relative;z-index:1;}
   .kgrid .ok{cursor:pointer;box-shadow:inset 0 0 0 2px #6fbf3a;}
-  .kgrid .ok:hover{background:#6fbf3a;}
+  .kgrid .ok:hover{background:#9fdc6a;}
   .kgrid .no{opacity:.4;}
+  .tray{display:inline-flex;align-items:center;gap:5px;}
+  .tray .tpic{width:24px;height:24px;background-size:100%;background-position:center;background-repeat:no-repeat;
+    background-color:#efe6d4;border-radius:4px;box-shadow:inset 0 0 0 1px #00000022;}
   .khint{font-size:9px;color:#c4b48e;margin-top:8px;}
   .kok{font-size:10px;color:#9fd36a;margin-top:8px;min-height:14px;}
   .kbad{font-size:10px;color:#ffb0a0;margin-top:8px;min-height:14px;}
@@ -420,7 +438,7 @@
   body.mobile .stat .k{font-size:7px;}
   body.mobile .stat .v{font-size:13px;}
   body.mobile #daywrap .v{font-size:11px;}
-  body.mobile #daywrap .sub{display:none;}
+  body.mobile #daywrap .sub,body.mobile #clockwrap #realClock{display:none;}
   body.mobile #tgtLabel{font-size:7px;}
 
   /* only the pause button stays on screen; the rest move into the pause card */
@@ -595,7 +613,8 @@
       <div class="k">Day</div><div class="v" id="day">1</div>
       <div class="sub" id="dayName">Opening Day</div>
     </div>
-    <div class="panel stat" id="clockwrap"><div class="k">Shift</div><div class="v" id="clock">2:00</div></div>
+    <div class="panel stat" id="clockwrap"><div class="k">Shift</div><div class="v" id="clock">2:00</div>
+      <div class="sub" id="realClock"></div></div>
     <div class="panel stat" id="scorewrap">
       <div class="k">Till</div><div class="v gold" id="score">$0.00</div>
       <div class="tgt" id="tgtBar"><i></i></div>
@@ -654,6 +673,8 @@
 <script src="./vendor/three.min.js"></script>
 <script src="./src/platform.js"></script>
 <script src="./src/config.js"></script>
+<script src="./src/season.js"></script>
+<script src="./src/daylight.js"></script>
 <script src="./src/layout.js"></script>
 <script src="./src/economy.js"></script>
 <script src="./src/audio.js"></script>

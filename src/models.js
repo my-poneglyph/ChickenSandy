@@ -838,6 +838,7 @@ window.CS = window.CS || {};
 
   /* A plump fillet: a squashed ellipsoid with a craggy crust of lumps. */
   function chickenPatty(kind) {
+    if (CS.isThanksgiving) return turkeyLeg(kind);
     var g = new THREE.Group();
     var m, lumps = CRUMBS;
     if (kind === 'raw') {
@@ -852,6 +853,84 @@ window.CS = window.CS || {};
     lumps.forEach(function (o, i) {
       add(g, CS.ball(o[2], o[2] * 0.75, o[2], m, o[0], 0.12 + (i % 3) * 0.01, o[1]));
     });
+    return g;
+  }
+
+  /* The November special's fried turkey: a plump drumstick with a crackling
+     golden-brown skin and the bone end poking out, lying on its side. */
+  function turkeyLeg(kind) {
+    var g = new THREE.Group();
+    var m;
+    if (kind === 'raw') m = { color: 0xffffff, tex: 'rawMeat', rough: 0.35 };
+    else if (kind === 'burnt') m = { color: 0xffffff, tex: 'charred', rough: 0.9 };
+    else m = { color: 0xc77a3a, tex: 'breading', emissive: WARM, rough: 0.5 };
+    var BONE = { color: 0xf3ead6, rough: 0.5 };
+    add(g, CS.ball(0.21, 0.12, 0.17, m, -0.06, 0.11, 0));                    // the meaty end
+    add(g, CS.ball(0.13, 0.085, 0.11, m, 0.1, 0.1, 0));
+    add(g, CS.cyl(0.03, 0.03, 0.16, BONE, 0.24, 0.1, 0, 10)).rotation.z = Math.PI / 2;
+    add(g, CS.ball(0.04, 0.035, 0.04, BONE, 0.33, 0.11, 0.025));            // knuckle
+    add(g, CS.ball(0.04, 0.035, 0.04, BONE, 0.33, 0.11, -0.025));
+    if (kind !== 'raw' && kind !== 'burnt') {
+      CRUMBS.slice(0, 5).forEach(function (o) {
+        add(g, CS.ball(o[2] * 0.8, o[2] * 0.55, o[2] * 0.8, m, o[0] * 0.8 - 0.06, 0.2, o[1] * 0.7));
+      });
+    }
+    return g;
+  }
+
+  /* Mashed potatoes: a soft scoop with a well of gravy-butter on top, or
+     whole spuds before they cook. */
+  function mashScoop(burnt) {
+    var g = new THREE.Group();
+    var M = burnt ? { color: 0x4a3a2c, rough: 0.9 } : { color: 0xf6ead0, rough: 0.7 };
+    add(g, CS.ball(0.17, 0.11, 0.17, M, 0, 0.08, 0));
+    add(g, CS.ball(0.11, 0.08, 0.11, M, 0.03, 0.15, -0.02));
+    add(g, CS.ball(0.07, 0.05, 0.07, M, -0.07, 0.13, 0.06));
+    if (!burnt) add(g, CS.box(0.06, 0.03, 0.06, { color: 0xf8d86a, rough: 0.3 }, 0.02, 0.22, 0));   // a pat of butter
+    return g;
+  }
+  function mashBowl(burnt) {
+    var g = new THREE.Group();
+    add(g, CS.cyl(0.19, 0.13, 0.11, { color: 0xffffff, tex: 'plate', rough: 0.3 }, 0, 0.055, 0, 20));
+    var s = mashScoop(burnt);
+    s.position.y = 0.05;
+    g.add(s);
+    return g;
+  }
+  function wholeSpuds(inPan) {
+    var g = new THREE.Group();
+    var SP = { color: 0xc49a62, tex: 'fluff', rough: 0.85 };
+    [[-0.1, -0.05], [0.1, 0.02], [0.0, 0.11], inPan ? [-0.02, -0.16] : null, inPan ? [0.17, -0.12] : null]
+      .forEach(function (p, i) {
+        if (!p) return;
+        add(g, CS.ball(0.1, 0.075, 0.08, SP, p[0], 0.07, p[1])).rotation.y = i;
+      });
+    return g;
+  }
+  function mashInPan(burnt) {
+    var g = new THREE.Group();
+    var M = burnt ? { color: 0x3a2f26, rough: 0.9 } : { color: 0xf3e3c0, emissive: WARM, rough: 0.6 };
+    add(g, CS.ball(0.3, 0.07, 0.3, M, 0, 0.04, 0));
+    add(g, CS.ball(0.14, 0.06, 0.14, M, 0.08, 0.08, -0.05));
+    return g;
+  }
+
+  /* A slice of pumpkin pie's worth, served whole: a fluted crust in a tin,
+     the orange custard, and a swirl of whipped cream. Empty, it is just the
+     crust waiting to be filled. */
+  function pumpkinPie(sauce) {
+    var g = new THREE.Group();
+    var CRUST = { color: 0xd9a35a, tex: 'bun', rough: 0.6 };
+    add(g, CS.cyl(0.14, 0.11, 0.07, { color: 0xb9b4ac, rough: 0.35, metal: 0.6 }, 0, 0.035, 0, 20));
+    add(g, CS.torus(0.135, 0.028, 0, CRUST, 0, 0.075, 0)).rotation.x = Math.PI / 2;
+    add(g, CS.cyl(0.12, 0.12, 0.02, CRUST, 0, 0.05, 0, 20));
+    if (sauce) {
+      var col = CS.ING[sauce].color;
+      add(g, CS.cyl(0.118, 0.118, 0.03, { color: col, rough: 0.35 }, 0, 0.075, 0, 20));
+      add(g, CS.ball(0.045, 0.03, 0.045, { color: 0xfffaf0, rough: 0.5 }, 0, 0.1, 0));
+      add(g, CS.cone(0.025, 0.04, { color: 0xfffaf0, rough: 0.5 }, 0, 0.13, 0, 8));
+    }
+    g.scale.setScalar(1.2);
     return g;
   }
 
@@ -943,6 +1022,7 @@ window.CS = window.CS || {};
 
   /* Builds the stacked sandwich on a plate. Returns the height it consumed. */
   function buildSandwich(g, s, y) {
+    if (CS.isThanksgiving) return buildDinner(g, s, y);
     var top = y;
     var BUN = { color: 0xffffff, tex: 'bun', emissive: 0x1a0c00, rough: 0.45 };
     add(g, CS.cyl(0.25, 0.24, 0.09, BUN, 0, top + 0.045, 0, 24));
@@ -1003,6 +1083,48 @@ window.CS = window.CS || {};
     return top + 0.22;
   }
 
+  /* The Thanksgiving plate: a dinner roll at the back, the fried turkey in
+     the middle with gravy or cranberry spooned over it, and kale and corn
+     heaped beside. Same data as a sandwich, laid out as a dinner. */
+  function buildDinner(g, s, y) {
+    var BUN = { color: 0xffffff, tex: 'bun', emissive: 0x1a0c00, rough: 0.45 };
+    add(g, CS.shell(0.14, 0.11, 0.13, BUN, 0, Math.PI * 2, 0, Math.PI / 2)).position.set(-0.17, y, -0.14);
+    add(g, CS.cyl(0.14, 0.14, 0.02, BUN, -0.17, y + 0.01, -0.14, 16)).scale.set(1, 1, 0.93);
+    var top = y + 0.02;
+    if (s.chicken) {
+      var p = turkeyLeg('fried');
+      p.position.set(0, y - 0.02, 0.04);
+      p.rotation.y = -0.5;
+      g.add(p);
+      top = y + 0.2;
+    }
+    s.sauces.forEach(function (id, i) {
+      var c = { color: CS.ING[id].color, rough: 0.15 };
+      var sy = s.chicken ? y + 0.19 : y + 0.03;
+      add(g, CS.ball(0.13, 0.03, 0.11, c, -0.04 + i * 0.06, sy, 0.04));
+      add(g, CS.ball(0.03, 0.05, 0.03, c, 0.06 + i * 0.05, sy - 0.05, 0.1));   // a drip
+    });
+    s.toppings.forEach(function (id, i) {
+      var c = CS.ING[id].color, px = i ? 0.0 : -0.2, pz = i ? 0.25 : 0.17;   // clear of the mash
+      if (id === 'pickle') {
+        // a spoonful of golden corn kernels
+        for (var k = 0; k < 10; k++) {
+          var a = k * 2.4, r = (k % 4) * 0.025;
+          add(g, CS.ball(0.022, 0.018, 0.022, { color: k % 2 ? c : CS.shade(c, 18), rough: 0.35 },
+            px + Math.cos(a) * r, y + 0.02 + (k > 6 ? 0.03 : 0), pz + Math.sin(a) * r));
+        }
+      } else {
+        // a heap of curly kale (or whatever leafy green this is)
+        for (var j = 0; j < 6; j++) {
+          var b = j / 6 * Math.PI * 2;
+          add(g, CS.ball(0.06, 0.035, 0.06, { color: j % 2 ? c : CS.shade(c, 22), rough: 0.6 },
+            px + Math.cos(b) * 0.05, y + 0.03 + (j % 2) * 0.02, pz + Math.sin(b) * 0.05));
+        }
+      }
+    });
+    return top + 0.05;
+  }
+
   /* White glazed plate with a blue rim, like the good crockery. */
   function dish(g) {
     add(g, CS.cyl(0.44, 0.36, 0.05, { color: 0x3a5aa6, rough: 0.3 }, 0, 0.025, 0, 32));
@@ -1014,6 +1136,7 @@ window.CS = window.CS || {};
      opts.inPan draws fries as they look frying: loose in the oil, not boxed. */
   CS.models.item = function (item, opts) {
     var inPan = !!(opts && opts.inPan);
+    var TG = CS.isThanksgiving;
     var g = new THREE.Group();
     if (!item) return g;
 
@@ -1021,10 +1144,10 @@ window.CS = window.CS || {};
       case 'rawChicken':   g.add(chickenPatty('raw')); break;
       case 'friedChicken': g.add(chickenPatty('fried')); break;
       case 'burntChicken': g.add(chickenPatty('burnt')); break;
-      case 'rawFries':     g.add(inPan ? friesPile(0xfbe9b8, 16) : friesBundle(0xfbe9b8, 0xfff6dc, 12)); break;
-      case 'cookedFries':  g.add(inPan ? friesPile(0xffc63f, 16, WARM) : friesCarton(false)); break;
-      case 'burntFries':   g.add(inPan ? friesPile(0x3a2f26, 16) : friesCarton(true)); break;
-      case 'cup':          g.add(sauceCup(item.sauce)); break;
+      case 'rawFries':     g.add(TG ? wholeSpuds(inPan) : inPan ? friesPile(0xfbe9b8, 16) : friesBundle(0xfbe9b8, 0xfff6dc, 12)); break;
+      case 'cookedFries':  g.add(TG ? (inPan ? mashInPan(false) : mashBowl(false)) : inPan ? friesPile(0xffc63f, 16, WARM) : friesCarton(false)); break;
+      case 'burntFries':   g.add(TG ? (inPan ? mashInPan(true) : mashBowl(true)) : inPan ? friesPile(0x3a2f26, 16) : friesCarton(true)); break;
+      case 'cup':          g.add(TG ? pumpkinPie(item.sauce) : sauceCup(item.sauce)); break;
       case 'garnish': {
         // a pinch of topping or a dollop of sauce on its way to a sandwich
         var ing = CS.ING[item.ing];
@@ -1045,12 +1168,13 @@ window.CS = window.CS || {};
           g.add(sg);
         }
         if (item.fries) {
-          var fc = friesCarton(false);
+          var fc = TG ? mashBowl(false) : friesCarton(false);
+          if (TG) fc.scale.setScalar(0.82);
           fc.position.set(item.sandwich ? 0.24 : 0, y, item.sandwich ? 0.16 : 0);
           g.add(fc);
         }
         item.cups.forEach(function (s, i) {
-          var c = sauceCup(s);
+          var c = TG ? pumpkinPie(s) : sauceCup(s);
           var ang = -0.9 + i * 0.9;
           c.position.set(Math.sin(ang) * 0.30, y, -0.26 + Math.cos(ang) * 0.06);
           c.scale.setScalar(0.85);
@@ -1189,38 +1313,98 @@ window.CS = window.CS || {};
   };
 
   /* The view through the arched window: a soft sky, distant hills and a
-     white castle with blue spires. */
+     white castle with blue spires. Painted three ways -- 'day', 'dusk' and
+     'night' -- and the real clock (daylight.js) swaps between them. At
+     night the castle windows are lit and there is a moon over the keep; in
+     November the hills turn to autumn colours. */
+  var SKIES = {
+    day:   { sky: ['#7fb6ea', '#cfe6f7', '#f2eadb'], cloud: 'rgba(255,255,255,0.85)',
+             wall: '#e6e8f2', roof: '#5a7cc4', win: '#b9c2dc', hill: ['#8fbf72', '#6fa45a'] },
+    dusk:  { sky: ['#4a4f8f', '#e88a5a', '#f6c37a'], cloud: 'rgba(255,196,160,0.75)',
+             wall: '#d8b8b0', roof: '#5a4c8a', win: '#ffd27a', hill: ['#6f7f5a', '#56684a'] },
+    night: { sky: ['#0b1030', '#1c2a5a', '#3a3f6a'], cloud: 'rgba(120,130,180,0.25)',
+             wall: '#6a7090', roof: '#2a3466', win: '#ffd27a', hill: ['#2c3b34', '#22302a'] }
+  };
+  function drawSky(x, W, H, mode) {
+    var P = SKIES[mode] || SKIES.day;
+    var g = x.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0, P.sky[0]); g.addColorStop(0.7, P.sky[1]); g.addColorStop(1, P.sky[2]);
+    x.fillStyle = g; x.fillRect(0, 0, W, H);
+    if (mode === 'night') {
+      for (var i = 0; i < 60; i++) {
+        var sx = (Math.sin(i * 91.7) * 0.5 + 0.5) * W, sy = (Math.sin(i * 47.3) * 0.5 + 0.5) * H * 0.6;
+        x.fillStyle = 'rgba(255,255,240,' + (0.4 + (i % 3) * 0.2) + ')';
+        x.fillRect(sx, sy, i % 5 ? 1.5 : 2.5, i % 5 ? 1.5 : 2.5);
+      }
+      x.fillStyle = '#fff6d8';
+      x.beginPath(); x.arc(300, 54, 22, 0, Math.PI * 2); x.fill();
+      x.fillStyle = P.sky[0];
+      x.beginPath(); x.arc(311, 47, 19, 0, Math.PI * 2); x.fill();      // a crescent
+    } else if (mode === 'dusk') {
+      var sun = x.createRadialGradient(80, H * 0.68, 4, 80, H * 0.68, 70);
+      sun.addColorStop(0, 'rgba(255,236,170,1)'); sun.addColorStop(1, 'rgba(255,180,110,0)');
+      x.fillStyle = sun; x.fillRect(0, 0, W, H);
+    }
+    x.fillStyle = P.cloud;
+    [[60, 60, 40], [100, 52, 30], [290, 80, 44], [330, 70, 30], [200, 40, 24]].forEach(function (c) {
+      x.beginPath(); x.arc(c[0], c[1], c[2], 0, Math.PI * 2); x.fill();
+    });
+    // castle
+    var base = H * 0.72;
+    var TOWERS = [[150, 70, 14], [182, 110, 18], [222, 92, 16], [250, 60, 12]];
+    x.fillStyle = P.wall;
+    TOWERS.forEach(function (t) { x.fillRect(t[0] - t[2], base - t[1], t[2] * 2, t[1]); });
+    x.fillRect(130, base - 46, 140, 46);
+    x.fillStyle = P.roof;
+    TOWERS.forEach(function (t) {
+      x.beginPath(); x.moveTo(t[0] - t[2] - 3, base - t[1]); x.lineTo(t[0], base - t[1] - t[2] * 2.6);
+      x.lineTo(t[0] + t[2] + 3, base - t[1]); x.fill();
+    });
+    x.fillStyle = P.win;
+    [[160, base - 30], [200, base - 60], [240, base - 40], [176, base - 88], [218, base - 74]].forEach(function (w, i) {
+      if (i > 2 && mode === 'day') return;
+      x.fillRect(w[0], w[1], 6, 10);
+    });
+    // hills, turned to russet and gold for the November special
+    var hills = CS.isThanksgiving
+      ? (mode === 'night' ? ['#3a3228', '#2c261e'] : mode === 'dusk' ? ['#9a6a3a', '#7a5230'] : ['#d09a48', '#b8742e'])
+      : P.hill;
+    x.fillStyle = hills[0];
+    x.beginPath(); x.moveTo(0, H); x.lineTo(0, base); x.quadraticCurveTo(W * 0.3, base - 30, W * 0.55, base + 4);
+    x.quadraticCurveTo(W * 0.8, base - 26, W, base - 6); x.lineTo(W, H); x.fill();
+    x.fillStyle = hills[1];
+    x.beginPath(); x.moveTo(0, H); x.lineTo(0, base + 24); x.quadraticCurveTo(W * 0.5, base, W, base + 30); x.lineTo(W, H); x.fill();
+    if (CS.isThanksgiving && mode !== 'night') {
+      // little autumn trees along the ridge
+      [[40, base + 2, '#c8461f'], [86, base - 8, '#e0861f'], [330, base - 4, '#c8461f'], [360, base - 2, '#f2b53a']]
+        .forEach(function (t) { x.fillStyle = t[2]; x.beginPath(); x.arc(t[0], t[1], 11, 0, Math.PI * 2); x.fill(); });
+    }
+  }
+
+  function skySize(worldW, worldH) {
+    return { W: 384, H: Math.round(384 * (worldH || worldW * 0.6) / worldW) };
+  }
+
   CS.models.skyPane = function (worldW, worldH) {
-    var W = 384, H = Math.round(384 * (worldH || worldW * 0.6) / worldW);
-    return textPlane(function (x) {
-      var g = x.createLinearGradient(0, 0, 0, H);
-      g.addColorStop(0, '#7fb6ea'); g.addColorStop(0.7, '#cfe6f7'); g.addColorStop(1, '#f2eadb');
-      x.fillStyle = g; x.fillRect(0, 0, W, H);
-      x.fillStyle = 'rgba(255,255,255,0.85)';
-      [[60, 60, 40], [100, 52, 30], [290, 80, 44], [330, 70, 30], [200, 40, 24]].forEach(function (c) {
-        x.beginPath(); x.arc(c[0], c[1], c[2], 0, Math.PI * 2); x.fill();
-      });
-      // castle
-      var base = H * 0.72;
-      x.fillStyle = '#e6e8f2';
-      [[150, 70, 14], [182, 110, 18], [222, 92, 16], [250, 60, 12]].forEach(function (t) {
-        x.fillRect(t[0] - t[2], base - t[1], t[2] * 2, t[1]);
-      });
-      x.fillRect(130, base - 46, 140, 46);
-      x.fillStyle = '#5a7cc4';
-      [[150, 70, 14], [182, 110, 18], [222, 92, 16], [250, 60, 12]].forEach(function (t) {
-        x.beginPath(); x.moveTo(t[0] - t[2] - 3, base - t[1]); x.lineTo(t[0], base - t[1] - t[2] * 2.6);
-        x.lineTo(t[0] + t[2] + 3, base - t[1]); x.fill();
-      });
-      x.fillStyle = '#b9c2dc';
-      [[160, base - 30], [200, base - 60], [240, base - 40]].forEach(function (w) { x.fillRect(w[0], w[1], 6, 10); });
-      // hills
-      x.fillStyle = '#8fbf72';
-      x.beginPath(); x.moveTo(0, H); x.lineTo(0, base); x.quadraticCurveTo(W * 0.3, base - 30, W * 0.55, base + 4);
-      x.quadraticCurveTo(W * 0.8, base - 26, W, base - 6); x.lineTo(W, H); x.fill();
-      x.fillStyle = '#6fa45a';
-      x.beginPath(); x.moveTo(0, H); x.lineTo(0, base + 24); x.quadraticCurveTo(W * 0.5, base, W, base + 30); x.lineTo(W, H); x.fill();
-    }, W, H, worldW || 3.0);
+    var s = skySize(worldW, worldH);
+    var m = textPlane(function (x) { drawSky(x, s.W, s.H, 'day'); }, s.W, s.H, worldW || 3.0);
+    m.userData.sky = { worldW: worldW, worldH: worldH, mode: 'day' };
+    return m;
+  };
+
+  /* A painted sky for an existing pane, cached per size and mode. */
+  var skyCache = {};
+  CS.models.skyTexture = function (worldW, worldH, mode) {
+    var s = skySize(worldW, worldH), key = s.W + 'x' + s.H + mode;
+    if (skyCache[key]) return skyCache[key];
+    var c = document.createElement('canvas');
+    c.width = s.W; c.height = s.H;
+    drawSky(c.getContext('2d'), s.W, s.H, mode);
+    var t = CS.srgb(new THREE.CanvasTexture(c));
+    t.magFilter = THREE.LinearFilter;
+    t.minFilter = THREE.LinearMipmapLinearFilter;
+    t.anisotropy = 4;
+    return (skyCache[key] = t);
   };
 
   /* Framed food picture for the wall -- drumstick, tomato or lettuce. */

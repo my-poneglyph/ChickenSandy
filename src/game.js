@@ -746,7 +746,7 @@ window.CS = window.CS || {};
       var st = stations[i];
       if (st.type !== 'fryer') continue;
       if (!st.cook) {
-        rows.push({ label: 'Fryer ' + (rows.length + 1), t: 0, color: '#6fbf3a', empty: true });
+        rows.push({ label: CS.WORDS.fryer + ' ' + (rows.length + 1), t: 0, color: '#6fbf3a', empty: true });
         continue;
       }
       var c = st.cook, d = c.def;
@@ -1309,6 +1309,7 @@ window.CS = window.CS || {};
     renderer.shadowMap.enabled = true;
     renderer.shadowMap.type = lowSpec ? THREE.PCFShadowMap : THREE.PCFSoftShadowMap;
     renderer.setClearColor(0x2a2638);
+    CS.daylight.renderer = renderer;     // night darkens the sky past the grounds
     host.appendChild(renderer.domElement);
 
     scene = new THREE.Scene();

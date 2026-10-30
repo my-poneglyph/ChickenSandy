@@ -17,14 +17,14 @@ window.CS = window.CS || {};
       '</div><div class="tbody">';
 
     if (o.sandwich) {
-      h += '<div class="line"><span class="bullet">&#9656;</span><span>Chicken Sandwich</span></div>';
+      h += '<div class="line"><span class="bullet">&#9656;</span><span>' + CS.WORDS.main + '</span></div>';
       var extras = o.sandwich.toppings.concat(o.sandwich.sauces);
       h += '<div class="sub">' + (extras.length ? extras.map(chip).join('') : '<i>plain</i>') + '</div>';
     }
-    if (o.fries) h += '<div class="line"><span class="bullet">&#9656;</span><span>French Fries</span></div>';
+    if (o.fries) h += '<div class="line"><span class="bullet">&#9656;</span><span>' + CS.WORDS.side + '</span></div>';
     if (o.cups.length) {
       h += '<div class="line"><span class="bullet">&#9656;</span><span>' + o.cups.length +
-        ' Sauce Cup' + (o.cups.length > 1 ? 's' : '') + '</span></div>';
+        ' ' + (o.cups.length > 1 ? CS.WORDS.cups : CS.WORDS.cup) + '</span></div>';
       h += '<div class="sub">' + o.cups.map(chip).join('') + '</div>';
     }
     h += '</div><div class="bar"><i style="width:100%"></i></div>';
@@ -132,11 +132,11 @@ window.CS = window.CS || {};
       var d = '';
       if (item && item.k === 'plate') {
         if (item.sandwich) {
-          d += item.sandwich.chicken ? 'Sandwich: chicken' : 'Bun only — needs chicken';
+          d += item.sandwich.chicken ? CS.WORDS.mainDone : CS.WORDS.mainBare;
           var ex = item.sandwich.toppings.concat(item.sandwich.sauces);
           if (ex.length) d += '<br>' + ex.map(chip).join('');
         }
-        if (item.fries) d += (d ? '<br>' : '') + 'Fries on the side';
+        if (item.fries) d += (d ? '<br>' : '') + CS.WORDS.sideOn;
         if (item.cups.length) d += (d ? '<br>' : '') + item.cups.map(chip).join('');
       } else if (item && item.k === 'cup' && item.sauce) {
         d = chip(item.sauce);
@@ -244,10 +244,16 @@ window.CS = window.CS || {};
         '<div class="cols">' +
         '<div class="col"><h3>CONTROLS</h3><ul>' + controls + '</ul></div>' +
         '<div class="col"><h3>THE LINE</h3><ul>' +
-        '<li>Grab a <b>plate</b>, add a <b>bun</b></li>' +
-        '<li>Fry <b>chicken</b> &amp; <b>potatoes</b></li>' +
-        '<li>Stack <b>toppings</b> &amp; <b>sauces</b></li>' +
-        '<li>Fill <b>cups</b> at the sauce bottles</li>' +
+        (CS.isThanksgiving
+          ? '<li>Grab a <b>plate</b>, add a <b>dinner roll</b></li>' +
+            '<li>Fry <b>turkey</b>, cook <b>mashed potatoes</b></li>' +
+            '<li>Spoon on <b>kale</b> &amp; <b>corn</b></li>' +
+            '<li>Pour <b>gravy</b> or <b>cranberry</b></li>' +
+            '<li>Fill <b>pie crusts</b> for <b>pumpkin pie</b></li>'
+          : '<li>Grab a <b>plate</b>, add a <b>bun</b></li>' +
+            '<li>Fry <b>chicken</b> &amp; <b>potatoes</b></li>' +
+            '<li>Stack <b>toppings</b> &amp; <b>sauces</b></li>' +
+            '<li>Fill <b>cups</b> at the sauce bottles</li>') +
         '<li>Hand it through the <b>window</b></li>' +
         '</ul></div>' +
         '<div class="col"><h3>WATCH OUT</h3><ul>' +
@@ -269,9 +275,15 @@ window.CS = window.CS || {};
        offer to carry on rather than silently resuming or silently wiping. */
     showStart: function (onStart, onFresh, saved) {
       var c = this.showScreen(
-        '<h1>CHICKEN SANDY</h1>' +
-        '<h2>&#9829; GOOD FOOD &#183; HAPPY CHICKEN &#9829;</h2>' +
-        '<p>You are the chef. You are also a chicken. Try not to think about the menu.</p>' +
+        (CS.isThanksgiving
+          ? '<h1 class="tgtitle"><small>THANKSGIVING</small>CHICKEN SANDY</h1>' +
+            '<h2>&#127810; NOVEMBER SPECIAL &#183; GOBBLE GOBBLE &#127810;</h2>' +
+            '<p>Fried turkey, mashed potatoes, kale, corn, gravy or cranberry, and pumpkin pie. ' +
+            'You are still a chicken. The turkeys are relieved.</p>'
+          : '<h1>CHICKEN SANDY</h1>' +
+            '<h2>&#9829; GOOD FOOD &#183; HAPPY CHICKEN &#9829;</h2>' +
+            '<p>You are the chef. You are also a chicken. Try not to think about the menu.</p>') +
+        (CS.daylight ? '<p class="timeofday">' + CS.daylight.greeting() + '</p>' : '') +
         (saved
           ? '<p style="color:var(--gold)">Your shop is on Day ' + saved.day +
             ' with ' + CS.money(saved.wallet) + ' in the till.</p>'
@@ -357,11 +369,11 @@ window.CS = window.CS || {};
       }
 
       var body =
-        sale('sandwich', L.lines.sandwich, L.revenue.sandwich) +
-        sale('topping', L.lines.topping, L.revenue.topping) +
-        sale('sauce', L.lines.sauce, L.revenue.sauce) +
-        sale('fries', L.lines.fries, L.revenue.fries) +
-        sale('sauce cup', L.lines.cup, L.revenue.cup) +
+        sale(CS.WORDS.mainLine, L.lines.sandwich, L.revenue.sandwich) +
+        sale(CS.isThanksgiving ? 'side' : 'topping', L.lines.topping, L.revenue.topping) +
+        sale(CS.isThanksgiving ? 'gravy &amp; cranberry' : 'sauce', L.lines.sauce, L.revenue.sauce) +
+        sale(CS.WORDS.sideLine, L.lines.fries, L.revenue.fries) +
+        sale(CS.WORDS.cupLine, L.lines.cup, L.revenue.cup) +
         (L.tipCount ? line('tips (' + L.tipCount + ')', CS.money(L.tips), 'tipval') : '') +
         (L.waste > 0 ? line('waste &amp; walkouts', '-' + CS.money(L.waste), 'badval') : '') +
         '<div class="scoreline rule"><span>TAKINGS</span><span>' + CS.money(L.net) + '</span></div>' +
@@ -468,7 +480,9 @@ window.CS = window.CS || {};
 
     showPause: function (onResume, onQuit) {
       var c = this.showScreen(
-        '<h1>PAUSED</h1>' + this.howToHTML() +
+        '<h1>PAUSED</h1>' +
+        (CS.daylight ? '<p class="timeofday">' + CS.daylight.greeting() + '</p>' : '') +
+        this.howToHTML() +
         '<div style="display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin-top:12px">' +
         // phones run one fixed camera, so VIEW would be a button that does nothing
         (CS.platform.mobile ? '' : '<button class="btn" id="pCam">VIEW</button>') +

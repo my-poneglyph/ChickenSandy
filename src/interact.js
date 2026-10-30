@@ -13,12 +13,12 @@ window.CS = window.CS || {};
 
   CS.itemLabel = function (item) {
     if (!item) return 'Nothing';
-    if (item.k === 'cup') return item.sauce ? CS.ING[item.sauce].label + ' Cup' : 'Empty Cup';
+    if (item.k === 'cup') return item.sauce ? CS.WORDS.cupFilled(item.sauce) : CS.WORDS.cupEmpty;
     if (item.k === 'plate') {
       var bits = [];
-      if (item.sandwich) bits.push(item.sandwich.chicken ? 'Sandwich' : 'Bun');
-      if (item.fries) bits.push('Fries');
-      if (item.cups.length) bits.push(item.cups.length + ' Cup' + (item.cups.length > 1 ? 's' : ''));
+      if (item.sandwich) bits.push(item.sandwich.chicken ? CS.WORDS.mainShort : CS.WORDS.base);
+      if (item.fries) bits.push(CS.WORDS.sideShort);
+      if (item.cups.length) bits.push(item.cups.length + ' ' + CS.WORDS.cupShort + (item.cups.length > 1 ? 's' : ''));
       return bits.length ? 'Plate: ' + bits.join(' + ') : 'Empty Plate';
     }
     return CS.ITEMS[item.k].label;
@@ -28,7 +28,7 @@ window.CS = window.CS || {};
   CS.itemShort = function (item) {
     if (!item) return 'Nothing';
     if (item.k === 'plate') return 'Plate';
-    if (item.k === 'cup') return item.sauce ? CS.ING[item.sauce].label + ' Cup' : 'Cup';
+    if (item.k === 'cup') return item.sauce ? CS.WORDS.cupFilled(item.sauce) : CS.WORDS.cupEmpty;
     return CS.ITEMS[item.k].label;
   };
 
@@ -38,17 +38,17 @@ window.CS = window.CS || {};
   CS.plateAcceptsWhy = function (plate, item) {
     if (!plate || plate.k !== 'plate' || !item) return { ok: false, why: '' };
     if (item.k === 'friedChicken') {
-      if (!plate.sandwich) return { ok: false, why: 'Needs a bun first' };
-      if (plate.sandwich.chicken) return { ok: false, why: 'Already has chicken' };
+      if (!plate.sandwich) return { ok: false, why: 'Needs a ' + CS.WORDS.base.toLowerCase() + ' first' };
+      if (plate.sandwich.chicken) return { ok: false, why: 'Already has ' + CS.WORDS.protein };
       return { ok: true, what: 'chicken' };
     }
     if (item.k === 'cookedFries') {
-      if (plate.fries) return { ok: false, why: 'Already has fries' };
+      if (plate.fries) return { ok: false, why: 'Already has ' + CS.WORDS.sideShort.toLowerCase() };
       return { ok: true, what: 'fries' };
     }
     if (item.k === 'cup') {
-      if (!item.sauce) return { ok: false, why: 'Fill the cup first' };
-      if (plate.cups.length >= CS.econ.mod('cups')) return { ok: false, why: 'No room for more cups' };
+      if (!item.sauce) return { ok: false, why: 'Fill the ' + CS.WORDS.cupNoun + ' first' };
+      if (plate.cups.length >= CS.econ.mod('cups')) return { ok: false, why: 'No room for more ' + CS.WORDS.cupShort.toLowerCase() + 's' };
       return { ok: true, what: 'cup' };
     }
     if (CS.isBurnt(item)) return { ok: false, why: 'That is burnt — bin it' };
@@ -97,8 +97,8 @@ window.CS = window.CS || {};
 
       case 'buns': {
         if (!held || held.k !== 'plate') return blocked('Grab a plate first');
-        if (held.sandwich) return blocked('Bun is already on');
-        return action('Add a Bun', function () {
+        if (held.sandwich) return blocked(CS.WORDS.base + ' is already on');
+        return action('Add a ' + CS.WORDS.base, function () {
           held.sandwich = { chicken: false, toppings: [], sauces: [] };
           G.refreshHeld(); CS.audio.place();
         });
@@ -107,8 +107,8 @@ window.CS = window.CS || {};
       /* ------------------------------------------------------- toppings */
       case 'topping': {
         var ing = st.def.ing;
-        if (!held || held.k !== 'plate') return blocked('Needs a plate with a bun');
-        if (!held.sandwich) return blocked('Add a bun first');
+        if (!held || held.k !== 'plate') return blocked('Needs a plate with a ' + CS.WORDS.base.toLowerCase());
+        if (!held.sandwich) return blocked('Add a ' + CS.WORDS.base.toLowerCase() + ' first');
         if (held.sandwich.toppings.indexOf(ing) >= 0) return blocked(CS.ING[ing].label + ' already on');
         return action('Add ' + CS.ING[ing].label, function () {
           held.sandwich.toppings.push(ing);
@@ -121,34 +121,34 @@ window.CS = window.CS || {};
       case 'sauce': {
         var s = st.def.ing;
         if (held && held.k === 'cup') {
-          if (held.sauce) return blocked('Cup is already full');
-          if (CS.CUP_SAUCES.indexOf(s) < 0) return blocked('Mayo does not come in cups');
-          return action('Fill Cup with ' + CS.ING[s].label, function () {
+          if (held.sauce) return blocked(CS.WORDS.cupFull);
+          if (CS.CUP_SAUCES.indexOf(s) < 0) return blocked(CS.ING[s].label + ' does not go in a ' + CS.WORDS.cupNoun);
+          return action(CS.WORDS.cupFill + CS.ING[s].label, function () {
             held.sauce = s; G.refreshHeld(); CS.audio.sauce();
           });
         }
         if (held && held.k === 'plate') {
-          if (!held.sandwich) return blocked('Add a bun first');
-          if (CS.SANDWICH_SAUCES.indexOf(s) < 0) return blocked('Ketchup only goes in cups');
+          if (!held.sandwich) return blocked('Add a ' + CS.WORDS.base.toLowerCase() + ' first');
+          if (CS.SANDWICH_SAUCES.indexOf(s) < 0) return blocked(CS.ING[s].label + ' only goes in a ' + CS.WORDS.cupNoun);
           if (held.sandwich.sauces.indexOf(s) >= 0) return blocked(CS.ING[s].label + ' already on');
-          return action('Squeeze ' + CS.ING[s].label, function () {
+          return action(CS.WORDS.pour + CS.ING[s].label, function () {
             held.sandwich.sauces.push(s);
             G.refreshHeld(); CS.audio.sauce();
             G.puff(st, CS.ING[s].color);
           });
         }
-        return blocked('Hold a plate or a cup');
+        return blocked('Hold a plate or a ' + CS.WORDS.cupNoun);
       }
 
       case 'cups': {
-        if (!held) return action('Take an Empty Cup', function () { G.setHeld(CS.newCup()); CS.audio.pick(); });
+        if (!held) return action(CS.WORDS.cupTake, function () { G.setHeld(CS.newCup()); CS.audio.pick(); });
         return blocked('Wings full');
       }
 
       /* --------------------------------------------------------- fryer */
       case 'fryer': {
         if (st.item) {
-          if (held) return blocked('Fryer is busy');
+          if (held) return blocked(CS.WORDS.fryer + ' is busy');
           var name = CS.ITEMS[st.item.k].label;
           return action('Lift out ' + name, function () {
             G.setHeld(st.item);
@@ -157,9 +157,9 @@ window.CS = window.CS || {};
             CS.audio.pick();
           });
         }
-        if (!held) return blocked('Drop in chicken or potatoes');
-        if (!CS.COOK[held.k]) return blocked('That does not go in the fryer');
-        return action('Fry the ' + CS.ITEMS[held.k].label, function () {
+        if (!held) return blocked(CS.WORDS.fryWhat);
+        if (!CS.COOK[held.k]) return blocked(CS.WORDS.fryNot);
+        return action(CS.WORDS.fryVerb + CS.ITEMS[held.k].label, function () {
           var def = CS.cookDef(held.k);
           G.setStationItem(st, held);
           st.cook = { t: 0, def: def, stage: 'cooking', warned: false };

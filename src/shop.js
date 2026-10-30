@@ -105,13 +105,13 @@ window.CS = window.CS || {};
 
   function jobWords(jobs) {
     return jobs.map(function (j) {
-      if (j === 'fries') return 'fries';
-      if (j === 'chicken') return 'fried chicken';
-      if (j === 'plate') return 'bun plates';
+      if (j === 'fries') return CS.WORDS.sideLine;
+      if (j === 'chicken') return 'fried ' + CS.WORDS.protein;
+      if (j === 'plate') return CS.WORDS.basePlates;
       if (j === 'serve') return 'deliveries to the window';
-      if (j === 'dress:top') return 'toppings';
-      if (j === 'dress:sauce') return 'sandwich sauces';
-      return CS.ING[j.slice(4)].label.toLowerCase() + ' cups';
+      if (j === 'dress:top') return CS.WORDS.toppings;
+      if (j === 'dress:sauce') return CS.WORDS.dressings;
+      return CS.WORDS.cupFilled(j.slice(4)).toLowerCase() + 's';
     }).join(', ');
   }
 
