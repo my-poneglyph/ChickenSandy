@@ -64,12 +64,13 @@ window.CS = window.CS || {};
     this.x0 = ext.x0 + 0.4; this.x1 = ext.x1 - 0.4;
     this.taken = [D.lane()];
   }
-  Row.prototype.place = function (pref, w) {
+  Row.prototype.place = function (pref, w, avoid) {
+    var keep = this.taken.concat(avoid || []);
     for (var step = 0; step < 120; step++) {
       var off = (step % 2 ? 1 : -1) * Math.ceil(step / 2) * 0.5;
       var x = pref + off;
       if (x - w / 2 < this.x0 || x + w / 2 > this.x1) continue;
-      var clash = this.taken.some(function (t) { return x + w / 2 > t[0] && x - w / 2 < t[1]; });
+      var clash = keep.some(function (t) { return x + w / 2 > t[0] && x - w / 2 < t[1]; });
       if (clash) continue;
       this.taken.push([x - w / 2, x + w / 2]);
       return x;
@@ -294,6 +295,7 @@ window.CS = window.CS || {};
 
   function build(scene, opts) {
     D.seats = [];
+    D.spots = {};
     D.dynamic = [];
     D.server = null;
     tanks = [];
@@ -331,22 +333,24 @@ window.CS = window.CS || {};
 
     // ---- against the back wall
     var back = new Row(ext);
+    // tall pieces stay out from in front of the chalkboards; low ones are fine
+    var signs = opts.avoid || [];
     var x;
     var won = CS.econ ? CS.econ.trophies() : [];
     if (has('slushBar')) {
-      x = back.place(ext.x1 - 3.4, 4.4);
+      x = back.place(ext.x1 - 3.4, 4.4, signs);
       if (x !== null) {
-        slushBar(scene, x, ROW_BACK);
+        slushBar(scene, x, ROW_BACK); D.spots.bar = { x: x, z: ROW_BACK };
         if (has('slushServer')) makeServer(scene, x - 0.6, ROW_BACK + 1.1);
       }
     }
     if (has('statue')) {
-      x = back.place(CS.OX + 28.3, 2.0);
-      if (x !== null) statue(scene, x, ROW_BACK + 0.1);
+      x = back.place(CS.OX + 28.3, 2.0, signs);
+      if (x !== null) { statue(scene, x, ROW_BACK + 0.1); D.spots.statue = { x: x, z: ROW_BACK + 0.1 }; }
     }
     if (won.length) {
-      x = back.place(CS.OX + 18.5, won.length + 0.6);
-      if (x !== null) trophyCase(scene, x, ROW_BACK, won);
+      x = back.place(CS.OX + 18.5, won.length + 0.6, signs);
+      if (x !== null) { trophyCase(scene, x, ROW_BACK, won); D.spots.trophies = { x: x, z: ROW_BACK }; }
     }
     // the November special's pumpkin piles
     if (CS.isThanksgiving && opts.pumpkin) {
