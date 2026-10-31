@@ -242,6 +242,88 @@ window.CS = window.CS || {};
         blot: [0xc2937a, 0x946a52] }), 1);
     },
 
+    /* ---- dining-room floors and wallpapers, bought in the shop ---- */
+    parquet: function () {
+      var s = 256, k = canvas(s), x = k.x, rng = rngFrom(301);
+      x.fillStyle = '#8a5a34'; x.fillRect(0, 0, s, s);
+      // herringbone: rows of short planks leaning alternately
+      var pw = 64, ph = 16;
+      for (var r = -2; r < s / ph + 2; r++) {
+        for (var c = -1; c < s / pw + 1; c++) {
+          var shade = 0xa8703f + Math.round((rng() - 0.5) * 30) * 0x10101;
+          x.save();
+          x.translate(c * pw + (r % 2) * pw / 2, r * ph);
+          x.fillStyle = hex(shade & 0xffffff);
+          x.fillRect(1, 1, pw - 2, ph - 2);
+          x.strokeStyle = 'rgba(60,36,18,0.5)';
+          x.lineWidth = 1;
+          x.beginPath(); x.moveTo(4, ph / 2); x.lineTo(pw - 6, ph / 2 + (rng() - 0.5) * 3); x.stroke();
+          x.restore();
+        }
+      }
+      grain(x, s, 10, 302);
+      return finish(k.c, 1);
+    },
+    carpet: function () {
+      var s = 256, k = canvas(s), x = k.x;
+      x.fillStyle = '#8e1f2a'; x.fillRect(0, 0, s, s);
+      blotches(x, s, [0xa02a34, 0x7a1822], 30, 10, 40, 0.35, 303);
+      x.strokeStyle = '#e2b347'; x.lineWidth = 6;
+      x.strokeRect(10, 10, s - 20, s - 20);
+      x.lineWidth = 2; x.strokeRect(22, 22, s - 44, s - 44);
+      x.fillStyle = '#e2b347';
+      for (var i = 0; i < 4; i++) {
+        var cx = i % 2 ? s * 0.75 : s * 0.25, cy = i < 2 ? s * 0.25 : s * 0.75;
+        x.beginPath(); x.moveTo(cx, cy - 14); x.lineTo(cx + 10, cy); x.lineTo(cx, cy + 14); x.lineTo(cx - 10, cy); x.fill();
+      }
+      grain(x, s, 14, 304);
+      return finish(k.c, 1);
+    },
+    wallDamask: function () {
+      var s = 128, k = canvas(s), x = k.x;
+      x.fillStyle = '#2f4f96'; x.fillRect(0, 0, s, s);
+      x.fillStyle = 'rgba(226,179,71,0.75)';
+      [[32, 32], [96, 96]].forEach(function (p) {
+        x.beginPath(); x.ellipse(p[0], p[1], 9, 18, 0, 0, Math.PI * 2); x.fill();
+        x.beginPath(); x.ellipse(p[0] - 14, p[1] + 6, 6, 10, 0.8, 0, Math.PI * 2); x.fill();
+        x.beginPath(); x.ellipse(p[0] + 14, p[1] + 6, 6, 10, -0.8, 0, Math.PI * 2); x.fill();
+        x.beginPath(); x.arc(p[0], p[1] - 22, 4, 0, Math.PI * 2); x.fill();
+      });
+      grain(x, s, 8, 305);
+      return finish(k.c, 1);
+    },
+    wallStripe: function () {
+      var s = 128, k = canvas(s), x = k.x;
+      for (var i = 0; i < 8; i++) {
+        x.fillStyle = i % 2 ? '#f2e2b8' : '#d9a845';
+        x.fillRect(i * 16, 0, 16, s);
+      }
+      x.fillStyle = 'rgba(255,255,255,0.25)';
+      for (var j = 0; j < 8; j += 2) x.fillRect(j * 16 + 6, 0, 3, s);
+      grain(x, s, 8, 306);
+      return finish(k.c, 1);
+    },
+    wallRose: function () {
+      var s = 128, k = canvas(s), x = k.x, rng = rngFrom(307);
+      x.fillStyle = '#cfe2c4'; x.fillRect(0, 0, s, s);
+      x.strokeStyle = 'rgba(120,150,100,0.6)'; x.lineWidth = 2;
+      for (var d = -s; d < s * 2; d += 32) {
+        x.beginPath(); x.moveTo(d, 0); x.lineTo(d + s, s); x.stroke();
+        x.beginPath(); x.moveTo(d, s); x.lineTo(d + s, 0); x.stroke();
+      }
+      for (var i = 0; i < 9; i++) {
+        var px = rng() * s, py = rng() * s;
+        x.fillStyle = '#5f9a4a';
+        x.beginPath(); x.ellipse(px + 7, py + 4, 5, 3, 0.5, 0, Math.PI * 2); x.fill();
+        x.fillStyle = i % 2 ? '#d8506a' : '#e8869a';
+        x.beginPath(); x.arc(px, py, 6, 0, Math.PI * 2); x.fill();
+        x.fillStyle = 'rgba(255,255,255,0.4)';
+        x.beginPath(); x.arc(px - 1.5, py - 1.5, 2.2, 0, Math.PI * 2); x.fill();
+      }
+      grain(x, s, 6, 308);
+      return finish(k.c, 1);
+    },
+
     /* The castle lawn outside: soft painted patches with a scatter of
        short blades, so it reads as grass from the kitchen camera. */
     grass: function () {

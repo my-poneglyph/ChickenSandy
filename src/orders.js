@@ -97,6 +97,7 @@ window.CS = window.CS || {};
       this.list.length = 0;
       this.leaving.length = 0;
       this.coins.length = 0;
+      if (CS.dining) CS.dining.releaseAll();
       this.level = level || CS.levelFor(1);
       this.spawnTimer = CS.FIRST_SPAWN;
       this.frozen = false;
@@ -275,12 +276,20 @@ window.CS = window.CS || {};
       if (happy) CS.audio.voice(order.critter.look, 0.8);     // a happy kweh, kupo...
 
       c.speed = happy ? WALK : HURRY;
-      c.path = [
-        { x: EXIT_X, z: c.group.position.z },
+      c.path = [{ x: EXIT_X, z: c.group.position.z }];
+      // with tables in the dining room, a happy customer sits down to eat
+      // first: along the aisle to a free chair, a few bites, and back
+      var seat = happy && CS.dining && Math.random() < 0.75 ? CS.dining.claimSeat() : null;
+      if (seat) {
+        var aisle = CS.OZ - 4.0;
+        c.path.push({ x: EXIT_X, z: aisle }, { x: seat.x, z: aisle },
+          { x: seat.x, z: seat.z, sit: 5 + Math.random() * 4, seat: seat },
+          { x: seat.x, z: aisle }, { x: EXIT_X, z: aisle });
+      }
+      c.path.push(
         { x: EXIT_X, z: INSIDE_Z },
         { x: CS.DOOR_X, z: THRESHOLD_Z },
-        { x: CS.DOOR_X, z: OUTSIDE_Z }
-      ];
+        { x: CS.DOOR_X, z: OUTSIDE_Z });
       this.leaving.push(c);
       this.relayout();
     },
@@ -314,7 +323,8 @@ window.CS = window.CS || {};
     separate: function () {
       var R = 0.36, all = [];
       this.list.forEach(function (o) { if (o.cust) all.push(o.cust.group); });
-      this.leaving.forEach(function (c) { all.push(c.group); });
+      // someone sat at a table stays put; the room walks round them
+      this.leaving.forEach(function (c) { if (!(c.sitting > 0)) all.push(c.group); });
       for (var i = 0; i < all.length; i++) {
         for (var j = i + 1; j < all.length; j++) {
           var a = all[i].position, b = all[j].position;
@@ -408,16 +418,31 @@ window.CS = window.CS || {};
           lc.parts.armL.rotation.x = -1.9;
           lc.parts.armR.rotation.x = -1.9;
           if (lc.parts.species.tail === 'wag') lc.parts.tail.rotation.y = Math.sin(lc.t * 22) * 0.8;
+        } else if (lc.sitting > 0) {
+          // sat at a table, tucking in
+          lc.sitting -= dt;
+          var sp = lc.sitAt;
+          var sd = ((sp.face - lg.rotation.y + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
+          lg.rotation.y += sd * Math.min(1, dt * 8);
+          lg.position.y = 0.2;
+          lc.parts.legL.rotation.x = lc.parts.legR.rotation.x = -1.3;
+          lc.parts.armR.rotation.x = -0.9 - Math.abs(Math.sin(lc.t * 5)) * 0.6;   // a bite
+          lc.parts.armL.rotation.x = -0.5;
+          if (lc.sitting <= 0) { sp.busy = false; lg.position.y = 0; }
         } else {
           var wp2 = lc.path[0];
           var m2 = wp2 ? stepToward(lg, wp2.x, wp2.z, lc.speed, dt) : 0;
-          if (wp2 && m2 === 0) lc.path.shift();
+          if (wp2 && m2 === 0) {
+            lc.path.shift();
+            if (wp2.sit) { lc.sitting = wp2.sit; lc.sitAt = wp2.seat; lc.sitTotal = wp2.sit; }
+          }
           animateCust(lc, dt, m2);
           if (!lc.happy) lc.parts.head.rotation.y = Math.sin(lc.t * 7) * 0.22;
         }
 
         // gone through the door, or stuck long enough that something is wrong
-        if (!lc.path.length || lc.t > 14) {
+        if (!lc.path.length || lc.t > 22 + (lc.sitTotal || 0)) {
+          if (lc.sitAt) lc.sitAt.busy = false;
           scene.remove(lg);
           CS.dispose(lg);
           this.leaving.splice(j, 1);

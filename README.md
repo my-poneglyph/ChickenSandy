@@ -39,6 +39,12 @@ A few touches worth knowing about:
   Sunrise and sunset move with the calendar, so November evenings draw in early.
   The time shows under the shift clock (desktop) and on the start and pause cards.
   Add `?hour=21` to the URL to pin the clock for testing.
+* **The HUD gets out of the way.** When the chef, or the station she is working, is
+  under a panel (the held-item card, the hint line, the fryer gauges, the tickets
+  or the thumb buttons), that panel fades almost to nothing until she moves on, so
+  kit along the bottom of the kitchen is never hidden. The camera also frames the
+  kitchen you own rather than the whole map, with room at the bottom for the front
+  wall to scroll clear of the panels.
 
 ---
 
@@ -311,8 +317,8 @@ the distance. Off-duty customers stroll the path, stop to wave at the shop, and
 step round each other.
 
 Land you have not bought yet is dressed too: a vegetable garden (with a scarecrow
-and a gardener) where the Back Room goes, a little orchard where the East Wing
-goes, and a pumpkin patch in the corner. Buying a wing clears its plot.
+and a gardener) where the old Back Room went, a little orchard where the East Wing
+went, and a pumpkin patch in the corner.
 
 It all lives in `src/grounds.js` and is built once, outside the kitchen's rebuild,
 because it sits entirely outside the full map grid. It is cheap enough for a phone:
@@ -493,17 +499,21 @@ to buy next.
 
 ## The shop
 
-Between days you are in the shop, spending the profit. Four kinds of thing to buy:
+Between days you are in the shop, spending the profit. Here's what you can buy:
 
 * **Equipment** — fitted the moment you buy it. Vented Baskets and Twin Burners take
   15% off the fryer clock each (and compound); a Thermostat buys you half again as
   long before a basket burns; a Waiting Bench makes customers 12% more patient; Deep
   Trays fit a fourth sauce cup on a plate; a Roadside Sign adds a customer to the
   queue.
-* **Kit** — a fryer, a prep counter, a sauce bottle. Buying one drops it in the tray;
-  you place it yourself in the kitchen editor.
-* **The building** — the Back Room adds two rows, the East Wing four columns. The
-  wall moves out and anything mounted on it slides out with it.
+* **Kit** — buying one drops it in the tray; you place it yourself in the kitchen
+  editor. Only **fryers, prep counters and plate stacks** can be bought more than
+  once. Every other station (crates, trays, bottles, the cup dispenser, the bin,
+  the serving window) is one-of-each and shows `IN KITCHEN`, because a second
+  ketchup bottle only adds walking.
+* **The Dining Room** — decor that makes customers happier (see below).
+* **The Kitchen** — the kitchen no longer grows: a bigger floor only meant more
+  steps between stations. See *The compact kitchen*.
 * **Helpers** — listed first, since hiring is the biggest decision before a day. See
   below.
 * **Chef Sandy** — spend skill points; see *Levelling up*.
@@ -512,6 +522,52 @@ Everything is saved to `localStorage` under `chickenSandy.shop.v1` the moment it
 changes, so the shop is still there when you come back. Telegram webviews can clear
 storage, so treat it as durable rather than permanent. `NEW SHOP` on the title screen
 wipes it.
+
+### The compact kitchen
+
+Every new shop starts in an 11 x 7 kitchen: the fryers down the west wall, the
+crates and bins along the south, the trays, cups and ketchup down the east, the
+bottles beside the window, and the plates, buns and prep counters in the middle. It
+carries exactly the same stations the old 13 x 9 room did, with far less walking
+between them.
+
+A save from before this keeps its old kitchen (and any Back Room or East Wing it
+bought) until you take **Renovate: The Compact Kitchen** in the shop. It's free.
+Every station is set out in the compact layout, the wings are bought back for what
+they cost, and any kit the compact room has no spot for (a fourth fryer, extra
+counters) goes in the tray to place yourself.
+
+### The dining room
+
+The shop grows out front instead. Every piece of decor has **happiness** points
+(the ♥ in the shop). Each point makes every customer wait 1% longer and tip 2% more,
+and every castle boss trophy you have won adds one more.
+
+| Upgrade | ♥ | What it does |
+| --- | --- | --- |
+| Grand Dining Hall | 2 | Knocks through the east wall for a bigger room |
+| Tables & Chairs | 2 | Four tables. Happy customers sit down to eat before leaving |
+| Cushioned Chairs | 1 | Royal-blue velvet seats |
+| Tablecloths | 2 | Checked cloths (autumn red in November) |
+| More Tables | 2 | Four more, to fill the Grand Hall |
+| Potted Plants | 1 | Ferns and lemon trees in the corners |
+| Floors | 1–3 | Oak parquet, royal carpet or polished marble |
+| Wallpaper | 1–3 | Blue damask, harvest stripe or rose garden |
+| Slushie Bar | 3 | Three swirling slushie tanks by the back wall |
+| Pom the Slushie Server | 2 | A moogle who walks free slushies out to the queue |
+| Golden Chocobo Statue | 4 | A gleaming golden bird on a marble plinth |
+
+**Pom** picks whoever in the queue is closest to giving up and hands them a slushie.
+That customer gets back over a fifth of their patience, holds the slushie while they
+wait, and tips 25% more. Pom is paid like the kitchen crew, a 5% share of the takings
+($1 minimum).
+
+You can own several floors and wallpapers and swap between them for free. Only the
+one on show counts towards happiness. **Boss trophies** go in a cabinet against the
+back wall as you win them, no purchase needed.
+
+Furniture is laid out automatically around the queue's lane. If you move the serving
+window, the tables and the bar move to keep the door clear.
 
 ### Hiring
 
@@ -628,6 +684,7 @@ src/
   textures.js                 procedural painted textures (stone, oak, oil, breading…)
   models.js                   smooth-primitive builders: chef, customers, staff, food, signs
   mirror.js                   the polished floor: a planar reflection with Fresnel falloff
+  dining.js                   the dining room: decor, tables and seats, slushie bar and Pom
   world.js                    kitchen construction, stations, lighting, sparks and steam
   interact.js                 item data + resolve(): the single "what does E do" rule
   orders.js                   customer lifecycle, tickets, order matching, tips

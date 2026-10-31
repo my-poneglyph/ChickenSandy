@@ -298,6 +298,11 @@
     box-shadow:none;cursor:not-allowed;}
   .buy.off:active{transform:none;}
 
+  /* panels fade back when the chef or her station is underneath (game.js) */
+  #leftstack,#hint,#fryers,#pad,#tickets,#topbar,#bossHud{transition:opacity .25s;}
+  .peek{opacity:.16 !important;}
+  .buyname b.heart{color:#ff8ab0;font-size:.85em;}
+
   /* ---------- the kitchen editor ---------- */
   .trayrow{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin:4px 0 10px;}
   .tray{
@@ -903,7 +908,27 @@ window.CS = window.CS || {};
      opens up. CS.BASE_MAP is the shop you start with; CS.MAP is the live grid
      that layout.js rewrites as you expand and rearrange, and that world.js
      builds from. */
+  /* The compact kitchen every new shop starts in: an 11 x 7 floor with the
+     fryers, crates, trays and bottles all a few steps from the prep counters
+     and the window. The older, roomier 13 x 9 kitchen (CS.CLASSIC_MAP) is
+     still what an old save loads into until it takes the free renovation in
+     the shop. Both carry exactly the same stations. */
   CS.BASE_MAP = [
+    '##SSS####MQH#~~~~~~',
+    '#...........#~~~~~~',
+    'F...PP.BB...L~~~~~~',
+    '#...........O~~~~~~',
+    'F...CCC.....I~~~~~~',
+    '#...CCC.....U~~~~~~',
+    'F...........Y~~~~~~',
+    '#...........#~~~~~~',
+    '##KK#TT#XX###~~~~~~',
+    '~~~~~~~~~~~~~~~~~~~',
+    '~~~~~~~~~~~~~~~~~~~',
+    '~~~~~~~~~~~~~~~~~~~',
+    '~~~~~~~~~~~~~~~~~~~'
+  ];
+  CS.CLASSIC_MAP = [
     '###SSS####MQHY#~~~~',
     '#.............#~~~~',
     'F.............L~~~~',
@@ -1524,9 +1549,9 @@ window.CS = window.CS || {};
     { id: 'sign',    kind: 'gear', name: 'Roadside Sign',   cost: 180,
       blurb: 'One more customer in the queue at a time.', mod: { orders: 1 } },
 
-    { id: 'fryer',   kind: 'part', name: 'Fryer',           cost: 85,  ch: 'F', wall: true },
-    { id: 'counter', kind: 'part', name: 'Prep Counter',    cost: 25,  ch: 'C' },
-    { id: 'plates',  kind: 'part', name: 'Plate Stack',     cost: 30,  ch: 'P' },
+    { id: 'fryer',   kind: 'part', name: 'Fryer',           cost: 85,  ch: 'F', wall: true, multi: true },
+    { id: 'counter', kind: 'part', name: 'Prep Counter',    cost: 25,  ch: 'C', multi: true },
+    { id: 'plates',  kind: 'part', name: 'Plate Stack',     cost: 30,  ch: 'P', multi: true },
     { id: 'buns',    kind: 'part', name: 'Bun Crate',       cost: 30,  ch: 'B' },
     { id: 'cups',    kind: 'part', name: 'Cup Dispenser',   cost: 35,  ch: 'U', wall: true },
     { id: 'bin',     kind: 'part', name: 'Trash Can',       cost: 20,  ch: 'X' },
@@ -1544,8 +1569,53 @@ window.CS = window.CS || {};
     { id: 'backroom', kind: 'land', name: 'The Back Room', cost: 240,
       blurb: 'Two more rows behind the kitchen.', region: 'south' },
     { id: 'eastwing', kind: 'land', name: 'The East Wing', cost: 300,
-      blurb: 'Four more columns of floor.', region: 'east' }
+      blurb: 'Four more columns of floor.', region: 'east' },
+    // (the two wings above are no longer sold: a bigger kitchen only meant
+    //  more walking. Saves that own one keep it, or sell it back in the shop.)
+
+    /* ------------------------------------------------------ the dining room
+       Decor makes the customers happier, and `happy` points are what it is
+       worth: every point is +1% patience and +2% on tips (CS.HAPPY). Each
+       piece shows up in the dining room. Floors and wallpaper are `slot`s:
+       you can own several and switch between them for free, and only the one
+       on display counts. */
+    { id: 'hall', kind: 'decor', name: 'Grand Dining Hall', cost: 280, happy: 2,
+      blurb: 'Knock through the east wall: a bigger dining room with space for more tables.' },
+    { id: 'tables', kind: 'decor', name: 'Tables & Chairs', cost: 90, happy: 2,
+      blurb: 'Four oak tables. Happy customers sit down to eat before they leave.' },
+    { id: 'chairs', kind: 'decor', name: 'Cushioned Chairs', cost: 70, happy: 1, needs: 'tables',
+      blurb: 'Royal-blue velvet cushions on every seat.' },
+    { id: 'cloths', kind: 'decor', name: 'Tablecloths', cost: 60, happy: 2, needs: 'tables',
+      blurb: 'Crisp checked cloths on every table.' },
+    { id: 'tables2', kind: 'decor', name: 'More Tables', cost: 140, happy: 2, needs: 'hall',
+      blurb: 'Four more tables to fill the Grand Hall.' },
+    { id: 'plants', kind: 'decor', name: 'Potted Plants', cost: 50, happy: 1,
+      blurb: 'Ferns and lemon trees in glazed pots round the room.' },
+    { id: 'floorOak', kind: 'decor', slot: 'floor', name: 'Floor: Oak Parquet', cost: 80, happy: 1,
+      blurb: 'Warm herringbone oak underfoot.' },
+    { id: 'floorRug', kind: 'decor', slot: 'floor', name: 'Floor: Royal Carpet', cost: 120, happy: 2,
+      blurb: 'A deep red carpet with a gold border.' },
+    { id: 'floorMarble', kind: 'decor', slot: 'floor', name: 'Floor: Polished Marble', cost: 170, happy: 3,
+      blurb: 'The same marble checker as the kitchen.' },
+    { id: 'wallDamask', kind: 'decor', slot: 'wall', name: 'Wallpaper: Blue Damask', cost: 70, happy: 1,
+      blurb: 'Castle blue with gold flourishes.' },
+    { id: 'wallStripe', kind: 'decor', slot: 'wall', name: 'Wallpaper: Harvest Stripe', cost: 100, happy: 2,
+      blurb: 'Cream and gold stripes, warm as toast.' },
+    { id: 'wallRose', kind: 'decor', slot: 'wall', name: 'Wallpaper: Rose Garden', cost: 140, happy: 3,
+      blurb: 'Climbing roses on a soft green trellis.' },
+    { id: 'slushBar', kind: 'decor', name: 'Slushie Bar', cost: 220, happy: 3,
+      blurb: 'Three swirling tanks of frozen fruit slushie by the back wall.' },
+    { id: 'slushServer', kind: 'decor', name: 'Pom the Slushie Server', cost: 140, happy: 2, needs: 'slushBar',
+      wage: { share: 0.05, min: 1.00, max: 14.00 },
+      blurb: 'Hands out free slushies to the queue: that customer waits longer and tips 25% more.' },
+    { id: 'statue', kind: 'decor', name: 'Golden Chocobo Statue', cost: 480, happy: 4,
+      blurb: 'A gleaming golden chocobo-chicken on a marble plinth. Customers love it.' }
   ];
+
+  /* What happiness is worth: each point of it. */
+  CS.HAPPY = { patience: 0.01, tips: 0.02, perTrophy: 1 };
+  /* A complimentary slushie: how much patience it gives back, and the tip. */
+  CS.SLUSHIE = { every: 7.0, patience: 0.22, tip: 1.25 };
 
   /* ---------------------------------------------------------------- utils */
   CS.MAP_W = CS.MAP[0].length;
@@ -1986,7 +2056,13 @@ window.CS = window.CS || {};
     south: { edge: 'row', to: 12 },
     east:  { edge: 'col', to: 18 }
   };
-  var BASE = { c0: 0, c1: 14, r0: 0, r1: 10 };
+  /* The two kitchens a save can be built on. 'compact' is what every new
+     shop starts in; 'classic' is the older, roomier room an existing save
+     keeps until it takes the renovation (CS.layout.compact). */
+  var BASES = {
+    compact: { c0: 0, c1: 12, r0: 0, r1: 8, map: function () { return CS.BASE_MAP; } },
+    classic: { c0: 0, c1: 14, r0: 0, r1: 10, map: function () { return CS.CLASSIC_MAP; } }
+  };
 
   var WALL_STATIONS = 'FSKTLOIUMQHY';   // must sit on a boundary wall
   var FLOOR_STATIONS = 'CPB';           // must sit on open floor
@@ -1999,7 +2075,8 @@ window.CS = window.CS || {};
 
   var L = CS.layout = {
     owned: [],                 // region ids bought so far
-    bounds: { c0: 0, c1: 14, r0: 0, r1: 10 },
+    base: 'compact',           // which of BASES this kitchen is built on
+    bounds: { c0: 0, c1: 12, r0: 0, r1: 8 },
 
     isWallChar:  function (ch) { return WALL_STATIONS.indexOf(ch) >= 0; },
     isFloorChar: function (ch) { return FLOOR_STATIONS.indexOf(ch) >= 0; },
@@ -2008,7 +2085,8 @@ window.CS = window.CS || {};
 
     /* ------------------------------------------------------------ bounds */
     computeBounds: function (owned) {
-      var b = { c0: BASE.c0, c1: BASE.c1, r0: BASE.r0, r1: BASE.r1 };
+      var B0 = BASES[L.base] || BASES.compact;
+      var b = { c0: B0.c0, c1: B0.c1, r0: B0.r0, r1: B0.r1 };
       owned.forEach(function (id) {
         var r = REGIONS[id];
         if (!r) return;
@@ -2222,12 +2300,34 @@ window.CS = window.CS || {};
     /* ------------------------------------------------------- save / load */
     reset: function () {
       L.owned = [];
+      L.base = 'compact';
       L.bounds = L.computeBounds(L.owned);
       CS.MAP = CS.BASE_MAP.slice();
       L.refreshDerived();
     },
 
-    serialize: function () { return { owned: L.owned.slice(), grid: CS.MAP.slice() }; },
+    /* --------------------------------------------------------- renovate
+       Move a roomy old kitchen (and any wings it bought) into the compact
+       one. Every station goes back where the compact kitchen keeps it; any
+       you own beyond that -- a fourth fryer, extra counters -- is handed back
+       as `{ch: n}` for the caller to drop in the tray, so nothing you paid
+       for is lost. Returns the wings that were given up, so they can be
+       refunded. */
+    compact: function () {
+      var have = {}, base = {}, spare = {};
+      L.stations().forEach(function (p) { have[p.ch] = (have[p.ch] || 0) + 1; });
+      var wings = L.owned.slice();
+      L.base = 'compact';
+      L.owned = [];
+      L.bounds = L.computeBounds(L.owned);
+      CS.MAP = CS.BASE_MAP.slice();
+      L.refreshDerived();
+      L.stations().forEach(function (p) { base[p.ch] = (base[p.ch] || 0) + 1; });
+      for (var ch in have) if (have[ch] > (base[ch] || 0)) spare[ch] = have[ch] - (base[ch] || 0);
+      return { spare: spare, wings: wings };
+    },
+
+    serialize: function () { return { base: L.base, owned: L.owned.slice(), grid: CS.MAP.slice() }; },
 
     load: function (data) {
       if (!data || !data.grid || data.grid.length !== CS.MAP_H) { L.reset(); return false; }
@@ -2236,6 +2336,8 @@ window.CS = window.CS || {};
           L.reset(); return false;
         }
       }
+      // saves from before the compact kitchen were all built on the old one
+      L.base = BASES[data.base] ? data.base : 'classic';
       L.owned = (data.owned || []).filter(function (r) { return !!REGIONS[r]; });
       L.bounds = L.computeBounds(L.owned);
       CS.MAP = data.grid.slice();
@@ -2277,7 +2379,8 @@ window.CS = window.CS || {};
     fryGrace: { base: 1, how: 'mul' },
     patience: { base: 1, how: 'mul' },
     cups:     { base: 3, how: 'max' },
-    orders:   { base: 0, how: 'add' }
+    orders:   { base: 0, how: 'add' },
+    tips:     { base: 1, how: 'mul' }
   };
 
   function blank() {
@@ -2292,6 +2395,7 @@ window.CS = window.CS || {};
       career: { days: 0, served: 0, earned: 0, tips: 0, best: 0 },
       bosses: [],       // ids of the castle bosses fed, first time round
       bossDays: [],     // every boss day beaten, so a lap's bosses gate too
+      decor: { floor: null, wall: null },   // which owned floor and wallpaper are on show
       chef: blankChef()
     };
   }
@@ -2337,6 +2441,11 @@ window.CS = window.CS || {};
       s.bosses = (d.bosses || []).filter(function (id) { return typeof id === 'string'; });
       s.bossDays = (d.bossDays || []).filter(function (n) { return typeof n === 'number'; });
       s.stock = d.stock && typeof d.stock === 'object' ? d.stock : {};
+      if (d.decor && typeof d.decor === 'object') {
+        ['floor', 'wall'].forEach(function (k) {
+          if (s.owned.indexOf(d.decor[k]) >= 0) s.decor[k] = d.decor[k];
+        });
+      }
       s.staff = (d.staff || []).filter(function (h) { return h && CS.STAFF_DEFS[h.kind]; })
         .map(function (h) { return { kind: h.kind, training: (h.training || []).slice() }; });
       if (d.career) for (var k in s.career) {
@@ -2388,16 +2497,48 @@ window.CS = window.CS || {};
         else if (def.how === 'add') v += m;
         else v = Math.max(v, m);
       });
+      // a happy dining room keeps customers waiting longer and tipping more
+      if (key === 'patience') v *= 1 + E.happiness() * CS.HAPPY.patience;
+      if (key === 'tips') v *= 1 + E.happiness() * CS.HAPPY.tips;
       return v;
     },
 
     has: function (id) { return E.state.owned.indexOf(id) >= 0; },
 
+    /* How happy the dining room makes people: every piece of decor on show,
+       plus a point for each castle boss trophy in the cabinet. */
+    happiness: function () {
+      var n = 0;
+      E.state.owned.forEach(function (id) {
+        var u = upgrade(id);
+        if (!u || u.kind !== 'decor' || !u.happy) return;
+        if (u.slot && E.state.decor[u.slot] !== id) return;     // owned, but not on show
+        n += u.happy;
+      });
+      return n + E.trophies().length * CS.HAPPY.perTrophy;
+    },
+
+    /* Put an owned floor or wallpaper on show (or `null` for the original). */
+    equip: function (slot, id) {
+      if (id && !E.has(id)) return { ok: false, why: 'Not bought yet' };
+      E.state.decor[slot] = id || null;
+      E.save();
+      return { ok: true };
+    },
+
+    /* How many of a part the shop has: on the floor plus waiting in the tray. */
+    partCount: function (u) {
+      return CS.layout.count(u.ch) + (E.state.stock[u.id] || 0);
+    },
+
     /* Can this be bought right now? Covers money, prerequisites and the
-       one-of-each rule that gear and land obey but parts do not. */
+       one-of-each rule. Gear, decor and land are one-off; so is kit, except
+       the things a busier kitchen genuinely wants more of -- fryers, prep
+       counters and plate stacks. A second ketchup bottle only adds walking. */
     canBuy: function (u) {
       if (!u) return { ok: false, why: '' };
       if (u.kind !== 'part' && E.has(u.id)) return { ok: false, why: 'Already fitted' };
+      if (u.kind === 'part' && !u.multi && E.partCount(u) > 0) return { ok: false, why: 'IN KITCHEN' };
       if (u.needs && !E.has(u.needs)) {
         var n = upgrade(u.needs);
         return { ok: false, why: 'Needs ' + (n ? n.name : u.needs) + ' first' };
@@ -2418,9 +2559,33 @@ window.CS = window.CS || {};
         CS.layout.unlock(u.region);
       } else {
         E.state.owned.push(u.id);
+        if (u.slot) E.state.decor[u.slot] = u.id;     // a new floor goes straight down
       }
       E.save();
       return { ok: true };
+    },
+
+    /* The free renovation into the compact kitchen. Wings are sold back at
+       what they cost, and any kit the compact room has no place for goes in
+       the tray to be placed by hand. */
+    renovate: function () {
+      if (CS.layout.base === 'compact') return { ok: false, why: 'Already compact' };
+      var res = CS.layout.compact(), refund = 0;
+      CS.UPGRADES.forEach(function (u) {
+        if (u.kind !== 'land' || !E.has(u.id)) return;
+        refund += u.cost;
+        E.state.owned.splice(E.state.owned.indexOf(u.id), 1);
+      });
+      var moved = 0;
+      for (var ch in res.spare) {
+        var part = CS.UPGRADES.filter(function (p) { return p.kind === 'part' && p.ch === ch; })[0];
+        if (!part) continue;
+        E.state.stock[part.id] = (E.state.stock[part.id] || 0) + res.spare[ch];
+        moved += res.spare[ch];
+      }
+      E.state.wallet = Math.round((E.state.wallet + refund) * 100) / 100;
+      E.save();
+      return { ok: true, refund: refund, moved: moved };
     },
 
     /* ------------------------------------------------------------ the chef
@@ -2522,7 +2687,15 @@ window.CS = window.CS || {};
         if (w > c.wageMax) w = c.wageMax;
         return n + w;
       }, 0);
+      // front-of-house staff (the slushie server) are paid the same way
+      E.frontOfHouse().forEach(function (u) {
+        total += CS.clamp((net || 0) * u.wage.share, u.wage.min, u.wage.max);
+      });
       return Math.round(total * 100) / 100;
+    },
+
+    frontOfHouse: function () {
+      return CS.UPGRADES.filter(function (u) { return u.wage && E.has(u.id); });
     },
 
     /* The wage bill as it stands right now, for the HUD and the receipt. */
@@ -2532,11 +2705,12 @@ window.CS = window.CS || {};
 
     /* The floor and the ceiling, for the shop to show before a day starts. */
     wageRange: function () {
-      var crew = E.crew();
-      return {
-        min: Math.round(crew.reduce(function (n, c) { return n + c.wageMin; }, 0) * 100) / 100,
-        max: Math.round(crew.reduce(function (n, c) { return n + c.wageMax; }, 0) * 100) / 100
-      };
+      var crew = E.crew(), foh = E.frontOfHouse();
+      var lo = crew.reduce(function (n, c) { return n + c.wageMin; }, 0)
+        + foh.reduce(function (n, u) { return n + u.wage.min; }, 0);
+      var hi = crew.reduce(function (n, c) { return n + c.wageMax; }, 0)
+        + foh.reduce(function (n, u) { return n + u.wage.max; }, 0);
+      return { min: Math.round(lo * 100) / 100, max: Math.round(hi * 100) / 100 };
     },
 
     /* ------------------------------------------------------- the menu */
@@ -3618,6 +3792,88 @@ window.CS = window.CS || {};
       return finish(masonry({ size: 256, seed: 44, rowH: 64, minW: 48, maxW: 96,
         base: 0xae7f64, vary: 26, grout: 0x6e5242, gap: 2.5, round: 6, grain: 9,
         blot: [0xc2937a, 0x946a52] }), 1);
+    },
+
+    /* ---- dining-room floors and wallpapers, bought in the shop ---- */
+    parquet: function () {
+      var s = 256, k = canvas(s), x = k.x, rng = rngFrom(301);
+      x.fillStyle = '#8a5a34'; x.fillRect(0, 0, s, s);
+      // herringbone: rows of short planks leaning alternately
+      var pw = 64, ph = 16;
+      for (var r = -2; r < s / ph + 2; r++) {
+        for (var c = -1; c < s / pw + 1; c++) {
+          var shade = 0xa8703f + Math.round((rng() - 0.5) * 30) * 0x10101;
+          x.save();
+          x.translate(c * pw + (r % 2) * pw / 2, r * ph);
+          x.fillStyle = hex(shade & 0xffffff);
+          x.fillRect(1, 1, pw - 2, ph - 2);
+          x.strokeStyle = 'rgba(60,36,18,0.5)';
+          x.lineWidth = 1;
+          x.beginPath(); x.moveTo(4, ph / 2); x.lineTo(pw - 6, ph / 2 + (rng() - 0.5) * 3); x.stroke();
+          x.restore();
+        }
+      }
+      grain(x, s, 10, 302);
+      return finish(k.c, 1);
+    },
+    carpet: function () {
+      var s = 256, k = canvas(s), x = k.x;
+      x.fillStyle = '#8e1f2a'; x.fillRect(0, 0, s, s);
+      blotches(x, s, [0xa02a34, 0x7a1822], 30, 10, 40, 0.35, 303);
+      x.strokeStyle = '#e2b347'; x.lineWidth = 6;
+      x.strokeRect(10, 10, s - 20, s - 20);
+      x.lineWidth = 2; x.strokeRect(22, 22, s - 44, s - 44);
+      x.fillStyle = '#e2b347';
+      for (var i = 0; i < 4; i++) {
+        var cx = i % 2 ? s * 0.75 : s * 0.25, cy = i < 2 ? s * 0.25 : s * 0.75;
+        x.beginPath(); x.moveTo(cx, cy - 14); x.lineTo(cx + 10, cy); x.lineTo(cx, cy + 14); x.lineTo(cx - 10, cy); x.fill();
+      }
+      grain(x, s, 14, 304);
+      return finish(k.c, 1);
+    },
+    wallDamask: function () {
+      var s = 128, k = canvas(s), x = k.x;
+      x.fillStyle = '#2f4f96'; x.fillRect(0, 0, s, s);
+      x.fillStyle = 'rgba(226,179,71,0.75)';
+      [[32, 32], [96, 96]].forEach(function (p) {
+        x.beginPath(); x.ellipse(p[0], p[1], 9, 18, 0, 0, Math.PI * 2); x.fill();
+        x.beginPath(); x.ellipse(p[0] - 14, p[1] + 6, 6, 10, 0.8, 0, Math.PI * 2); x.fill();
+        x.beginPath(); x.ellipse(p[0] + 14, p[1] + 6, 6, 10, -0.8, 0, Math.PI * 2); x.fill();
+        x.beginPath(); x.arc(p[0], p[1] - 22, 4, 0, Math.PI * 2); x.fill();
+      });
+      grain(x, s, 8, 305);
+      return finish(k.c, 1);
+    },
+    wallStripe: function () {
+      var s = 128, k = canvas(s), x = k.x;
+      for (var i = 0; i < 8; i++) {
+        x.fillStyle = i % 2 ? '#f2e2b8' : '#d9a845';
+        x.fillRect(i * 16, 0, 16, s);
+      }
+      x.fillStyle = 'rgba(255,255,255,0.25)';
+      for (var j = 0; j < 8; j += 2) x.fillRect(j * 16 + 6, 0, 3, s);
+      grain(x, s, 8, 306);
+      return finish(k.c, 1);
+    },
+    wallRose: function () {
+      var s = 128, k = canvas(s), x = k.x, rng = rngFrom(307);
+      x.fillStyle = '#cfe2c4'; x.fillRect(0, 0, s, s);
+      x.strokeStyle = 'rgba(120,150,100,0.6)'; x.lineWidth = 2;
+      for (var d = -s; d < s * 2; d += 32) {
+        x.beginPath(); x.moveTo(d, 0); x.lineTo(d + s, s); x.stroke();
+        x.beginPath(); x.moveTo(d, s); x.lineTo(d + s, 0); x.stroke();
+      }
+      for (var i = 0; i < 9; i++) {
+        var px = rng() * s, py = rng() * s;
+        x.fillStyle = '#5f9a4a';
+        x.beginPath(); x.ellipse(px + 7, py + 4, 5, 3, 0.5, 0, Math.PI * 2); x.fill();
+        x.fillStyle = i % 2 ? '#d8506a' : '#e8869a';
+        x.beginPath(); x.arc(px, py, 6, 0, Math.PI * 2); x.fill();
+        x.fillStyle = 'rgba(255,255,255,0.4)';
+        x.beginPath(); x.arc(px - 1.5, py - 1.5, 2.2, 0, Math.PI * 2); x.fill();
+      }
+      grain(x, s, 6, 308);
+      return finish(k.c, 1);
     },
 
     /* The castle lawn outside: soft painted patches with a scatter of
@@ -5678,6 +5934,480 @@ window.CS = window.CS || {};
 
 </script>
 <script>
+/* ---- src/dining.js ---- */
+/* The dining room: everything you buy for the front of house.
+
+   The kitchen stays compact -- every step there costs time -- so the shop
+   grows out here instead. Decor raises the room's happiness (CS.econ
+   .happiness), which makes every customer wait longer and tip more; this
+   module draws all of it and runs the two things in it that move:
+
+     * the slushie server, who walks a free slushie out to whoever in the
+       queue is closest to giving up -- more patience and a bigger tip for
+       that order -- and walks back to the bar for the next one;
+     * the seats. A happy customer whose order went out sits down at a free
+       table to eat before heading home (orders.js asks claimSeat()).
+
+   world.js calls build() every time it rebuilds the shop, inside the
+   shop's own root group, so it is torn down and put back with everything
+   else. Things are laid out round the door: whatever lane the queue walks
+   down (it follows the serving window) is always kept clear.             */
+window.CS = window.CS || {};
+(function (CS) {
+  'use strict';
+
+  var T = CS.TILE;
+  var BACK_Z = CS.OZ - 9.5;            // the dining room's back wall (orders.js agrees)
+  var ROW_BACK = CS.OZ - 8.2;          // against the back wall
+  var ROW_A = CS.OZ - 5.5;             // the far row of tables
+  var ROW_B = CS.OZ - 2.5;             // the near row, just over the kitchen wall
+  var AISLE = CS.OZ - 4.0;             // the walkway between the two rows
+  var BASE_X1 = CS.OX + 38;            // east end of the room before the Grand Hall
+  var HALL_X1 = CS.OX + 44;            // ...and after (the path outside is just past it)
+
+  function has(id) { return CS.econ && CS.econ.has(id); }
+
+  var D = CS.dining = {
+    seats: [],
+    dynamic: [],          // meshes world.js must not merge (they move)
+    server: null,
+
+    extent: function () {
+      return { x0: CS.OX - 5, x1: has('hall') ? HALL_X1 : BASE_X1, back: BACK_Z };
+    },
+
+    /* The queue's lane and the lane served customers leave by. */
+    lane: function () { return [CS.DOOR_X - 2.4, CS.DOOR_X + 2.3 + 1.5]; },
+
+    /* A free seat east of the exit lane, so the walk to it never cuts
+       across the people still queueing. */
+    claimSeat: function () {
+      var free = D.seats.filter(function (s) { return !s.busy && s.x > CS.DOOR_X + 3.4; });
+      if (!free.length) return null;
+      var s = CS.pick(free);
+      s.busy = true;
+      return s;
+    },
+    releaseAll: function () { D.seats.forEach(function (s) { s.busy = false; }); },
+
+    build: function (scene, opts) { build(scene, opts || {}); },
+    update: function (dt, playing) { update(dt, playing); }
+  };
+
+  /* ------------------------------------------------------------ layout
+     A row is a list of taken [x0, x1] spans; place() finds the nearest
+     clear spot to where an item would like to stand. */
+  function Row(ext) {
+    this.x0 = ext.x0 + 0.4; this.x1 = ext.x1 - 0.4;
+    this.taken = [D.lane()];
+  }
+  Row.prototype.place = function (pref, w) {
+    for (var step = 0; step < 120; step++) {
+      var off = (step % 2 ? 1 : -1) * Math.ceil(step / 2) * 0.5;
+      var x = pref + off;
+      if (x - w / 2 < this.x0 || x + w / 2 > this.x1) continue;
+      var clash = this.taken.some(function (t) { return x + w / 2 > t[0] && x - w / 2 < t[1]; });
+      if (clash) continue;
+      this.taken.push([x - w / 2, x + w / 2]);
+      return x;
+    }
+    return null;
+  };
+
+  /* --------------------------------------------------------- materials */
+  var OAK = { color: 0xffffff, tex: 'counterWood', rough: 0.7 };
+  var OAK_D = { color: 0x7c5434, rough: 0.75 };
+  // no environment map to reflect, so a fully metallic gold reads as bronze:
+  // keep it half metal with a warm glow of its own
+  var GOLD = { color: 0xf2c14e, rough: 0.3, metal: 0.45, emissive: 0x4a3000 };
+  var MARBLE = { color: 0xf2eee6, rough: 0.3 };
+  var BRASS = { color: 0xd6a648, rough: 0.3, metal: 0.85 };
+  function put(p, m) { p.add(m); return m; }
+
+  /* ------------------------------------------------------------- pieces */
+  function table(scene, x, z) {
+    var g = new THREE.Group();
+    g.position.set(x, 0, z);
+    g.add(CS.box(1.5, 0.08, 1.1, OAK, 0, 0.78, 0));
+    [[-0.6, -0.4], [0.6, -0.4], [-0.6, 0.4], [0.6, 0.4]].forEach(function (p) {
+      g.add(CS.box(0.08, 0.76, 0.08, OAK_D, p[0], 0.38, p[1]));
+    });
+    if (has('cloths')) {
+      var CLOTH = { color: 0xffffff, tex: CS.isThanksgiving ? 'carpet' : 'counterTop', rough: 0.8 };
+      g.add(CS.box(1.66, 0.03, 1.26, CLOTH, 0, 0.835, 0));
+      g.add(CS.box(1.66, 0.22, 0.02, CLOTH, 0, 0.73, 0.63));
+      g.add(CS.box(1.66, 0.22, 0.02, CLOTH, 0, 0.73, -0.63));
+    }
+    // a candle, and a little vase of flowers
+    g.add(CS.cyl(0.05, 0.05, 0.18, { color: 0xfbf4e2, rough: 0.6 }, 0.3, 0.94, 0, 10));
+    g.add(CS.ball(0.035, 0.05, 0.035, CS.mat({ color: 0xffc46a, basic: true }), 0.3, 1.07, 0));
+    g.add(CS.cyl(0.07, 0.05, 0.16, { color: 0x3a5aa6, rough: 0.3 }, -0.25, 0.92, 0.05, 10));
+    g.add(CS.ball(0.06, 0.06, 0.06, { color: 0xe8546a, rough: 0.6 }, -0.25, 1.04, 0.05));
+    [-1, 1].forEach(function (s) {
+      chair(g, s * 1.0, 0, s > 0 ? -Math.PI / 2 : Math.PI / 2);
+      D.seats.push({ x: x + s * 1.0, z: z, face: s > 0 ? -Math.PI / 2 : Math.PI / 2, busy: false });
+    });
+    scene.add(g);
+  }
+
+  function chair(g, x, z, rot) {
+    var c = new THREE.Group();
+    c.position.set(x, 0, z);
+    c.rotation.y = rot;
+    c.add(CS.box(0.5, 0.06, 0.5, OAK, 0, 0.46, 0));
+    [[-0.2, -0.2], [0.2, -0.2], [-0.2, 0.2], [0.2, 0.2]].forEach(function (p) {
+      c.add(CS.box(0.06, 0.46, 0.06, OAK_D, p[0], 0.23, p[1]));
+    });
+    c.add(CS.box(0.5, 0.55, 0.06, OAK, 0, 0.76, -0.23));       // back
+    if (has('chairs')) {
+      c.add(CS.box(0.46, 0.07, 0.46, { color: 0x2f4f96, rough: 0.9 }, 0, 0.52, 0));
+      c.add(CS.box(0.44, 0.4, 0.05, { color: 0x2f4f96, rough: 0.9 }, 0, 0.78, -0.2));
+    }
+    g.add(c);
+  }
+
+  function plant(scene, x, z, kind) {
+    var g = new THREE.Group();
+    g.position.set(x, 0, z);
+    g.add(CS.cyl(0.3, 0.22, 0.5, { color: kind ? 0x3a5aa6 : 0xc06a3a, rough: 0.4 }, 0, 0.25, 0, 16));
+    g.add(CS.cyl(0.31, 0.31, 0.06, { color: 0xf4ead6, rough: 0.4 }, 0, 0.5, 0, 16));
+    if (kind) {
+      // a little lemon tree
+      g.add(CS.cyl(0.04, 0.05, 0.7, OAK_D, 0, 0.85, 0, 8));
+      g.add(CS.ball(0.42, 0.4, 0.42, { color: 0x4f8a34, rough: 0.7 }, 0, 1.35, 0));
+      [[0.25, 1.3, 0.25], [-0.3, 1.45, 0.1], [0.05, 1.2, -0.35], [0.2, 1.6, -0.1]].forEach(function (p) {
+        g.add(CS.ball(0.07, 0.08, 0.07, { color: 0xf2d43a, rough: 0.4 }, p[0], p[1], p[2]));
+      });
+    } else {
+      // a fern
+      for (var i = 0; i < 9; i++) {
+        var a = i / 9 * Math.PI * 2;
+        var f = put(g, CS.ball(0.09, 0.42, 0.05, { color: i % 2 ? 0x4f9a3a : 0x3f7e2e, rough: 0.7 },
+          Math.cos(a) * 0.18, 0.85, Math.sin(a) * 0.18));
+        f.rotation.set(Math.sin(a) * 0.7, 0, -Math.cos(a) * 0.7);
+      }
+    }
+    scene.add(g);
+  }
+
+  /* The Golden Chocobo: a big round golden bird with a crest and tail
+     plumes, on a marble plinth. */
+  function statue(scene, x, z) {
+    var g = new THREE.Group();
+    g.position.set(x, 0, z);
+    g.add(CS.box(1.3, 0.7, 1.0, MARBLE, 0, 0.35, 0));
+    g.add(CS.box(1.45, 0.1, 1.15, MARBLE, 0, 0.73, 0));
+    g.add(CS.box(0.7, 0.12, 0.04, GOLD, 0, 0.42, 0.51));                 // nameplate
+    var b = new THREE.Group();
+    b.position.set(0, 0.78, 0);
+    b.add(CS.cyl(0.06, 0.07, 0.4, GOLD, -0.16, 0.2, 0, 8));
+    b.add(CS.cyl(0.06, 0.07, 0.4, GOLD, 0.16, 0.2, 0, 8));
+    b.add(CS.ball(0.42, 0.38, 0.5, GOLD, 0, 0.72, -0.04));               // body
+    put(b, CS.cyl(0.13, 0.17, 0.5, GOLD, 0, 1.15, 0.22, 12)).rotation.x = -0.3;   // neck
+    b.add(CS.ball(0.24, 0.22, 0.26, GOLD, 0, 1.45, 0.3));                // head
+    put(b, CS.cone(0.08, 0.28, GOLD, 0, 1.42, 0.62, 10)).rotation.x = Math.PI / 2;  // beak
+    [-0.1, 0, 0.1].forEach(function (cx, i) {                            // crest
+      put(b, CS.cone(0.05, 0.3, GOLD, cx, 1.68, 0.2 - i * 0.04, 6)).rotation.x = -0.5;
+    });
+    [-0.22, 0, 0.22].forEach(function (tx) {                             // tail plumes
+      put(b, CS.cone(0.08, 0.55, GOLD, tx, 0.95, -0.55, 6)).rotation.x = -1.0;
+    });
+    [-1, 1].forEach(function (s) {                                       // folded wings
+      put(b, CS.ball(0.12, 0.26, 0.36, GOLD, s * 0.38, 0.75, -0.05)).rotation.z = s * 0.25;
+    });
+    g.add(b);
+    var shine = new THREE.PointLight(CS.linear(0xffd77a), 0.5, 4, 2);
+    shine.position.set(x, 2.4, z + 0.8);
+    scene.add(shine);
+    scene.add(g);
+  }
+
+  /* Every castle boss you have fed, on its own little stand. */
+  var TROPHY_LOOK = {
+    'trophy-ogre': function (g) {                                        // the Gatehouse Key
+      put(g, CS.torus(0.12, 0.035, 0, GOLD, 0, 0.5, 0));
+      g.add(CS.box(0.05, 0.36, 0.05, GOLD, 0, 0.26, 0));
+      g.add(CS.box(0.12, 0.05, 0.05, GOLD, 0.06, 0.12, 0));
+    },
+    'trophy-dragon': function (g) {                                     // an Ember Scale
+      put(g, CS.cone(0.16, 0.4, { color: 0xc23a22, rough: 0.2, metal: 0.4, emissive: 0x401000 }, 0, 0.32, 0, 6))
+        .rotation.z = Math.PI;
+    },
+    'trophy-lich': function (g) {                                       // the Hourglass
+      g.add(CS.cyl(0.14, 0.14, 0.04, BRASS, 0, 0.12, 0, 12));
+      g.add(CS.cyl(0.14, 0.14, 0.04, BRASS, 0, 0.56, 0, 12));
+      g.add(CS.cone(0.11, 0.2, { color: 0x9fe8f0, opacity: 0.6, rough: 0.05 }, 0, 0.44, 0, 12));
+      put(g, CS.cone(0.11, 0.2, { color: 0x9fe8f0, opacity: 0.6, rough: 0.05 }, 0, 0.24, 0, 12)).rotation.z = Math.PI;
+    },
+    'trophy-colossus': function (g) {                                   // the Clockwork Heart
+      put(g, CS.torus(0.15, 0.05, 0, BRASS, 0, 0.36, 0));
+      for (var i = 0; i < 8; i++) {
+        var a = i / 8 * Math.PI * 2;
+        g.add(CS.box(0.06, 0.06, 0.06, BRASS, Math.cos(a) * 0.21, 0.36 + Math.sin(a) * 0.21, 0));
+      }
+      g.add(CS.ball(0.08, 0.08, 0.08, { color: 0xc8302e, rough: 0.3 }, 0, 0.36, 0));
+    },
+    'trophy-rooster': function (g) {                                    // the Golden Comb
+      [-0.1, 0, 0.1].forEach(function (cx, i) {
+        g.add(CS.ball(0.07, 0.15 + (i === 1 ? 0.05 : 0), 0.04, GOLD, cx, 0.32, 0));
+      });
+      g.add(CS.box(0.32, 0.06, 0.06, GOLD, 0, 0.16, 0));
+    }
+  };
+
+  function trophyCase(scene, x, z, list) {
+    var g = new THREE.Group();
+    g.position.set(x, 0, z);
+    var w = list.length * 1.0 + 0.4;
+    g.add(CS.box(w, 0.9, 0.8, OAK, 0, 0.45, 0));
+    g.add(CS.box(w + 0.1, 0.06, 0.9, OAK_D, 0, 0.92, 0));
+    list.forEach(function (t, i) {
+      var s = new THREE.Group();
+      s.position.set(-w / 2 + 0.7 + i * 1.0, 0.95, 0);
+      s.add(CS.cyl(0.2, 0.24, 0.1, { color: 0x2f4f96, rough: 0.8 }, 0, 0.05, 0, 14));
+      if (TROPHY_LOOK[t.id]) TROPHY_LOOK[t.id](s);
+      g.add(s);
+    });
+    scene.add(g);
+  }
+
+  /* The slushie bar: an oak counter with three swirling tanks. */
+  var tanks = [];
+  function slushBar(scene, x, z) {
+    var g = new THREE.Group();
+    g.position.set(x, 0, z);
+    g.add(CS.box(4.0, 1.0, 1.0, OAK, 0, 0.5, 0));
+    g.add(CS.box(4.15, 0.08, 1.12, { color: 0x3a5aa6, rough: 0.3 }, 0, 1.04, 0));
+    g.add(CS.box(3.4, 0.5, 0.04, { color: 0xf4ead6, rough: 0.6 }, 0, 0.6, 0.52));   // sign band
+    [0xe8546a, 0x5fb0e8, 0x9fd84a].forEach(function (c, i) {
+      var tx = -1.2 + i * 1.2;
+      g.add(CS.box(0.7, 0.3, 0.6, { color: 0xd8dde6, rough: 0.3, metal: 0.5 }, tx, 1.23, 0));
+      var liquid = CS.cyl(0.26, 0.24, 0.62, { color: c, rough: 0.15, emissive: CS.shade(c, -110) }, tx, 1.72, 0, 16);
+      g.add(liquid);
+      g.add(CS.cyl(0.29, 0.29, 0.66, { color: 0xeaf6ff, opacity: 0.35, rough: 0.05 }, tx, 1.72, 0, 16));
+      // a white swirl that turns inside the tank
+      var swirl = CS.box(0.4, 0.05, 0.05, { color: 0xffffff, rough: 0.3 }, tx, 1.72, 0);
+      g.add(swirl);
+      tanks.push(swirl);
+      D.dynamic.push(swirl);
+      put(g, CS.cyl(0.1, 0.1, 0.08, { color: 0x34353b, rough: 0.4 }, tx, 1.45, 0.32, 8)).rotation.x = Math.PI / 2;
+    });
+    // a stack of cups
+    for (var i = 0; i < 4; i++) g.add(CS.cyl(0.12, 0.09, 0.16, { color: 0xffffff, rough: 0.4 }, 1.75, 1.15 + i * 0.07, 0.2, 12));
+    scene.add(g);
+    return g;
+  }
+
+  function slushieCup(color) {
+    var g = new THREE.Group();
+    g.add(CS.cyl(0.11, 0.08, 0.26, { color: 0xffffff, rough: 0.4 }, 0, 0.13, 0, 12));
+    g.add(CS.ball(0.11, 0.08, 0.11, { color: color, rough: 0.2 }, 0, 0.27, 0));
+    put(g, CS.cyl(0.015, 0.015, 0.3, { color: 0xe8546a, rough: 0.4 }, 0.04, 0.38, 0, 6)).rotation.z = -0.25;
+    return g;
+  }
+  D.slushieCup = slushieCup;
+
+  /* Pom, the moogle behind the bar, in a little red waistcoat. */
+  function makeServer(scene, x, z) {
+    var idx = 0;
+    for (var i = 0; i < CS.CRITTERS.length; i++) if (CS.CRITTERS[i].look === 'moogle') idx = i;
+    var c = CS.models.customer(idx, 7);
+    if (c.parts.mark) c.parts.mark.visible = false;
+    c.group.add(CS.box(0.5, 0.3, 0.06, { color: 0xc8302e, rough: 0.7 }, 0, 0.5, 0.27));   // waistcoat
+    var tray = slushieCup(0x9fd84a);
+    tray.visible = false;
+    tray.position.set(0.3, 0.55, 0.3);
+    c.group.add(tray);
+    c.group.position.set(x, 0, z);
+    scene.add(c.group);
+    D.dynamic.push(c.group);
+    D.server = { cust: c, home: { x: x, z: z }, state: 'idle', t: 2.0, target: null, carry: tray,
+      walk: 0, bob: 0, gait: 0 };
+  }
+
+  /* ------------------------------------------------------------- build */
+  var FLOORS = { floorOak: 'parquet', floorRug: 'carpet', floorMarble: 'floor' };
+  var WALLS = { wallDamask: 'wallDamask', wallStripe: 'wallStripe', wallRose: 'wallRose' };
+
+  function build(scene, opts) {
+    D.seats = [];
+    D.dynamic = [];
+    D.server = null;
+    tanks = [];
+    var ext = D.extent(), W = ext.x1 - ext.x0, cx = (ext.x0 + ext.x1) / 2;
+    var decor = CS.econ ? CS.econ.state.decor : {};
+
+    // ---- the floor
+    var ftex = FLOORS[decor.floor] || 'diningFloor';
+    var scale = ftex === 'floor' ? 4.4 : (ftex === 'carpet' ? 8 : 4.4);
+    var dine = new THREE.Mesh(new THREE.PlaneGeometry(W, 10),
+      CS.mat({ color: 0xffffff, tex: ftex, rough: ftex === 'floor' ? 0.25 : 0.7 }));
+    dine.material = dine.material.clone();
+    dine.material.map = CS.texRepeat(ftex, W / scale, 10 / scale);
+    dine.rotation.x = -Math.PI / 2;
+    dine.position.set(cx, -0.02, CS.OZ - 5);
+    dine.receiveShadow = true;
+    scene.add(dine);
+
+    // ---- wallpaper on the back wall, either side of the door
+    var wtex = WALLS[decor.wall];
+    if (wtex && opts.door) {
+      var gap0 = opts.door.x - opts.door.w / 2 - 0.15, gap1 = opts.door.x + opts.door.w / 2 + 0.15;
+      [[ext.x0, gap0], [gap1, ext.x1]].forEach(function (seg) {
+        var w = seg[1] - seg[0];
+        if (w < 0.3) return;
+        var m = CS.mat({ color: 0xffffff, tex: wtex, rough: 0.8 });
+        var p = new THREE.Mesh(new THREE.PlaneGeometry(w, 2.9), m.clone());
+        p.material.map = CS.texRepeat(wtex, w / 1.6, 2.9 / 1.6);
+        p.position.set((seg[0] + seg[1]) / 2, 1.85, BACK_Z + 0.40);   // in front of the stones
+        scene.add(p);
+        // a dado rail along the bottom of the paper
+        scene.add(CS.box(w, 0.1, 0.08, OAK_D, (seg[0] + seg[1]) / 2, 0.42, BACK_Z + 0.43));
+      });
+    }
+
+    // ---- against the back wall
+    var back = new Row(ext);
+    var x;
+    var won = CS.econ ? CS.econ.trophies() : [];
+    if (has('slushBar')) {
+      x = back.place(ext.x1 - 3.4, 4.4);
+      if (x !== null) {
+        slushBar(scene, x, ROW_BACK);
+        if (has('slushServer')) makeServer(scene, x - 0.6, ROW_BACK + 1.1);
+      }
+    }
+    if (has('statue')) {
+      x = back.place(CS.OX + 28.3, 2.0);
+      if (x !== null) statue(scene, x, ROW_BACK + 0.1);
+    }
+    if (won.length) {
+      x = back.place(CS.OX + 18.5, won.length + 0.6);
+      if (x !== null) trophyCase(scene, x, ROW_BACK, won);
+    }
+    // the November special's pumpkin piles
+    if (CS.isThanksgiving && opts.pumpkin) {
+      [[CS.OX + 4.4, [[0, 0, 1.1, 0], [0.9, -0.4, 0.75, 0xf2a03a], [-0.5, 0.9, 0.6, 0xeee0c4]]],
+       [ext.x1 - 6, [[0, 0, 1.0, 0], [-0.9, -0.3, 0.6, 0xc9661a]]]].forEach(function (pile) {
+        var px = back.place(pile[0], 2.2);
+        if (px === null) return;
+        pile[1].forEach(function (p) {
+          opts.pumpkin(scene, px + p[0], 0, ROW_BACK - 0.2 + p[1], p[2], p[3] || undefined);
+        });
+      });
+    }
+    // the barrels and the old chest fill whatever is left
+    x = back.place(CS.OX + 2.2, 2.6);
+    if (x !== null) { opts.barrel(scene, x - 0.6, CS.OZ - 7.6, 1.0); opts.barrel(scene, x + 0.7, CS.OZ - 8.2, 0.82); }
+    x = back.place(CS.OX + 31, 1.6);
+    if (x !== null) opts.chest(scene, x, CS.OZ - 7.8, -0.25);
+
+    // ---- tables, near row and far row, never in the queue's lane
+    var rowA = new Row(ext), rowB = new Row(ext);
+    var want = [];
+    if (has('tables')) want.push([rowA, 17], [rowA, 21.6], [rowB, 17], [rowB, 21.6]);
+    if (has('tables2')) want.push([rowA, 41], [rowB, 41], [rowA, 26.2], [rowB, 26.2]);
+    want.forEach(function (w) {
+      var tx = w[0].place(CS.OX + w[1], 3.3);
+      if (tx !== null) table(scene, tx, w[0] === rowA ? ROW_A : ROW_B);
+    });
+
+    // ---- plants in the corners, and either side of the door
+    if (has('plants')) {
+      var px = back.place(ext.x0 + 0.8, 0.9); if (px !== null) plant(scene, px, ROW_BACK + 0.2, 1);
+      px = back.place(ext.x1 - 0.8, 0.9); if (px !== null) plant(scene, px, ROW_BACK + 0.2, 0);
+      px = rowB.place(ext.x0 + 0.8, 0.9); if (px !== null) plant(scene, px, CS.OZ - 1.2, 0);
+      px = rowB.place(ext.x1 - 0.8, 0.9); if (px !== null) plant(scene, px, CS.OZ - 1.2, 1);
+    }
+  }
+
+  /* -------------------------------------------------------- the server */
+  function stepTo(g, tx, tz, speed, dt) {
+    var dx = tx - g.position.x, dz = tz - g.position.z, d = Math.hypot(dx, dz);
+    if (d < 0.05) return 0;
+    var m = Math.min(d, speed * dt);
+    g.position.x += dx / d * m;
+    g.position.z += dz / d * m;
+    var want = Math.atan2(dx, dz);
+    var diff = ((want - g.rotation.y + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
+    g.rotation.y += diff * Math.min(1, dt * 8);
+    return m;
+  }
+
+  /* Whoever in the queue is nearest to walking out, and has no slushie. */
+  function pickTarget() {
+    var best = null;
+    CS.orders.list.forEach(function (o) {
+      if (o.done || o.slushie || !o.cust || o.cust.state !== 'queue') return;
+      if (!best || o.left / o.limit < best.left / best.limit) best = o;
+    });
+    return best;
+  }
+
+  function update(dt, playing) {
+    var t = performance.now() / 1000;
+    for (var i = 0; i < tanks.length; i++) tanks[i].rotation.y = t * (1.4 + i * 0.3);
+
+    var s = D.server;
+    if (!s) return;
+    var g = s.cust.group, moved = 0;
+    if (!playing) s.state = s.state === 'idle' ? 'idle' : 'back';
+
+    if (s.state === 'idle') {
+      s.t -= dt;
+      var diff = ((0 - g.rotation.y + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
+      g.rotation.y += diff * Math.min(1, dt * 5);
+      if (playing && s.t <= 0) {
+        var o = pickTarget();
+        if (o) { s.target = o; s.state = 'go'; s.carry.visible = true; }
+        else s.t = 1.0;
+      }
+    } else if (s.state === 'go') {
+      var o2 = s.target;
+      if (!o2 || o2.done || !o2.cust) { s.state = 'back'; }
+      else {
+        var cp = o2.cust.group.position;
+        moved = stepTo(g, cp.x + 0.75, cp.z, 3.4, dt);
+        if (Math.hypot(cp.x + 0.75 - g.position.x, cp.z - g.position.z) < 0.12) give(o2);
+      }
+    } else if (s.state === 'back') {
+      moved = stepTo(g, s.home.x, s.home.z, 3.0, dt);
+      if (moved === 0) { s.state = 'idle'; s.t = CS.SLUSHIE.every; s.carry.visible = false; }
+    }
+
+    // the same waddle the customers use
+    var p = s.cust.parts;
+    s.walk += moved * 4.4;
+    s.bob += dt * 1.9;
+    s.gait += ((moved > 0.0008 ? 1 : 0) - s.gait) * Math.min(1, dt * 11);
+    var sw = Math.sin(s.walk) * 0.8 * s.gait;
+    p.legL.rotation.x = sw; p.legR.rotation.x = -sw;
+    p.armL.rotation.x = -sw * 0.7;
+    p.armR.rotation.x = s.carry.visible ? -1.2 : sw * 0.7;
+    g.position.y = Math.abs(Math.sin(s.walk)) * 0.06 * s.gait + Math.sin(s.bob) * 0.016 * (1 - s.gait);
+  }
+
+  /* Hand it over: the order gets back a good slice of its patience, the
+     customer holds a slushie, and its tip will be bigger. */
+  function give(o) {
+    var s = D.server;
+    o.slushie = true;
+    o.left = Math.min(o.limit, o.left + o.limit * CS.SLUSHIE.patience);
+    o.beeped = false;
+    var cup = slushieCup([0xe8546a, 0x5fb0e8, 0x9fd84a][o.id % 3]);
+    cup.position.set(0.32, 0.5, 0.22);
+    o.cust.group.add(cup);
+    var cp = o.cust.group.position;
+    if (CS.fx) CS.fx.burst(cp.x, 1.6, cp.z, 10, { color: 0xff8ab0, life: 0.8, vy: 1.8 });
+    if (CS.audio && CS.audio.voice) CS.audio.voice(o.critter.look, 0.5);
+    s.state = 'back';
+    s.carry.visible = false;
+    s.target = null;
+  }
+})(window.CS);
+
+</script>
+<script>
 /* ---- src/world.js ---- */
 /* Builds the kitchen: floor, walls, every station, decor and lighting.
    Also owns the little particle pool used for sparks and spatter, and the
@@ -6262,21 +6992,16 @@ window.CS = window.CS || {};
      shocks either side of the front door, and a garland of autumn leaves
      strung along the back wall of the kitchen. All static, so it merges
      into the same handful of draw calls as the rest of the room. */
-  function harvestDecor(scene, fw, backZ, wallZ) {
-    var mantelY = 2.86, hx = CS.OX + T * 9.0;
+  function harvestDecor(scene, hx, backZ, wallZ) {
+    var mantelY = 2.86;
     pumpkin(scene, hx - 1.2, mantelY, wallZ + 0.2, 0.55);
     pumpkin(scene, hx + 1.15, mantelY, wallZ + 0.2, 0.45, 0xf2a03a);
     pumpkin(scene, hx + 0.75, mantelY, wallZ + 0.22, 0.35, 0xeee0c4);         // a white one
-    pumpkin(scene, CS.OX + 4.4, 0, CS.OZ - 8.4, 1.1);
-    pumpkin(scene, CS.OX + 5.3, 0, CS.OZ - 8.8, 0.75, 0xf2a03a);
-    pumpkin(scene, CS.OX + 3.9, 0, CS.OZ - 7.3, 0.6, 0xeee0c4);
-    pumpkin(scene, CS.OX + fw - 5.6, 0, CS.OZ - 8.6, 1.0);
-    pumpkin(scene, CS.OX + fw - 6.5, 0, CS.OZ - 8.9, 0.6, 0xc9661a);
     cornShock(scene, CS.DOOR_X - CS.DOOR_W / 2 - 0.7, backZ + 0.5);
     cornShock(scene, CS.DOOR_X + CS.DOOR_W / 2 + 0.7, backZ + 0.5);
 
     var LEAVES = [0xc8461f, 0xe0861f, 0xf2b53a, 0x9a3a1c, 0xd86a2a];
-    var x0 = CS.OX + T * 0.6, x1 = CS.OX + T * 14.4, n = 34;
+    var x0 = CS.OX + T * 0.6, x1 = CS.OX + T * (CS.layout.bounds.c1 - 0.6), n = 34;
     for (var i = 0; i <= n; i++) {
       var f = i / n, x = CS.lerp(x0, x1, f);
       // it sags between three nails
@@ -6359,15 +7084,7 @@ window.CS = window.CS || {};
       // and the reflection on top of the polish: see mirror.js
       scene.add(CS.mirror.create(fw, fh, fx, fz, 0.8));
 
-      // ---- dining floor beyond the serving window
-      var dine = new THREE.Mesh(new THREE.PlaneGeometry(fw + 10, 10),
-        CS.mat({ color: 0xffffff, tex: 'diningFloor', rough: 0.7 }));
-      dine.material = dine.material.clone();
-      dine.material.map = CS.texRepeat('diningFloor', (fw + 10) / 4.4, 10 / 4.4);
-      dine.rotation.x = -Math.PI / 2;
-      dine.position.set(fx, -0.02, CS.OZ - 5);
-      dine.receiveShadow = true;
-      scene.add(dine);
+      // (the dining floor beyond the serving window is dining.js's now)
 
       // ---- tiles
       // The back wall stands tall behind everything. The side walls are low,
@@ -6450,7 +7167,8 @@ window.CS = window.CS || {};
          with CS.DOOR_X, which is directly behind the queue, so an arrival
          walks in and straight down the line without a detour. */
       var backZ = CS.OZ - 9.5;
-      var wallW = fw + 10, wallCx = fx;
+      var ext = CS.dining.extent();
+      var wallW = ext.x1 - ext.x0, wallCx = (ext.x0 + ext.x1) / 2;
       var wallX0 = wallCx - wallW / 2, wallX1 = wallCx + wallW / 2;
       var dx = CS.DOOR_X, dw = CS.DOOR_W, dh = 2.5;
       var gap0 = dx - dw / 2, gap1 = dx + dw / 2;
@@ -6474,6 +7192,9 @@ window.CS = window.CS || {};
 
       doorway(scene, dx, backZ, dw, dh);
 
+      // ---- the dining room itself: floor, wallpaper, and everything bought for it
+      CS.dining.build(scene, { door: { x: dx, w: dw }, barrel: barrel, chest: chest, pumpkin: pumpkin });
+
       var signs = CS.THANKS_SIGNS || [['Good Food', 'Happy', 'Chicken'], ['Chicken', 'Sandwich', '= Happiness']];
       var s1 = CS.models.signBoard(signs[0], 3.4);
       s1.position.set(fx - fw * 0.40, 2.0, backZ + 0.45);
@@ -6488,14 +7209,20 @@ window.CS = window.CS || {};
       // Row 0 spans z = [OZ, OZ+T], so the face the camera sees is at OZ+T.
       var wallZ = CS.OZ + T + 0.12;          // clear of the stones standing proud of it
 
-      kitchenWindow(scene, CS.OX + T * 7.0, 1.55, wallZ, 3.4, 1.6);
-      fireplace(scene, CS.OX + T * 9.0, wallZ + 0.12);
-      wallPicture(scene, CS.OX + T * 1.1, 2.2, wallZ, 'drumstick');
-      wallPicture(scene, CS.OX + T * 1.9, 2.2, wallZ, 'tomato');
-      wallPicture(scene, CS.OX + T * 2.7, 2.2, wallZ, 'lettuce');
-      shelf(scene, CS.OX + T * 1.9, 1.4, wallZ, 2.4);
-      panRail(scene, CS.OX + T * 11.6, 2.55, wallZ, 3);
-      banner(scene, CS.OX + T * 5.2, 1.7, wallZ, 0.9);
+      // where the wall dressing hangs depends on which kitchen this is: the
+      // compact one keeps cols 5-8 of its back wall clear for the window and
+      // the hearth, and the corner by the pass for the pictures and shelf
+      var WD = CS.layout.base === 'compact'
+        ? { win: 5.75, hearth: 7.6, pics: [0.55, 1.25, 1.95], shelf: 1.25, rail: 10.6, ban: 12.45 }
+        : { win: 7.0, hearth: 9.0, pics: [1.1, 1.9, 2.7], shelf: 1.9, rail: 11.6, ban: 5.2 };
+      kitchenWindow(scene, CS.OX + T * WD.win, 1.55, wallZ, 3.4, 1.6);
+      fireplace(scene, CS.OX + T * WD.hearth, wallZ + 0.12);
+      wallPicture(scene, CS.OX + T * WD.pics[0], 2.2, wallZ, 'drumstick');
+      wallPicture(scene, CS.OX + T * WD.pics[1], 2.2, wallZ, 'tomato');
+      wallPicture(scene, CS.OX + T * WD.pics[2], 2.2, wallZ, 'lettuce');
+      shelf(scene, CS.OX + T * WD.shelf, 1.4, wallZ, 2.4);
+      panRail(scene, CS.OX + T * WD.rail, 2.55, wallZ, 3);
+      banner(scene, CS.OX + T * WD.ban, 1.7, wallZ, 0.9);
 
       lantern(scene, CS.OX + T * 2.0, 2.45, CS.OZ + T * 2.2);
       lantern(scene, CS.OX + T * 12.0, 2.45, CS.OZ + T * 2.2);
@@ -6507,14 +7234,10 @@ window.CS = window.CS || {};
       lantern(scene, CS.OX + T * 10.5, 2.6, CS.OZ - 3.0);
 
       // ---- dining room dressing, visible over the serving counter
-      barrel(scene, CS.OX + 1.6, CS.OZ - 7.6, 1.0);
-      barrel(scene, CS.OX + 2.9, CS.OZ - 8.2, 0.82);
-      chest(scene, CS.OX + fw - 2.2, CS.OZ - 7.8, -0.25);
-      barrel(scene, CS.OX + fw - 4.0, CS.OZ - 8.1, 0.9);
       shelf(scene, fx, 2.75, backZ + 0.42, 3.4);
 
       // ---- the November special dresses the place for the harvest
-      if (CS.isThanksgiving) harvestDecor(scene, fw, backZ, wallZ);
+      if (CS.isThanksgiving) harvestDecor(scene, CS.OX + T * WD.hearth, backZ, wallZ);
 
       // ---- lighting: a warm key from the window side, a soft sky/bounce
       // fill, and pools of lantern light. The renderer tone-maps all of it.
@@ -6562,6 +7285,7 @@ window.CS = window.CS || {};
          so the clock can repaint it. */
       var skip = skyPanes.slice();
       stations.forEach(function (st) { skip.push(st.glow, st.coals, st.slot); });
+      CS.dining.dynamic.forEach(function (m) { skip.push(m); });
       flames.forEach(function (f) { if (f.m) skip.push(f.m); });
       CS.batchStatic(scene, skip);
 
@@ -7066,6 +7790,7 @@ window.CS = window.CS || {};
       this.list.length = 0;
       this.leaving.length = 0;
       this.coins.length = 0;
+      if (CS.dining) CS.dining.releaseAll();
       this.level = level || CS.levelFor(1);
       this.spawnTimer = CS.FIRST_SPAWN;
       this.frozen = false;
@@ -7244,12 +7969,20 @@ window.CS = window.CS || {};
       if (happy) CS.audio.voice(order.critter.look, 0.8);     // a happy kweh, kupo...
 
       c.speed = happy ? WALK : HURRY;
-      c.path = [
-        { x: EXIT_X, z: c.group.position.z },
+      c.path = [{ x: EXIT_X, z: c.group.position.z }];
+      // with tables in the dining room, a happy customer sits down to eat
+      // first: along the aisle to a free chair, a few bites, and back
+      var seat = happy && CS.dining && Math.random() < 0.75 ? CS.dining.claimSeat() : null;
+      if (seat) {
+        var aisle = CS.OZ - 4.0;
+        c.path.push({ x: EXIT_X, z: aisle }, { x: seat.x, z: aisle },
+          { x: seat.x, z: seat.z, sit: 5 + Math.random() * 4, seat: seat },
+          { x: seat.x, z: aisle }, { x: EXIT_X, z: aisle });
+      }
+      c.path.push(
         { x: EXIT_X, z: INSIDE_Z },
         { x: CS.DOOR_X, z: THRESHOLD_Z },
-        { x: CS.DOOR_X, z: OUTSIDE_Z }
-      ];
+        { x: CS.DOOR_X, z: OUTSIDE_Z });
       this.leaving.push(c);
       this.relayout();
     },
@@ -7283,7 +8016,8 @@ window.CS = window.CS || {};
     separate: function () {
       var R = 0.36, all = [];
       this.list.forEach(function (o) { if (o.cust) all.push(o.cust.group); });
-      this.leaving.forEach(function (c) { all.push(c.group); });
+      // someone sat at a table stays put; the room walks round them
+      this.leaving.forEach(function (c) { if (!(c.sitting > 0)) all.push(c.group); });
       for (var i = 0; i < all.length; i++) {
         for (var j = i + 1; j < all.length; j++) {
           var a = all[i].position, b = all[j].position;
@@ -7377,16 +8111,31 @@ window.CS = window.CS || {};
           lc.parts.armL.rotation.x = -1.9;
           lc.parts.armR.rotation.x = -1.9;
           if (lc.parts.species.tail === 'wag') lc.parts.tail.rotation.y = Math.sin(lc.t * 22) * 0.8;
+        } else if (lc.sitting > 0) {
+          // sat at a table, tucking in
+          lc.sitting -= dt;
+          var sp = lc.sitAt;
+          var sd = ((sp.face - lg.rotation.y + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
+          lg.rotation.y += sd * Math.min(1, dt * 8);
+          lg.position.y = 0.2;
+          lc.parts.legL.rotation.x = lc.parts.legR.rotation.x = -1.3;
+          lc.parts.armR.rotation.x = -0.9 - Math.abs(Math.sin(lc.t * 5)) * 0.6;   // a bite
+          lc.parts.armL.rotation.x = -0.5;
+          if (lc.sitting <= 0) { sp.busy = false; lg.position.y = 0; }
         } else {
           var wp2 = lc.path[0];
           var m2 = wp2 ? stepToward(lg, wp2.x, wp2.z, lc.speed, dt) : 0;
-          if (wp2 && m2 === 0) lc.path.shift();
+          if (wp2 && m2 === 0) {
+            lc.path.shift();
+            if (wp2.sit) { lc.sitting = wp2.sit; lc.sitAt = wp2.seat; lc.sitTotal = wp2.sit; }
+          }
           animateCust(lc, dt, m2);
           if (!lc.happy) lc.parts.head.rotation.y = Math.sin(lc.t * 7) * 0.22;
         }
 
         // gone through the door, or stuck long enough that something is wrong
-        if (!lc.path.length || lc.t > 14) {
+        if (!lc.path.length || lc.t > 22 + (lc.sitTotal || 0)) {
+          if (lc.sitAt) lc.sitAt.busy = false;
           scene.remove(lg);
           CS.dispose(lg);
           this.leaving.splice(j, 1);
@@ -10448,7 +11197,7 @@ window.CS = window.CS || {};
         '<div class="col"><h3>THE SHIFT</h3><ul>' +
         '<li>Length: <b>' + mins + ':' + (secs < 10 ? '0' : '') + secs + '</b></li>' +
         '<li>Rent: <b>' + CS.money(lv.rent) + '</b></li>' +
-        (CS.econ.crew().length
+        (CS.econ.wageRange().max > 0
           ? '<li>Wages: <b>' + CS.money(CS.econ.wageRange().min) + '+</b>, a share of takings</li>'
           : '') +
         '<li>Tickets at once: <b>' +
@@ -10670,7 +11419,7 @@ window.CS = window.CS || {};
   function row(id, name, blurb, cost, state) {
     var dis = state.ok ? '' : ' disabled';
     var owned = !state.ok && (state.why === 'FITTED' || state.why === 'OPEN' ||
-      state.why === 'TRAINED' || state.why === 'Already fitted');
+      state.why === 'TRAINED' || state.why === 'Already fitted' || state.why === 'IN KITCHEN');
     var label = owned ? state.why : CS.money(cost);
 
     /* A prerequisite outranks the price: telling someone they need $123 more
@@ -10706,20 +11455,55 @@ window.CS = window.CS || {};
     CS.UPGRADES.forEach(function (u) {
       if (u.kind !== 'part') return;
       var n = stock[u.id] || 0;
-      var where = u.wall ? 'goes against a wall' : 'stands on the floor';
+      var where = (u.wall ? 'goes against a wall' : 'stands on the floor') +
+        (u.multi ? ' &#183; you can own several' : ' &#183; one is all a kitchen needs');
       out += row(u.id, u.name + (n ? ' <b>(' + n + ' in the tray)</b>' : ''),
         where, u.cost, CS.econ.canBuy(u));
     });
     return out;
   }
 
+  /* The building: wings are no longer sold -- a bigger kitchen only added
+     walking. An old roomy kitchen is offered the free move into the compact
+     one instead, with any wings it bought refunded. */
   function landHTML() {
-    var out = '';
+    if (CS.layout.base === 'compact') {
+      return '<div class="buyrow hired"><div class="buyname">The Compact Kitchen' +
+        '<span>Everything within a few steps of the window. To grow the shop, ' +
+        'build out the dining room below instead.</span></div></div>';
+    }
+    var refund = CS.UPGRADES.filter(function (u) { return u.kind === 'land' && CS.econ.has(u.id); })
+      .reduce(function (n, u) { return n + u.cost; }, 0);
+    return '<div class="buyrow"><div class="buyname">Renovate: The Compact Kitchen' +
+      '<span>Bring the walls in to an 11 x 7 floor so nothing is more than a few steps away. ' +
+      'Every station is set out for you' + (refund ? ', your wings are bought back for ' +
+      CS.money(refund) : '') + ', and any extra kit goes in the tray to place.</span></div>' +
+      '<button class="buy" data-buy="renovate">FREE</button></div>';
+  }
+
+  /* The dining room: decor, the slushie bar and its server, and the
+     floors and wallpaper you can swap between once bought. */
+  function diningHTML() {
+    var E = CS.econ, h = E.happiness();
+    var out = '<div class="buyrow hired"><div class="buyname">&#9829; Happiness ' + h +
+      '<span>Customers wait ' + Math.round(h * CS.HAPPY.patience * 100) + '% longer and tip ' +
+      Math.round(h * CS.HAPPY.tips * 100) + '% more. Every boss trophy in the cabinet adds ' +
+      CS.HAPPY.perTrophy + '.</span></div></div>';
     CS.UPGRADES.forEach(function (u) {
-      if (u.kind !== 'land') return;
-      var owned = CS.econ.has(u.id);
-      out += row(u.id, u.name, u.blurb, u.cost,
-        owned ? { ok: false, why: 'OPEN' } : CS.econ.canBuy(u));
+      if (u.kind !== 'decor') return;
+      var name = u.name + ' <b class="heart">&#9829;' + u.happy + '</b>';
+      var blurb = u.blurb + (u.wage ? ' &#183; paid ' + Math.round(u.wage.share * 100) +
+        '% of the day\'s takings, at least ' + CS.money(u.wage.min) : '');
+      if (!E.has(u.id)) { out += row(u.id, name, blurb, u.cost, E.canBuy(u)); return; }
+      if (u.slot) {
+        var on = E.state.decor[u.slot] === u.id;
+        out += '<div class="buyrow hired"><div class="buyname">' + name + '<span>' + blurb + '</span></div>' +
+          '<button class="buy' + (on ? ' off' : '') + '" data-buy="equip:' + u.slot + ':' + (on ? '' : u.id) + '">' +
+          (on ? 'ON SHOW &#183; TAKE UP' : 'PUT ON SHOW') + '</button></div>';
+        return;
+      }
+      out += '<div class="buyrow hired"><div class="buyname">' + name + '<span>' + blurb + '</span></div>' +
+        '<button class="buy off" disabled>' + (u.wage ? 'HIRED' : 'FITTED') + '</button></div>';
     });
     return out;
   }
@@ -10817,8 +11601,7 @@ window.CS = window.CS || {};
   function headerHTML() {
     var w = CS.econ.state.wallet;
     var lv = CS.levelFor(CS.econ.state.day);
-    var crew = CS.econ.crew();
-    var wage = crew.length
+    var wage = CS.econ.wageRange().max > 0
       ? CS.money(CS.econ.wageRange().min) + '+'
       : CS.money(0);
     return '<div class="walletbar">' +
@@ -10834,6 +11617,7 @@ window.CS = window.CS || {};
     card.querySelector('#sGear').innerHTML = gearHTML();
     card.querySelector('#sParts').innerHTML = partsHTML();
     card.querySelector('#sLand').innerHTML = landHTML();
+    card.querySelector('#sDining').innerHTML = diningHTML();
     card.querySelector('#sStaff').innerHTML = staffHTML();
     card.querySelector('#sChef').innerHTML = chefHTML();
     card.querySelector('#sTrophy').innerHTML = trophyHTML();
@@ -10856,10 +11640,28 @@ window.CS = window.CS || {};
     else if (key.indexOf('train:') === 0) {
       var bits = key.split(':');
       res = CS.econ.train(bits[1], bits[2]);
+    } else if (key.indexOf('equip:') === 0) {
+      var eq = key.split(':');
+      res = CS.econ.equip(eq[1], eq[2] || null);
+      if (res.ok) { CS.audio.place(); if (CS.game.rebuildKitchen) CS.game.rebuildKitchen(); render(); return; }
+    } else if (key === 'renovate') {
+      res = CS.econ.renovate();
+      if (res.ok) {
+        CS.audio.cash();
+        CS.ui.toast('Renovated!' + (res.refund ? '  +' + CS.money(res.refund) + ' for the wings' : '') +
+          (res.moved ? '  ' + res.moved + ' spare kit in the tray' : ''), 'good');
+        if (CS.game.rebuildKitchen) CS.game.rebuildKitchen();
+        render();
+        return;
+      }
     } else res = CS.econ.buy(key);
 
-    if (res && res.ok) { CS.audio.cash(); CS.ui.toast('Bought!', 'good'); }
-    else { CS.audio.error(); if (res && res.why) CS.ui.toast(res.why, 'bad'); }
+    if (res && res.ok) {
+      CS.audio.cash(); CS.ui.toast('Bought!', 'good');
+      // decor shows up in the dining room straight away
+      var u = CS.econ.upgrade(key);
+      if (u && u.kind === 'decor' && CS.game.rebuildKitchen) CS.game.rebuildKitchen();
+    } else { CS.audio.error(); if (res && res.why) CS.ui.toast(res.why, 'bad'); }
     render();
   }
 
@@ -10877,7 +11679,8 @@ window.CS = window.CS || {};
         '<h3>Chef Sandy &#183; skills</h3><div id="sChef"></div>' +
         '<h3>Equipment</h3><div id="sGear"></div>' +
         '<h3>Kit &#183; buy it, then place it in the kitchen</h3><div id="sParts"></div>' +
-        '<h3>The Building</h3><div id="sLand"></div>' +
+        '<h3>The Dining Room &#183; make the customers happy</h3><div id="sDining"></div>' +
+        '<h3>The Kitchen</h3><div id="sLand"></div>' +
         '<h3>Trophy Hall &#183; the castle bosses</h3><div id="sTrophy"></div>' +
         '</div>' +
         '<div class="krow">' +
@@ -11063,7 +11866,7 @@ window.CS = window.CS || {};
     return '<div class="kgrid" style="grid-template-columns:repeat(' + CS.MAP_W + ',1fr)">'
       + h + '</div>'
       + '<div class="khint">' + (b.c1 - b.c0 + 1) + ' x ' + (b.r1 - b.r0 + 1)
-      + ' &#183; buy a wing in the shop to grow the floor</div>';
+      + ' &#183; grow the shop by building out the dining room</div>';
   }
 
   function trayHTML() {
@@ -11488,6 +12291,54 @@ window.CS = window.CS || {};
     return d;
   }
 
+  /* ------------------------------------------------------ see-through HUD
+     Kit moved down the bottom of the kitchen ends up under the held-item
+     card, the hint line, the fryer gauges or the thumb buttons. A few times
+     a second, check whether the chef or the station she is working sits
+     under any of those panels, and if so fade that panel right back so the
+     food underneath can be seen. It comes back the moment she moves away. */
+  var PEEK_IDS = ['leftstack', 'hint', 'fryers', 'pad', 'tickets', 'topbar', 'bossHud'];
+  var peekEls = null, peekT = 0, peekV = new THREE.Vector3();
+
+  function peekThrough(dt) {
+    peekT -= dt;
+    if (peekT > 0) return;
+    peekT = 0.12;
+    if (!peekEls) {
+      peekEls = PEEK_IDS.map(function (id) { return document.getElementById(id); }).filter(Boolean);
+    }
+    var pts = [];
+    if (S.phase === 'play') {
+      var vp = CS.platform.size();
+      var spot = function (x, y, z) {
+        peekV.set(x, y, z).project(camera);
+        if (peekV.z > 1) return;
+        pts.push({ x: (peekV.x + 1) / 2 * vp.w, y: (1 - peekV.y) / 2 * vp.h });
+      };
+      spot(P.x, P.y + 0.9, P.z);
+      spot(P.x, P.y + 0.1, P.z);
+      if (S.target) spot(S.target.x, (S.target.topY || 1) + 0.2, S.target.z);
+    }
+    peekEls.forEach(function (el) {
+      var r = el.getBoundingClientRect(), pad = 18, hit = false;
+      if (r.width > 0) {
+        for (var i = 0; i < pts.length; i++) {
+          var p = pts[i];
+          if (p.x > r.left - pad && p.x < r.right + pad && p.y > r.top - pad && p.y < r.bottom + pad) hit = true;
+        }
+      }
+      if (hit !== el.classList.contains('peek')) el.classList.toggle('peek', hit);
+    });
+  }
+
+  /* The kitchen you own, in world space. */
+  function kitchenBox() {
+    var b = CS.layout.bounds;
+    var x0 = CS.OX + b.c0 * T, x1 = CS.OX + (b.c1 + 1) * T;
+    var z0 = CS.OZ + b.r0 * T, z1 = CS.OZ + (b.r1 + 1) * T;
+    return { x0: x0, x1: x1, z0: z0, z1: z1, cx: (x0 + x1) / 2, cz: (z0 + z1) / 2 };
+  }
+
   var lastW = 0, lastH = 0;
 
   function onResize() {
@@ -11497,6 +12348,11 @@ window.CS = window.CS || {};
     lastW = w; lastH = h;
     camera.aspect = w / h;
     camera.updateProjectionMatrix();
+    // the overview frames the kitchen you own, not the whole map, so the
+    // compact kitchen fills the screen instead of sitting in a corner of it
+    var kb = kitchenBox();
+    CAMS.overview.needW = kb.x1 - kb.x0 + 7;
+    CAMS.overview.needD = kb.z1 - kb.z0 + 8;
     for (var k in CAMS) if (CAMS.hasOwnProperty(k)) CAMS[k].dist = fitFor(CAMS[k]);
     fitDist = CAMS.overview.dist;
     renderer.setSize(w, h);
@@ -11738,7 +12594,9 @@ window.CS = window.CS || {};
        the reward for a shop that keeps ahead of its queue, not a lottery. */
     var T = CS.TIP;
     if (left > T.minLeft && Math.random() < (left - T.minLeft) / (1 - T.minLeft) * T.chance) {
-      var tip = Math.round(o.price * T.share * left * S.combo * (1 + CS.econ.skill('tips')) * 100) / 100;
+      // happy dining rooms and complimentary slushies both sweeten the tip
+      var tip = Math.round(o.price * T.share * left * S.combo * (1 + CS.econ.skill('tips')) *
+        CS.econ.mod('tips') * (o.slushie ? CS.SLUSHIE.tip : 1) * 100) / 100;
       if (tip < 0.05) tip = 0.05;
       earnXP(CS.XP.perTip);
       var nCoins = tip >= T.bigTip ? 3 : (tip >= T.bigTip / 2 ? 2 : 1);
@@ -12241,6 +13099,7 @@ window.CS = window.CS || {};
     CS.staff.clear();
     CS.bosses.clear();
     placePlayer(CS.SPAWN.col, CS.SPAWN.row);
+    onResize();                 // a renovated kitchen is a different size to frame
   }
 
   /* ----------------------------------------------------- the campaign
@@ -12522,6 +13381,7 @@ window.CS = window.CS || {};
     CS.fx.update(dt);
     CS.steam.update(dt);
     CS.world.tick(clock.elapsedTime);
+    CS.dining.update(dt, S.phase === 'play');
     CS.grounds.update(dt, camera);   // strollers keep walking behind menus too
 
     // ---- camera
@@ -12529,8 +13389,9 @@ window.CS = window.CS || {};
     var tx, tz;
     if (cm.fit) {
       // whole-kitchen framing, nudged gently toward the chef
-      tx = 0.0 + P.x * cm.follow;
-      tz = -3.0 + P.z * (cm.follow * 0.64);
+      var kc = kitchenBox();
+      tx = kc.cx + (P.x - kc.cx) * cm.follow;
+      tz = kc.cz - 1.6 + (P.z - kc.cz) * (cm.follow * 0.64);
     } else {
       tx = P.x; tz = P.z;
     }
@@ -12560,8 +13421,12 @@ window.CS = window.CS || {};
       hd = camDist * Math.tan(vfv / 2) / Math.sin(cm.pitch) * cm.edgeD;
     }
     if (cm.spin) { hw = hd = Math.max(hw, hd); }
-    var x0 = CS.OX, x1 = CS.OX + CS.MAP_W * T;
-    var z0 = CS.OZ - 7.5, z1 = CS.OZ + CS.MAP_H * T;
+    // keep to the kitchen you own (plus the dining room behind it), with a
+    // little extra room at the bottom so the front wall can scroll up clear
+    // of the panels along the bottom of the screen
+    var kbx = kitchenBox();
+    var x0 = kbx.x0 - 1.5, x1 = kbx.x1 + 1.5;
+    var z0 = CS.OZ - 7.5, z1 = kbx.z1 + 3.0;
     tx = (x1 - x0 > hw * 2) ? CS.clamp(tx, x0 + hw, x1 - hw) : (x0 + x1) / 2;
     tz = (z1 - z0 > hd * 2) ? CS.clamp(tz, z0 + hd, z1 - hd) : (z0 + z1) / 2;
     if (cm.bias) tz += cm.bias;
@@ -12619,6 +13484,7 @@ window.CS = window.CS || {};
     if (inspect.obj) inspect.obj.rotation.y += dt * 0.7;
     CS.mirror.render(renderer, scene, camera);
     renderer.render(scene, camera);
+    peekThrough(dt);
     renderInspect();
     renderBossCam();
   }
@@ -12772,6 +13638,7 @@ window.CS = window.CS || {};
     /* debug helpers: CS.game.teleport(col, row) drops the chef on a tile,
        CS.game.debug exposes the three.js objects for poking from the console */
     teleport: placePlayer,
+    rebuildKitchen: function () { rebuildKitchen(); },
     debug: function () { return { scene: scene, camera: camera, chef: chef, player: P, cams: CAMS }; }
   };
 

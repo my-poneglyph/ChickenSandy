@@ -17,7 +17,7 @@ window.CS = window.CS || {};
   function row(id, name, blurb, cost, state) {
     var dis = state.ok ? '' : ' disabled';
     var owned = !state.ok && (state.why === 'FITTED' || state.why === 'OPEN' ||
-      state.why === 'TRAINED' || state.why === 'Already fitted');
+      state.why === 'TRAINED' || state.why === 'Already fitted' || state.why === 'IN KITCHEN');
     var label = owned ? state.why : CS.money(cost);
 
     /* A prerequisite outranks the price: telling someone they need $123 more
@@ -53,20 +53,55 @@ window.CS = window.CS || {};
     CS.UPGRADES.forEach(function (u) {
       if (u.kind !== 'part') return;
       var n = stock[u.id] || 0;
-      var where = u.wall ? 'goes against a wall' : 'stands on the floor';
+      var where = (u.wall ? 'goes against a wall' : 'stands on the floor') +
+        (u.multi ? ' &#183; you can own several' : ' &#183; one is all a kitchen needs');
       out += row(u.id, u.name + (n ? ' <b>(' + n + ' in the tray)</b>' : ''),
         where, u.cost, CS.econ.canBuy(u));
     });
     return out;
   }
 
+  /* The building: wings are no longer sold -- a bigger kitchen only added
+     walking. An old roomy kitchen is offered the free move into the compact
+     one instead, with any wings it bought refunded. */
   function landHTML() {
-    var out = '';
+    if (CS.layout.base === 'compact') {
+      return '<div class="buyrow hired"><div class="buyname">The Compact Kitchen' +
+        '<span>Everything within a few steps of the window. To grow the shop, ' +
+        'build out the dining room below instead.</span></div></div>';
+    }
+    var refund = CS.UPGRADES.filter(function (u) { return u.kind === 'land' && CS.econ.has(u.id); })
+      .reduce(function (n, u) { return n + u.cost; }, 0);
+    return '<div class="buyrow"><div class="buyname">Renovate: The Compact Kitchen' +
+      '<span>Bring the walls in to an 11 x 7 floor so nothing is more than a few steps away. ' +
+      'Every station is set out for you' + (refund ? ', your wings are bought back for ' +
+      CS.money(refund) : '') + ', and any extra kit goes in the tray to place.</span></div>' +
+      '<button class="buy" data-buy="renovate">FREE</button></div>';
+  }
+
+  /* The dining room: decor, the slushie bar and its server, and the
+     floors and wallpaper you can swap between once bought. */
+  function diningHTML() {
+    var E = CS.econ, h = E.happiness();
+    var out = '<div class="buyrow hired"><div class="buyname">&#9829; Happiness ' + h +
+      '<span>Customers wait ' + Math.round(h * CS.HAPPY.patience * 100) + '% longer and tip ' +
+      Math.round(h * CS.HAPPY.tips * 100) + '% more. Every boss trophy in the cabinet adds ' +
+      CS.HAPPY.perTrophy + '.</span></div></div>';
     CS.UPGRADES.forEach(function (u) {
-      if (u.kind !== 'land') return;
-      var owned = CS.econ.has(u.id);
-      out += row(u.id, u.name, u.blurb, u.cost,
-        owned ? { ok: false, why: 'OPEN' } : CS.econ.canBuy(u));
+      if (u.kind !== 'decor') return;
+      var name = u.name + ' <b class="heart">&#9829;' + u.happy + '</b>';
+      var blurb = u.blurb + (u.wage ? ' &#183; paid ' + Math.round(u.wage.share * 100) +
+        '% of the day\'s takings, at least ' + CS.money(u.wage.min) : '');
+      if (!E.has(u.id)) { out += row(u.id, name, blurb, u.cost, E.canBuy(u)); return; }
+      if (u.slot) {
+        var on = E.state.decor[u.slot] === u.id;
+        out += '<div class="buyrow hired"><div class="buyname">' + name + '<span>' + blurb + '</span></div>' +
+          '<button class="buy' + (on ? ' off' : '') + '" data-buy="equip:' + u.slot + ':' + (on ? '' : u.id) + '">' +
+          (on ? 'ON SHOW &#183; TAKE UP' : 'PUT ON SHOW') + '</button></div>';
+        return;
+      }
+      out += '<div class="buyrow hired"><div class="buyname">' + name + '<span>' + blurb + '</span></div>' +
+        '<button class="buy off" disabled>' + (u.wage ? 'HIRED' : 'FITTED') + '</button></div>';
     });
     return out;
   }
@@ -164,8 +199,7 @@ window.CS = window.CS || {};
   function headerHTML() {
     var w = CS.econ.state.wallet;
     var lv = CS.levelFor(CS.econ.state.day);
-    var crew = CS.econ.crew();
-    var wage = crew.length
+    var wage = CS.econ.wageRange().max > 0
       ? CS.money(CS.econ.wageRange().min) + '+'
       : CS.money(0);
     return '<div class="walletbar">' +
@@ -181,6 +215,7 @@ window.CS = window.CS || {};
     card.querySelector('#sGear').innerHTML = gearHTML();
     card.querySelector('#sParts').innerHTML = partsHTML();
     card.querySelector('#sLand').innerHTML = landHTML();
+    card.querySelector('#sDining').innerHTML = diningHTML();
     card.querySelector('#sStaff').innerHTML = staffHTML();
     card.querySelector('#sChef').innerHTML = chefHTML();
     card.querySelector('#sTrophy').innerHTML = trophyHTML();
@@ -203,10 +238,28 @@ window.CS = window.CS || {};
     else if (key.indexOf('train:') === 0) {
       var bits = key.split(':');
       res = CS.econ.train(bits[1], bits[2]);
+    } else if (key.indexOf('equip:') === 0) {
+      var eq = key.split(':');
+      res = CS.econ.equip(eq[1], eq[2] || null);
+      if (res.ok) { CS.audio.place(); if (CS.game.rebuildKitchen) CS.game.rebuildKitchen(); render(); return; }
+    } else if (key === 'renovate') {
+      res = CS.econ.renovate();
+      if (res.ok) {
+        CS.audio.cash();
+        CS.ui.toast('Renovated!' + (res.refund ? '  +' + CS.money(res.refund) + ' for the wings' : '') +
+          (res.moved ? '  ' + res.moved + ' spare kit in the tray' : ''), 'good');
+        if (CS.game.rebuildKitchen) CS.game.rebuildKitchen();
+        render();
+        return;
+      }
     } else res = CS.econ.buy(key);
 
-    if (res && res.ok) { CS.audio.cash(); CS.ui.toast('Bought!', 'good'); }
-    else { CS.audio.error(); if (res && res.why) CS.ui.toast(res.why, 'bad'); }
+    if (res && res.ok) {
+      CS.audio.cash(); CS.ui.toast('Bought!', 'good');
+      // decor shows up in the dining room straight away
+      var u = CS.econ.upgrade(key);
+      if (u && u.kind === 'decor' && CS.game.rebuildKitchen) CS.game.rebuildKitchen();
+    } else { CS.audio.error(); if (res && res.why) CS.ui.toast(res.why, 'bad'); }
     render();
   }
 
@@ -224,7 +277,8 @@ window.CS = window.CS || {};
         '<h3>Chef Sandy &#183; skills</h3><div id="sChef"></div>' +
         '<h3>Equipment</h3><div id="sGear"></div>' +
         '<h3>Kit &#183; buy it, then place it in the kitchen</h3><div id="sParts"></div>' +
-        '<h3>The Building</h3><div id="sLand"></div>' +
+        '<h3>The Dining Room &#183; make the customers happy</h3><div id="sDining"></div>' +
+        '<h3>The Kitchen</h3><div id="sLand"></div>' +
         '<h3>Trophy Hall &#183; the castle bosses</h3><div id="sTrophy"></div>' +
         '</div>' +
         '<div class="krow">' +

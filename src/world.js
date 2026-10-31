@@ -581,21 +581,16 @@ window.CS = window.CS || {};
      shocks either side of the front door, and a garland of autumn leaves
      strung along the back wall of the kitchen. All static, so it merges
      into the same handful of draw calls as the rest of the room. */
-  function harvestDecor(scene, fw, backZ, wallZ) {
-    var mantelY = 2.86, hx = CS.OX + T * 9.0;
+  function harvestDecor(scene, hx, backZ, wallZ) {
+    var mantelY = 2.86;
     pumpkin(scene, hx - 1.2, mantelY, wallZ + 0.2, 0.55);
     pumpkin(scene, hx + 1.15, mantelY, wallZ + 0.2, 0.45, 0xf2a03a);
     pumpkin(scene, hx + 0.75, mantelY, wallZ + 0.22, 0.35, 0xeee0c4);         // a white one
-    pumpkin(scene, CS.OX + 4.4, 0, CS.OZ - 8.4, 1.1);
-    pumpkin(scene, CS.OX + 5.3, 0, CS.OZ - 8.8, 0.75, 0xf2a03a);
-    pumpkin(scene, CS.OX + 3.9, 0, CS.OZ - 7.3, 0.6, 0xeee0c4);
-    pumpkin(scene, CS.OX + fw - 5.6, 0, CS.OZ - 8.6, 1.0);
-    pumpkin(scene, CS.OX + fw - 6.5, 0, CS.OZ - 8.9, 0.6, 0xc9661a);
     cornShock(scene, CS.DOOR_X - CS.DOOR_W / 2 - 0.7, backZ + 0.5);
     cornShock(scene, CS.DOOR_X + CS.DOOR_W / 2 + 0.7, backZ + 0.5);
 
     var LEAVES = [0xc8461f, 0xe0861f, 0xf2b53a, 0x9a3a1c, 0xd86a2a];
-    var x0 = CS.OX + T * 0.6, x1 = CS.OX + T * 14.4, n = 34;
+    var x0 = CS.OX + T * 0.6, x1 = CS.OX + T * (CS.layout.bounds.c1 - 0.6), n = 34;
     for (var i = 0; i <= n; i++) {
       var f = i / n, x = CS.lerp(x0, x1, f);
       // it sags between three nails
@@ -678,15 +673,7 @@ window.CS = window.CS || {};
       // and the reflection on top of the polish: see mirror.js
       scene.add(CS.mirror.create(fw, fh, fx, fz, 0.8));
 
-      // ---- dining floor beyond the serving window
-      var dine = new THREE.Mesh(new THREE.PlaneGeometry(fw + 10, 10),
-        CS.mat({ color: 0xffffff, tex: 'diningFloor', rough: 0.7 }));
-      dine.material = dine.material.clone();
-      dine.material.map = CS.texRepeat('diningFloor', (fw + 10) / 4.4, 10 / 4.4);
-      dine.rotation.x = -Math.PI / 2;
-      dine.position.set(fx, -0.02, CS.OZ - 5);
-      dine.receiveShadow = true;
-      scene.add(dine);
+      // (the dining floor beyond the serving window is dining.js's now)
 
       // ---- tiles
       // The back wall stands tall behind everything. The side walls are low,
@@ -769,7 +756,8 @@ window.CS = window.CS || {};
          with CS.DOOR_X, which is directly behind the queue, so an arrival
          walks in and straight down the line without a detour. */
       var backZ = CS.OZ - 9.5;
-      var wallW = fw + 10, wallCx = fx;
+      var ext = CS.dining.extent();
+      var wallW = ext.x1 - ext.x0, wallCx = (ext.x0 + ext.x1) / 2;
       var wallX0 = wallCx - wallW / 2, wallX1 = wallCx + wallW / 2;
       var dx = CS.DOOR_X, dw = CS.DOOR_W, dh = 2.5;
       var gap0 = dx - dw / 2, gap1 = dx + dw / 2;
@@ -793,6 +781,9 @@ window.CS = window.CS || {};
 
       doorway(scene, dx, backZ, dw, dh);
 
+      // ---- the dining room itself: floor, wallpaper, and everything bought for it
+      CS.dining.build(scene, { door: { x: dx, w: dw }, barrel: barrel, chest: chest, pumpkin: pumpkin });
+
       var signs = CS.THANKS_SIGNS || [['Good Food', 'Happy', 'Chicken'], ['Chicken', 'Sandwich', '= Happiness']];
       var s1 = CS.models.signBoard(signs[0], 3.4);
       s1.position.set(fx - fw * 0.40, 2.0, backZ + 0.45);
@@ -807,14 +798,20 @@ window.CS = window.CS || {};
       // Row 0 spans z = [OZ, OZ+T], so the face the camera sees is at OZ+T.
       var wallZ = CS.OZ + T + 0.12;          // clear of the stones standing proud of it
 
-      kitchenWindow(scene, CS.OX + T * 7.0, 1.55, wallZ, 3.4, 1.6);
-      fireplace(scene, CS.OX + T * 9.0, wallZ + 0.12);
-      wallPicture(scene, CS.OX + T * 1.1, 2.2, wallZ, 'drumstick');
-      wallPicture(scene, CS.OX + T * 1.9, 2.2, wallZ, 'tomato');
-      wallPicture(scene, CS.OX + T * 2.7, 2.2, wallZ, 'lettuce');
-      shelf(scene, CS.OX + T * 1.9, 1.4, wallZ, 2.4);
-      panRail(scene, CS.OX + T * 11.6, 2.55, wallZ, 3);
-      banner(scene, CS.OX + T * 5.2, 1.7, wallZ, 0.9);
+      // where the wall dressing hangs depends on which kitchen this is: the
+      // compact one keeps cols 5-8 of its back wall clear for the window and
+      // the hearth, and the corner by the pass for the pictures and shelf
+      var WD = CS.layout.base === 'compact'
+        ? { win: 5.75, hearth: 7.6, pics: [0.55, 1.25, 1.95], shelf: 1.25, rail: 10.6, ban: 12.45 }
+        : { win: 7.0, hearth: 9.0, pics: [1.1, 1.9, 2.7], shelf: 1.9, rail: 11.6, ban: 5.2 };
+      kitchenWindow(scene, CS.OX + T * WD.win, 1.55, wallZ, 3.4, 1.6);
+      fireplace(scene, CS.OX + T * WD.hearth, wallZ + 0.12);
+      wallPicture(scene, CS.OX + T * WD.pics[0], 2.2, wallZ, 'drumstick');
+      wallPicture(scene, CS.OX + T * WD.pics[1], 2.2, wallZ, 'tomato');
+      wallPicture(scene, CS.OX + T * WD.pics[2], 2.2, wallZ, 'lettuce');
+      shelf(scene, CS.OX + T * WD.shelf, 1.4, wallZ, 2.4);
+      panRail(scene, CS.OX + T * WD.rail, 2.55, wallZ, 3);
+      banner(scene, CS.OX + T * WD.ban, 1.7, wallZ, 0.9);
 
       lantern(scene, CS.OX + T * 2.0, 2.45, CS.OZ + T * 2.2);
       lantern(scene, CS.OX + T * 12.0, 2.45, CS.OZ + T * 2.2);
@@ -826,14 +823,10 @@ window.CS = window.CS || {};
       lantern(scene, CS.OX + T * 10.5, 2.6, CS.OZ - 3.0);
 
       // ---- dining room dressing, visible over the serving counter
-      barrel(scene, CS.OX + 1.6, CS.OZ - 7.6, 1.0);
-      barrel(scene, CS.OX + 2.9, CS.OZ - 8.2, 0.82);
-      chest(scene, CS.OX + fw - 2.2, CS.OZ - 7.8, -0.25);
-      barrel(scene, CS.OX + fw - 4.0, CS.OZ - 8.1, 0.9);
       shelf(scene, fx, 2.75, backZ + 0.42, 3.4);
 
       // ---- the November special dresses the place for the harvest
-      if (CS.isThanksgiving) harvestDecor(scene, fw, backZ, wallZ);
+      if (CS.isThanksgiving) harvestDecor(scene, CS.OX + T * WD.hearth, backZ, wallZ);
 
       // ---- lighting: a warm key from the window side, a soft sky/bounce
       // fill, and pools of lantern light. The renderer tone-maps all of it.
@@ -881,6 +874,7 @@ window.CS = window.CS || {};
          so the clock can repaint it. */
       var skip = skyPanes.slice();
       stations.forEach(function (st) { skip.push(st.glow, st.coals, st.slot); });
+      CS.dining.dynamic.forEach(function (m) { skip.push(m); });
       flames.forEach(function (f) { if (f.m) skip.push(f.m); });
       CS.batchStatic(scene, skip);
 

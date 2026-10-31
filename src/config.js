@@ -23,7 +23,27 @@ window.CS = window.CS || {};
      opens up. CS.BASE_MAP is the shop you start with; CS.MAP is the live grid
      that layout.js rewrites as you expand and rearrange, and that world.js
      builds from. */
+  /* The compact kitchen every new shop starts in: an 11 x 7 floor with the
+     fryers, crates, trays and bottles all a few steps from the prep counters
+     and the window. The older, roomier 13 x 9 kitchen (CS.CLASSIC_MAP) is
+     still what an old save loads into until it takes the free renovation in
+     the shop. Both carry exactly the same stations. */
   CS.BASE_MAP = [
+    '##SSS####MQH#~~~~~~',
+    '#...........#~~~~~~',
+    'F...PP.BB...L~~~~~~',
+    '#...........O~~~~~~',
+    'F...CCC.....I~~~~~~',
+    '#...CCC.....U~~~~~~',
+    'F...........Y~~~~~~',
+    '#...........#~~~~~~',
+    '##KK#TT#XX###~~~~~~',
+    '~~~~~~~~~~~~~~~~~~~',
+    '~~~~~~~~~~~~~~~~~~~',
+    '~~~~~~~~~~~~~~~~~~~',
+    '~~~~~~~~~~~~~~~~~~~'
+  ];
+  CS.CLASSIC_MAP = [
     '###SSS####MQHY#~~~~',
     '#.............#~~~~',
     'F.............L~~~~',
@@ -644,9 +664,9 @@ window.CS = window.CS || {};
     { id: 'sign',    kind: 'gear', name: 'Roadside Sign',   cost: 180,
       blurb: 'One more customer in the queue at a time.', mod: { orders: 1 } },
 
-    { id: 'fryer',   kind: 'part', name: 'Fryer',           cost: 85,  ch: 'F', wall: true },
-    { id: 'counter', kind: 'part', name: 'Prep Counter',    cost: 25,  ch: 'C' },
-    { id: 'plates',  kind: 'part', name: 'Plate Stack',     cost: 30,  ch: 'P' },
+    { id: 'fryer',   kind: 'part', name: 'Fryer',           cost: 85,  ch: 'F', wall: true, multi: true },
+    { id: 'counter', kind: 'part', name: 'Prep Counter',    cost: 25,  ch: 'C', multi: true },
+    { id: 'plates',  kind: 'part', name: 'Plate Stack',     cost: 30,  ch: 'P', multi: true },
     { id: 'buns',    kind: 'part', name: 'Bun Crate',       cost: 30,  ch: 'B' },
     { id: 'cups',    kind: 'part', name: 'Cup Dispenser',   cost: 35,  ch: 'U', wall: true },
     { id: 'bin',     kind: 'part', name: 'Trash Can',       cost: 20,  ch: 'X' },
@@ -664,8 +684,53 @@ window.CS = window.CS || {};
     { id: 'backroom', kind: 'land', name: 'The Back Room', cost: 240,
       blurb: 'Two more rows behind the kitchen.', region: 'south' },
     { id: 'eastwing', kind: 'land', name: 'The East Wing', cost: 300,
-      blurb: 'Four more columns of floor.', region: 'east' }
+      blurb: 'Four more columns of floor.', region: 'east' },
+    // (the two wings above are no longer sold: a bigger kitchen only meant
+    //  more walking. Saves that own one keep it, or sell it back in the shop.)
+
+    /* ------------------------------------------------------ the dining room
+       Decor makes the customers happier, and `happy` points are what it is
+       worth: every point is +1% patience and +2% on tips (CS.HAPPY). Each
+       piece shows up in the dining room. Floors and wallpaper are `slot`s:
+       you can own several and switch between them for free, and only the one
+       on display counts. */
+    { id: 'hall', kind: 'decor', name: 'Grand Dining Hall', cost: 280, happy: 2,
+      blurb: 'Knock through the east wall: a bigger dining room with space for more tables.' },
+    { id: 'tables', kind: 'decor', name: 'Tables & Chairs', cost: 90, happy: 2,
+      blurb: 'Four oak tables. Happy customers sit down to eat before they leave.' },
+    { id: 'chairs', kind: 'decor', name: 'Cushioned Chairs', cost: 70, happy: 1, needs: 'tables',
+      blurb: 'Royal-blue velvet cushions on every seat.' },
+    { id: 'cloths', kind: 'decor', name: 'Tablecloths', cost: 60, happy: 2, needs: 'tables',
+      blurb: 'Crisp checked cloths on every table.' },
+    { id: 'tables2', kind: 'decor', name: 'More Tables', cost: 140, happy: 2, needs: 'hall',
+      blurb: 'Four more tables to fill the Grand Hall.' },
+    { id: 'plants', kind: 'decor', name: 'Potted Plants', cost: 50, happy: 1,
+      blurb: 'Ferns and lemon trees in glazed pots round the room.' },
+    { id: 'floorOak', kind: 'decor', slot: 'floor', name: 'Floor: Oak Parquet', cost: 80, happy: 1,
+      blurb: 'Warm herringbone oak underfoot.' },
+    { id: 'floorRug', kind: 'decor', slot: 'floor', name: 'Floor: Royal Carpet', cost: 120, happy: 2,
+      blurb: 'A deep red carpet with a gold border.' },
+    { id: 'floorMarble', kind: 'decor', slot: 'floor', name: 'Floor: Polished Marble', cost: 170, happy: 3,
+      blurb: 'The same marble checker as the kitchen.' },
+    { id: 'wallDamask', kind: 'decor', slot: 'wall', name: 'Wallpaper: Blue Damask', cost: 70, happy: 1,
+      blurb: 'Castle blue with gold flourishes.' },
+    { id: 'wallStripe', kind: 'decor', slot: 'wall', name: 'Wallpaper: Harvest Stripe', cost: 100, happy: 2,
+      blurb: 'Cream and gold stripes, warm as toast.' },
+    { id: 'wallRose', kind: 'decor', slot: 'wall', name: 'Wallpaper: Rose Garden', cost: 140, happy: 3,
+      blurb: 'Climbing roses on a soft green trellis.' },
+    { id: 'slushBar', kind: 'decor', name: 'Slushie Bar', cost: 220, happy: 3,
+      blurb: 'Three swirling tanks of frozen fruit slushie by the back wall.' },
+    { id: 'slushServer', kind: 'decor', name: 'Pom the Slushie Server', cost: 140, happy: 2, needs: 'slushBar',
+      wage: { share: 0.05, min: 1.00, max: 14.00 },
+      blurb: 'Hands out free slushies to the queue: that customer waits longer and tips 25% more.' },
+    { id: 'statue', kind: 'decor', name: 'Golden Chocobo Statue', cost: 480, happy: 4,
+      blurb: 'A gleaming golden chocobo-chicken on a marble plinth. Customers love it.' }
   ];
+
+  /* What happiness is worth: each point of it. */
+  CS.HAPPY = { patience: 0.01, tips: 0.02, perTrophy: 1 };
+  /* A complimentary slushie: how much patience it gives back, and the tip. */
+  CS.SLUSHIE = { every: 7.0, patience: 0.22, tip: 1.25 };
 
   /* ---------------------------------------------------------------- utils */
   CS.MAP_W = CS.MAP[0].length;

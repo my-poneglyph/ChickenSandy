@@ -19,7 +19,13 @@ window.CS = window.CS || {};
     south: { edge: 'row', to: 12 },
     east:  { edge: 'col', to: 18 }
   };
-  var BASE = { c0: 0, c1: 14, r0: 0, r1: 10 };
+  /* The two kitchens a save can be built on. 'compact' is what every new
+     shop starts in; 'classic' is the older, roomier room an existing save
+     keeps until it takes the renovation (CS.layout.compact). */
+  var BASES = {
+    compact: { c0: 0, c1: 12, r0: 0, r1: 8, map: function () { return CS.BASE_MAP; } },
+    classic: { c0: 0, c1: 14, r0: 0, r1: 10, map: function () { return CS.CLASSIC_MAP; } }
+  };
 
   var WALL_STATIONS = 'FSKTLOIUMQHY';   // must sit on a boundary wall
   var FLOOR_STATIONS = 'CPB';           // must sit on open floor
@@ -32,7 +38,8 @@ window.CS = window.CS || {};
 
   var L = CS.layout = {
     owned: [],                 // region ids bought so far
-    bounds: { c0: 0, c1: 14, r0: 0, r1: 10 },
+    base: 'compact',           // which of BASES this kitchen is built on
+    bounds: { c0: 0, c1: 12, r0: 0, r1: 8 },
 
     isWallChar:  function (ch) { return WALL_STATIONS.indexOf(ch) >= 0; },
     isFloorChar: function (ch) { return FLOOR_STATIONS.indexOf(ch) >= 0; },
@@ -41,7 +48,8 @@ window.CS = window.CS || {};
 
     /* ------------------------------------------------------------ bounds */
     computeBounds: function (owned) {
-      var b = { c0: BASE.c0, c1: BASE.c1, r0: BASE.r0, r1: BASE.r1 };
+      var B0 = BASES[L.base] || BASES.compact;
+      var b = { c0: B0.c0, c1: B0.c1, r0: B0.r0, r1: B0.r1 };
       owned.forEach(function (id) {
         var r = REGIONS[id];
         if (!r) return;
@@ -255,12 +263,34 @@ window.CS = window.CS || {};
     /* ------------------------------------------------------- save / load */
     reset: function () {
       L.owned = [];
+      L.base = 'compact';
       L.bounds = L.computeBounds(L.owned);
       CS.MAP = CS.BASE_MAP.slice();
       L.refreshDerived();
     },
 
-    serialize: function () { return { owned: L.owned.slice(), grid: CS.MAP.slice() }; },
+    /* --------------------------------------------------------- renovate
+       Move a roomy old kitchen (and any wings it bought) into the compact
+       one. Every station goes back where the compact kitchen keeps it; any
+       you own beyond that -- a fourth fryer, extra counters -- is handed back
+       as `{ch: n}` for the caller to drop in the tray, so nothing you paid
+       for is lost. Returns the wings that were given up, so they can be
+       refunded. */
+    compact: function () {
+      var have = {}, base = {}, spare = {};
+      L.stations().forEach(function (p) { have[p.ch] = (have[p.ch] || 0) + 1; });
+      var wings = L.owned.slice();
+      L.base = 'compact';
+      L.owned = [];
+      L.bounds = L.computeBounds(L.owned);
+      CS.MAP = CS.BASE_MAP.slice();
+      L.refreshDerived();
+      L.stations().forEach(function (p) { base[p.ch] = (base[p.ch] || 0) + 1; });
+      for (var ch in have) if (have[ch] > (base[ch] || 0)) spare[ch] = have[ch] - (base[ch] || 0);
+      return { spare: spare, wings: wings };
+    },
+
+    serialize: function () { return { base: L.base, owned: L.owned.slice(), grid: CS.MAP.slice() }; },
 
     load: function (data) {
       if (!data || !data.grid || data.grid.length !== CS.MAP_H) { L.reset(); return false; }
@@ -269,6 +299,8 @@ window.CS = window.CS || {};
           L.reset(); return false;
         }
       }
+      // saves from before the compact kitchen were all built on the old one
+      L.base = BASES[data.base] ? data.base : 'classic';
       L.owned = (data.owned || []).filter(function (r) { return !!REGIONS[r]; });
       L.bounds = L.computeBounds(L.owned);
       CS.MAP = data.grid.slice();

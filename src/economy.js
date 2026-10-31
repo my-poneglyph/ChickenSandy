@@ -22,7 +22,8 @@ window.CS = window.CS || {};
     fryGrace: { base: 1, how: 'mul' },
     patience: { base: 1, how: 'mul' },
     cups:     { base: 3, how: 'max' },
-    orders:   { base: 0, how: 'add' }
+    orders:   { base: 0, how: 'add' },
+    tips:     { base: 1, how: 'mul' }
   };
 
   function blank() {
@@ -37,6 +38,7 @@ window.CS = window.CS || {};
       career: { days: 0, served: 0, earned: 0, tips: 0, best: 0 },
       bosses: [],       // ids of the castle bosses fed, first time round
       bossDays: [],     // every boss day beaten, so a lap's bosses gate too
+      decor: { floor: null, wall: null },   // which owned floor and wallpaper are on show
       chef: blankChef()
     };
   }
@@ -82,6 +84,11 @@ window.CS = window.CS || {};
       s.bosses = (d.bosses || []).filter(function (id) { return typeof id === 'string'; });
       s.bossDays = (d.bossDays || []).filter(function (n) { return typeof n === 'number'; });
       s.stock = d.stock && typeof d.stock === 'object' ? d.stock : {};
+      if (d.decor && typeof d.decor === 'object') {
+        ['floor', 'wall'].forEach(function (k) {
+          if (s.owned.indexOf(d.decor[k]) >= 0) s.decor[k] = d.decor[k];
+        });
+      }
       s.staff = (d.staff || []).filter(function (h) { return h && CS.STAFF_DEFS[h.kind]; })
         .map(function (h) { return { kind: h.kind, training: (h.training || []).slice() }; });
       if (d.career) for (var k in s.career) {
@@ -133,16 +140,48 @@ window.CS = window.CS || {};
         else if (def.how === 'add') v += m;
         else v = Math.max(v, m);
       });
+      // a happy dining room keeps customers waiting longer and tipping more
+      if (key === 'patience') v *= 1 + E.happiness() * CS.HAPPY.patience;
+      if (key === 'tips') v *= 1 + E.happiness() * CS.HAPPY.tips;
       return v;
     },
 
     has: function (id) { return E.state.owned.indexOf(id) >= 0; },
 
+    /* How happy the dining room makes people: every piece of decor on show,
+       plus a point for each castle boss trophy in the cabinet. */
+    happiness: function () {
+      var n = 0;
+      E.state.owned.forEach(function (id) {
+        var u = upgrade(id);
+        if (!u || u.kind !== 'decor' || !u.happy) return;
+        if (u.slot && E.state.decor[u.slot] !== id) return;     // owned, but not on show
+        n += u.happy;
+      });
+      return n + E.trophies().length * CS.HAPPY.perTrophy;
+    },
+
+    /* Put an owned floor or wallpaper on show (or `null` for the original). */
+    equip: function (slot, id) {
+      if (id && !E.has(id)) return { ok: false, why: 'Not bought yet' };
+      E.state.decor[slot] = id || null;
+      E.save();
+      return { ok: true };
+    },
+
+    /* How many of a part the shop has: on the floor plus waiting in the tray. */
+    partCount: function (u) {
+      return CS.layout.count(u.ch) + (E.state.stock[u.id] || 0);
+    },
+
     /* Can this be bought right now? Covers money, prerequisites and the
-       one-of-each rule that gear and land obey but parts do not. */
+       one-of-each rule. Gear, decor and land are one-off; so is kit, except
+       the things a busier kitchen genuinely wants more of -- fryers, prep
+       counters and plate stacks. A second ketchup bottle only adds walking. */
     canBuy: function (u) {
       if (!u) return { ok: false, why: '' };
       if (u.kind !== 'part' && E.has(u.id)) return { ok: false, why: 'Already fitted' };
+      if (u.kind === 'part' && !u.multi && E.partCount(u) > 0) return { ok: false, why: 'IN KITCHEN' };
       if (u.needs && !E.has(u.needs)) {
         var n = upgrade(u.needs);
         return { ok: false, why: 'Needs ' + (n ? n.name : u.needs) + ' first' };
@@ -163,9 +202,33 @@ window.CS = window.CS || {};
         CS.layout.unlock(u.region);
       } else {
         E.state.owned.push(u.id);
+        if (u.slot) E.state.decor[u.slot] = u.id;     // a new floor goes straight down
       }
       E.save();
       return { ok: true };
+    },
+
+    /* The free renovation into the compact kitchen. Wings are sold back at
+       what they cost, and any kit the compact room has no place for goes in
+       the tray to be placed by hand. */
+    renovate: function () {
+      if (CS.layout.base === 'compact') return { ok: false, why: 'Already compact' };
+      var res = CS.layout.compact(), refund = 0;
+      CS.UPGRADES.forEach(function (u) {
+        if (u.kind !== 'land' || !E.has(u.id)) return;
+        refund += u.cost;
+        E.state.owned.splice(E.state.owned.indexOf(u.id), 1);
+      });
+      var moved = 0;
+      for (var ch in res.spare) {
+        var part = CS.UPGRADES.filter(function (p) { return p.kind === 'part' && p.ch === ch; })[0];
+        if (!part) continue;
+        E.state.stock[part.id] = (E.state.stock[part.id] || 0) + res.spare[ch];
+        moved += res.spare[ch];
+      }
+      E.state.wallet = Math.round((E.state.wallet + refund) * 100) / 100;
+      E.save();
+      return { ok: true, refund: refund, moved: moved };
     },
 
     /* ------------------------------------------------------------ the chef
@@ -267,7 +330,15 @@ window.CS = window.CS || {};
         if (w > c.wageMax) w = c.wageMax;
         return n + w;
       }, 0);
+      // front-of-house staff (the slushie server) are paid the same way
+      E.frontOfHouse().forEach(function (u) {
+        total += CS.clamp((net || 0) * u.wage.share, u.wage.min, u.wage.max);
+      });
       return Math.round(total * 100) / 100;
+    },
+
+    frontOfHouse: function () {
+      return CS.UPGRADES.filter(function (u) { return u.wage && E.has(u.id); });
     },
 
     /* The wage bill as it stands right now, for the HUD and the receipt. */
@@ -277,11 +348,12 @@ window.CS = window.CS || {};
 
     /* The floor and the ceiling, for the shop to show before a day starts. */
     wageRange: function () {
-      var crew = E.crew();
-      return {
-        min: Math.round(crew.reduce(function (n, c) { return n + c.wageMin; }, 0) * 100) / 100,
-        max: Math.round(crew.reduce(function (n, c) { return n + c.wageMax; }, 0) * 100) / 100
-      };
+      var crew = E.crew(), foh = E.frontOfHouse();
+      var lo = crew.reduce(function (n, c) { return n + c.wageMin; }, 0)
+        + foh.reduce(function (n, u) { return n + u.wage.min; }, 0);
+      var hi = crew.reduce(function (n, c) { return n + c.wageMax; }, 0)
+        + foh.reduce(function (n, u) { return n + u.wage.max; }, 0);
+      return { min: Math.round(lo * 100) / 100, max: Math.round(hi * 100) / 100 };
     },
 
     /* ------------------------------------------------------- the menu */

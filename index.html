@@ -297,6 +297,11 @@
     box-shadow:none;cursor:not-allowed;}
   .buy.off:active{transform:none;}
 
+  /* panels fade back when the chef or her station is underneath (game.js) */
+  #leftstack,#hint,#fryers,#pad,#tickets,#topbar,#bossHud{transition:opacity .25s;}
+  .peek{opacity:.16 !important;}
+  .buyname b.heart{color:#ff8ab0;font-size:.85em;}
+
   /* ---------- the kitchen editor ---------- */
   .trayrow{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin:4px 0 10px;}
   .tray{
@@ -681,6 +686,7 @@
 <script src="./src/textures.js"></script>
 <script src="./src/models.js"></script>
 <script src="./src/mirror.js"></script>
+<script src="./src/dining.js"></script>
 <script src="./src/world.js"></script>
 <script src="./src/interact.js"></script>
 <script src="./src/orders.js"></script>
