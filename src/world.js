@@ -782,14 +782,17 @@ window.CS = window.CS || {};
       doorway(scene, dx, backZ, dw, dh);
 
       // ---- the dining room itself: floor, wallpaper, and everything bought for it
-      CS.dining.build(scene, { door: { x: dx, w: dw }, barrel: barrel, chest: chest, pumpkin: pumpkin });
+      // the two chalkboards hang low on the back wall; nothing tall stands in front of them
+      var signX = [fx - fw * 0.40, fx + fw * 0.24];
+      CS.dining.build(scene, { door: { x: dx, w: dw }, avoid: signX.map(function (x) { return [x - 1.8, x + 1.8]; }),
+        barrel: barrel, chest: chest, pumpkin: pumpkin });
 
       var signs = CS.THANKS_SIGNS || [['Good Food', 'Happy', 'Chicken'], ['Chicken', 'Sandwich', '= Happiness']];
       var s1 = CS.models.signBoard(signs[0], 3.4);
-      s1.position.set(fx - fw * 0.40, 2.0, backZ + 0.45);
+      s1.position.set(signX[0], 2.0, backZ + 0.45);
       scene.add(s1);
       var s2 = CS.models.signBoard(signs[1], 3.4);
-      s2.position.set(fx + fw * 0.24, 2.0, backZ + 0.45);
+      s2.position.set(signX[1], 2.0, backZ + 0.45);
       scene.add(s2);
       banner(scene, fx - fw * 0.16, 2.0, backZ + 0.42, 1.0);
       banner(scene, fx + fw * 0.44, 2.0, backZ + 0.42, 1.0);

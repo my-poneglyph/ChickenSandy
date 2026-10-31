@@ -6001,12 +6001,13 @@ window.CS = window.CS || {};
     this.x0 = ext.x0 + 0.4; this.x1 = ext.x1 - 0.4;
     this.taken = [D.lane()];
   }
-  Row.prototype.place = function (pref, w) {
+  Row.prototype.place = function (pref, w, avoid) {
+    var keep = this.taken.concat(avoid || []);
     for (var step = 0; step < 120; step++) {
       var off = (step % 2 ? 1 : -1) * Math.ceil(step / 2) * 0.5;
       var x = pref + off;
       if (x - w / 2 < this.x0 || x + w / 2 > this.x1) continue;
-      var clash = this.taken.some(function (t) { return x + w / 2 > t[0] && x - w / 2 < t[1]; });
+      var clash = keep.some(function (t) { return x + w / 2 > t[0] && x - w / 2 < t[1]; });
       if (clash) continue;
       this.taken.push([x - w / 2, x + w / 2]);
       return x;
@@ -6231,6 +6232,7 @@ window.CS = window.CS || {};
 
   function build(scene, opts) {
     D.seats = [];
+    D.spots = {};
     D.dynamic = [];
     D.server = null;
     tanks = [];
@@ -6268,22 +6270,24 @@ window.CS = window.CS || {};
 
     // ---- against the back wall
     var back = new Row(ext);
+    // tall pieces stay out from in front of the chalkboards; low ones are fine
+    var signs = opts.avoid || [];
     var x;
     var won = CS.econ ? CS.econ.trophies() : [];
     if (has('slushBar')) {
-      x = back.place(ext.x1 - 3.4, 4.4);
+      x = back.place(ext.x1 - 3.4, 4.4, signs);
       if (x !== null) {
-        slushBar(scene, x, ROW_BACK);
+        slushBar(scene, x, ROW_BACK); D.spots.bar = { x: x, z: ROW_BACK };
         if (has('slushServer')) makeServer(scene, x - 0.6, ROW_BACK + 1.1);
       }
     }
     if (has('statue')) {
-      x = back.place(CS.OX + 28.3, 2.0);
-      if (x !== null) statue(scene, x, ROW_BACK + 0.1);
+      x = back.place(CS.OX + 28.3, 2.0, signs);
+      if (x !== null) { statue(scene, x, ROW_BACK + 0.1); D.spots.statue = { x: x, z: ROW_BACK + 0.1 }; }
     }
     if (won.length) {
-      x = back.place(CS.OX + 18.5, won.length + 0.6);
-      if (x !== null) trophyCase(scene, x, ROW_BACK, won);
+      x = back.place(CS.OX + 18.5, won.length + 0.6, signs);
+      if (x !== null) { trophyCase(scene, x, ROW_BACK, won); D.spots.trophies = { x: x, z: ROW_BACK }; }
     }
     // the November special's pumpkin piles
     if (CS.isThanksgiving && opts.pumpkin) {
@@ -7193,14 +7197,17 @@ window.CS = window.CS || {};
       doorway(scene, dx, backZ, dw, dh);
 
       // ---- the dining room itself: floor, wallpaper, and everything bought for it
-      CS.dining.build(scene, { door: { x: dx, w: dw }, barrel: barrel, chest: chest, pumpkin: pumpkin });
+      // the two chalkboards hang low on the back wall; nothing tall stands in front of them
+      var signX = [fx - fw * 0.40, fx + fw * 0.24];
+      CS.dining.build(scene, { door: { x: dx, w: dw }, avoid: signX.map(function (x) { return [x - 1.8, x + 1.8]; }),
+        barrel: barrel, chest: chest, pumpkin: pumpkin });
 
       var signs = CS.THANKS_SIGNS || [['Good Food', 'Happy', 'Chicken'], ['Chicken', 'Sandwich', '= Happiness']];
       var s1 = CS.models.signBoard(signs[0], 3.4);
-      s1.position.set(fx - fw * 0.40, 2.0, backZ + 0.45);
+      s1.position.set(signX[0], 2.0, backZ + 0.45);
       scene.add(s1);
       var s2 = CS.models.signBoard(signs[1], 3.4);
-      s2.position.set(fx + fw * 0.24, 2.0, backZ + 0.45);
+      s2.position.set(signX[1], 2.0, backZ + 0.45);
       scene.add(s2);
       banner(scene, fx - fw * 0.16, 2.0, backZ + 0.42, 1.0);
       banner(scene, fx + fw * 0.44, 2.0, backZ + 0.42, 1.0);
