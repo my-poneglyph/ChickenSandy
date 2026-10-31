@@ -127,6 +127,54 @@ window.CS = window.CS || {};
     return d;
   }
 
+  /* ------------------------------------------------------ see-through HUD
+     Kit moved down the bottom of the kitchen ends up under the held-item
+     card, the hint line, the fryer gauges or the thumb buttons. A few times
+     a second, check whether the chef or the station she is working sits
+     under any of those panels, and if so fade that panel right back so the
+     food underneath can be seen. It comes back the moment she moves away. */
+  var PEEK_IDS = ['leftstack', 'hint', 'fryers', 'pad', 'tickets', 'topbar', 'bossHud'];
+  var peekEls = null, peekT = 0, peekV = new THREE.Vector3();
+
+  function peekThrough(dt) {
+    peekT -= dt;
+    if (peekT > 0) return;
+    peekT = 0.12;
+    if (!peekEls) {
+      peekEls = PEEK_IDS.map(function (id) { return document.getElementById(id); }).filter(Boolean);
+    }
+    var pts = [];
+    if (S.phase === 'play') {
+      var vp = CS.platform.size();
+      var spot = function (x, y, z) {
+        peekV.set(x, y, z).project(camera);
+        if (peekV.z > 1) return;
+        pts.push({ x: (peekV.x + 1) / 2 * vp.w, y: (1 - peekV.y) / 2 * vp.h });
+      };
+      spot(P.x, P.y + 0.9, P.z);
+      spot(P.x, P.y + 0.1, P.z);
+      if (S.target) spot(S.target.x, (S.target.topY || 1) + 0.2, S.target.z);
+    }
+    peekEls.forEach(function (el) {
+      var r = el.getBoundingClientRect(), pad = 18, hit = false;
+      if (r.width > 0) {
+        for (var i = 0; i < pts.length; i++) {
+          var p = pts[i];
+          if (p.x > r.left - pad && p.x < r.right + pad && p.y > r.top - pad && p.y < r.bottom + pad) hit = true;
+        }
+      }
+      if (hit !== el.classList.contains('peek')) el.classList.toggle('peek', hit);
+    });
+  }
+
+  /* The kitchen you own, in world space. */
+  function kitchenBox() {
+    var b = CS.layout.bounds;
+    var x0 = CS.OX + b.c0 * T, x1 = CS.OX + (b.c1 + 1) * T;
+    var z0 = CS.OZ + b.r0 * T, z1 = CS.OZ + (b.r1 + 1) * T;
+    return { x0: x0, x1: x1, z0: z0, z1: z1, cx: (x0 + x1) / 2, cz: (z0 + z1) / 2 };
+  }
+
   var lastW = 0, lastH = 0;
 
   function onResize() {
@@ -136,6 +184,11 @@ window.CS = window.CS || {};
     lastW = w; lastH = h;
     camera.aspect = w / h;
     camera.updateProjectionMatrix();
+    // the overview frames the kitchen you own, not the whole map, so the
+    // compact kitchen fills the screen instead of sitting in a corner of it
+    var kb = kitchenBox();
+    CAMS.overview.needW = kb.x1 - kb.x0 + 7;
+    CAMS.overview.needD = kb.z1 - kb.z0 + 8;
     for (var k in CAMS) if (CAMS.hasOwnProperty(k)) CAMS[k].dist = fitFor(CAMS[k]);
     fitDist = CAMS.overview.dist;
     renderer.setSize(w, h);
@@ -377,7 +430,9 @@ window.CS = window.CS || {};
        the reward for a shop that keeps ahead of its queue, not a lottery. */
     var T = CS.TIP;
     if (left > T.minLeft && Math.random() < (left - T.minLeft) / (1 - T.minLeft) * T.chance) {
-      var tip = Math.round(o.price * T.share * left * S.combo * (1 + CS.econ.skill('tips')) * 100) / 100;
+      // happy dining rooms and complimentary slushies both sweeten the tip
+      var tip = Math.round(o.price * T.share * left * S.combo * (1 + CS.econ.skill('tips')) *
+        CS.econ.mod('tips') * (o.slushie ? CS.SLUSHIE.tip : 1) * 100) / 100;
       if (tip < 0.05) tip = 0.05;
       earnXP(CS.XP.perTip);
       var nCoins = tip >= T.bigTip ? 3 : (tip >= T.bigTip / 2 ? 2 : 1);
@@ -880,6 +935,7 @@ window.CS = window.CS || {};
     CS.staff.clear();
     CS.bosses.clear();
     placePlayer(CS.SPAWN.col, CS.SPAWN.row);
+    onResize();                 // a renovated kitchen is a different size to frame
   }
 
   /* ----------------------------------------------------- the campaign
@@ -1161,6 +1217,7 @@ window.CS = window.CS || {};
     CS.fx.update(dt);
     CS.steam.update(dt);
     CS.world.tick(clock.elapsedTime);
+    CS.dining.update(dt, S.phase === 'play');
     CS.grounds.update(dt, camera);   // strollers keep walking behind menus too
 
     // ---- camera
@@ -1168,8 +1225,9 @@ window.CS = window.CS || {};
     var tx, tz;
     if (cm.fit) {
       // whole-kitchen framing, nudged gently toward the chef
-      tx = 0.0 + P.x * cm.follow;
-      tz = -3.0 + P.z * (cm.follow * 0.64);
+      var kc = kitchenBox();
+      tx = kc.cx + (P.x - kc.cx) * cm.follow;
+      tz = kc.cz - 1.6 + (P.z - kc.cz) * (cm.follow * 0.64);
     } else {
       tx = P.x; tz = P.z;
     }
@@ -1199,8 +1257,12 @@ window.CS = window.CS || {};
       hd = camDist * Math.tan(vfv / 2) / Math.sin(cm.pitch) * cm.edgeD;
     }
     if (cm.spin) { hw = hd = Math.max(hw, hd); }
-    var x0 = CS.OX, x1 = CS.OX + CS.MAP_W * T;
-    var z0 = CS.OZ - 7.5, z1 = CS.OZ + CS.MAP_H * T;
+    // keep to the kitchen you own (plus the dining room behind it), with a
+    // little extra room at the bottom so the front wall can scroll up clear
+    // of the panels along the bottom of the screen
+    var kbx = kitchenBox();
+    var x0 = kbx.x0 - 1.5, x1 = kbx.x1 + 1.5;
+    var z0 = CS.OZ - 7.5, z1 = kbx.z1 + 3.0;
     tx = (x1 - x0 > hw * 2) ? CS.clamp(tx, x0 + hw, x1 - hw) : (x0 + x1) / 2;
     tz = (z1 - z0 > hd * 2) ? CS.clamp(tz, z0 + hd, z1 - hd) : (z0 + z1) / 2;
     if (cm.bias) tz += cm.bias;
@@ -1258,6 +1320,7 @@ window.CS = window.CS || {};
     if (inspect.obj) inspect.obj.rotation.y += dt * 0.7;
     CS.mirror.render(renderer, scene, camera);
     renderer.render(scene, camera);
+    peekThrough(dt);
     renderInspect();
     renderBossCam();
   }
@@ -1411,6 +1474,7 @@ window.CS = window.CS || {};
     /* debug helpers: CS.game.teleport(col, row) drops the chef on a tile,
        CS.game.debug exposes the three.js objects for poking from the console */
     teleport: placePlayer,
+    rebuildKitchen: function () { rebuildKitchen(); },
     debug: function () { return { scene: scene, camera: camera, chef: chef, player: P, cams: CAMS }; }
   };
 

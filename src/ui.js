@@ -329,7 +329,7 @@ window.CS = window.CS || {};
         '<div class="col"><h3>THE SHIFT</h3><ul>' +
         '<li>Length: <b>' + mins + ':' + (secs < 10 ? '0' : '') + secs + '</b></li>' +
         '<li>Rent: <b>' + CS.money(lv.rent) + '</b></li>' +
-        (CS.econ.crew().length
+        (CS.econ.wageRange().max > 0
           ? '<li>Wages: <b>' + CS.money(CS.econ.wageRange().min) + '+</b>, a share of takings</li>'
           : '') +
         '<li>Tickets at once: <b>' +

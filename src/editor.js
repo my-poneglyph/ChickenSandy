@@ -165,7 +165,7 @@ window.CS = window.CS || {};
     return '<div class="kgrid" style="grid-template-columns:repeat(' + CS.MAP_W + ',1fr)">'
       + h + '</div>'
       + '<div class="khint">' + (b.c1 - b.c0 + 1) + ' x ' + (b.r1 - b.r0 + 1)
-      + ' &#183; buy a wing in the shop to grow the floor</div>';
+      + ' &#183; grow the shop by building out the dining room</div>';
   }
 
   function trayHTML() {
